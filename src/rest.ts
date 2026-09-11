@@ -27,15 +27,15 @@ export function resolvePath(
   return { path, used };
 }
 
-function buildUrl(baseUrl: string, pathTemplate: string, params: Params, method: string): URL {
+function buildUrl(baseUrl: string, pathTemplate: string, params: Params): URL {
   const { path, used } = resolvePath(pathTemplate, params);
   const url = new URL(baseUrl + path);
-  // For GET, leftover non-reserved params become query string.
-  if (method === 'GET') {
-    for (const [k, v] of Object.entries(params)) {
-      if (used.has(k) || RESERVED.has(k) || v == null) continue;
-      url.searchParams.set(k, String(v));
-    }
+  // Leftover non-reserved params become query string, for every method: writes
+  // carry query params too (e.g. PATCH `updateMask`, list `pageSize`). The body
+  // is separate — RESERVED excludes it.
+  for (const [k, v] of Object.entries(params)) {
+    if (used.has(k) || RESERVED.has(k) || v == null) continue;
+    url.searchParams.set(k, String(v));
   }
   return url;
 }
@@ -66,7 +66,7 @@ export async function execute(
   if (hasBody) headers['Content-Type'] = 'application/json';
 
   const limit = params.limit != null ? Number(params.limit) : undefined;
-  let url = buildUrl(row.baseUrl, row.pathTemplate, params, method);
+  let url = buildUrl(row.baseUrl, row.pathTemplate, params);
   let last: unknown;
   let merged: unknown[] = [];
   let paged = false;
@@ -93,7 +93,7 @@ export async function execute(
       }
       const next = data.nextPageToken;
       if (!next) break;
-      url = buildUrl(row.baseUrl, row.pathTemplate, { ...params, pageToken: next }, method);
+      url = buildUrl(row.baseUrl, row.pathTemplate, { ...params, pageToken: next });
       continue; // yagni: sequential paging; parallel prefetch if a surface ever needs it
     }
     break;
