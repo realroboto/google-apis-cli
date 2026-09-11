@@ -1,0 +1,23 @@
+{
+  "name": "google-apis-cli",
+  "version": "0.1.0",
+  "description": "One CLI (gapi) for Google Ads, GTM, GA4 (Admin+Data), Search Console, and Indexing. One login, all scopes, read+write.",
+  "type": "module",
+  "bin": {
+    "gapi": "./bin/gapi.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "dependencies": {
+    "google-auth-library": "^9.15.1"
+  },
+  "license": "MIT"
+}
