@@ -57,7 +57,7 @@ export async function loginManual({
 } = {}): Promise<Credentials> {
   const client = newClient('urn:ietf:wg:oauth:2.0:oob');
   const url = authUrl(client);
-  console.error(`Open this URL, grant access, then paste the code:\n${url}\n`);
+  console.error('Open this URL, grant access, then paste the code:\n' + url + '\n');
   const ask = prompt || defaultPrompt;
   const code = (await ask('code: ')).trim();
   const { tokens } = await client.getToken(code);
@@ -95,13 +95,13 @@ export async function loginLoopback({
         resolve(tokens);
       } catch (e) {
         res.statusCode = 400;
-        res.end(`gapi: ${e instanceof Error ? e.message : String(e)}`);
+        res.end('gapi: ' + (e instanceof Error ? e.message : String(e)));
         server.close();
         reject(e);
       }
     });
     server.listen(LOOPBACK_PORT, () => {
-      console.error(`Waiting for consent at ${redirectUri}\nOpen:\n${url}`);
+      console.error('Waiting for consent at ' + redirectUri + '\nOpen:\n' + url);
       (openUrl || (() => {}))(url);
     });
   });
