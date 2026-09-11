@@ -2,7 +2,7 @@
 // src/apis/*.js finds every surface, so a new API slice never edits a
 // shared file. Each manifest file default-exports:
 //   { api, baseUrl, resources: { <resource>: { <verb>: row } } }
-// row = { httpMethod, pathTemplate, scopes, requiredHeaders?, decoder?, listKey? }
+// row = { httpMethod, pathTemplate, scopes, requiredHeaders?, decoder?, listKey?, query? }
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

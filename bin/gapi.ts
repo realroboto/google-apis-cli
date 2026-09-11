@@ -85,10 +85,16 @@ async function main() {
   const row = findRow(manifests, api, resource, verb);
   if (!row) throw new Error(`unknown command: ${api} ${resource} ${verb}`);
 
-  // params = positional path args after verb, plus body/limit from flags.
+  // params = positional path args after verb, then row.query params as further
+  // positionals, plus body/limit from flags.
   const params: Params = {};
-  pathParams(row.pathTemplate).forEach((name, i) => {
+  const pp = pathParams(row.pathTemplate);
+  pp.forEach((name, i) => {
     if (positionals[2 + i] != null) params[name] = positionals[2 + i];
+  });
+  (row.query ?? []).forEach((name, i) => {
+    const v = positionals[2 + pp.length + i];
+    if (v != null) params[name] = v;
   });
   if (values.limit != null) params.limit = values.limit;
   if (values.body != null) params.body = JSON.parse(values.body);
