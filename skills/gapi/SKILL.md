@@ -1,11 +1,11 @@
 ---
 name: gapi
-description: Google Ads, GTM, GA4 (Admin + Data), Search Console, and Indexing via the `gapi` CLI — one login, all scopes, read and write. GAQL reports, GA4 reporting + admin, GSC search analytics + URL inspection, GTM containers/tags/publish, indexing push. Read before running `gapi`.
+description: Google Ads, GTM, GA4 Admin+Data, Search Console, Indexing via the gapi CLI — one OAuth login, all scopes, read+write. Run GAQL reports, GA4 reporting/admin, GSC analytics, URL inspection, GTM publish.
 ---
 
 # gapi (`gapi`)
 
-One CLI over five Google surfaces. One OAuth consent grants all 13 scopes; one refresh token drives every call. Each API is a data manifest, so one pattern covers the whole tree.
+One CLI over five Google surfaces. One OAuth consent grants all 13 scopes; one refresh token drives every call. Each API is a data manifest, so **one pattern covers the whole tree** — learn it once here, then reach the per-API command list only when you run that API.
 
 ## Setup
 
@@ -18,50 +18,42 @@ gapi auth status   # account email, refresh token presence, granted scopes
 gapi auth logout   # wipe stored credentials
 ```
 
-Headless box (no browser)? `gapi auth login --manual` prints the URL and reads the pasted code.
+Headless box (no browser)? `gapi auth login --manual` prints the URL and reads the pasted code. Credentials live in `~/.config/gapi/`. Console steps (enable APIs, Ads access level, OAuth client) and their traps: [docs/SETUP.md](../../docs/SETUP.md). In **Testing** mode the refresh token expires ~7 days; **Production** needs OAuth App Verification (see the README).
 
-Credentials live in `~/.config/gapi/`. The console steps (enable APIs, Ads access level, OAuth client) and their traps are in [docs/SETUP.md](../../docs/SETUP.md). In **Testing** mode the refresh token expires ~7 days; **Production** needs OAuth App Verification (see the README).
-
-## Call any command
+## The one pattern
 
 ```sh
 gapi <api> <resource> <verb> [positional ...] [--body '<json>'] [--limit N] [--json|--raw]
 ```
 
-- `gapi --help` prints the whole tree; `gapi <api>` prints one API's resources + verbs.
-- **Positionals fill path params in order** (the `{name}` tokens), then any query params.
+- **Positionals fill path params in order** — the `{name}` tokens in the path, then any query params.
   `gapi ga4-admin properties get properties/123`
-- **Write/body verbs** take `--body '<json>'` (parsed as JSON, sent as the request body).
-  `gapi gsc sites add '--body={"siteUrl":"https://x.com/"}'` — or pass the path arg the verb names.
-- `--limit N` caps paginated results; pagination (`nextPageToken`) is followed automatically otherwise.
+- **Write verbs take `--body '<json>'`** — parsed as JSON, sent as the request body.
+  `gapi gsc sites add '--body={"siteUrl":"https://x.com/"}'`
+- `--limit N` caps paginated results; otherwise `nextPageToken` pages are followed automatically.
 - **Output is JSON-first**: the unwrapped, decoded payload, ready to pipe into `jq`. `--raw` emits the full API envelope instead.
 - Errors print `gapi: <message>` (plus the API error body) to stderr, exit 1.
 
-### Ads is special (GAQL)
-
-Ads reads go through GAQL, not generic dispatch:
+**Ads is the one exception** — reads go through GAQL, `--customer <id>` required:
 
 ```sh
 gapi ads gaql search "SELECT campaign.id, campaign.name FROM campaign" --customer 1234567890
 gapi ads gaql searchStream "<query>" --customer 1234567890 --stream
-gapi ads campaigns mutate --customer 1234567890 '--body={...operations...}'
 ```
 
-`--customer <id>` is required (fills the path). `--login-customer-id <id>` sets the manager header for MCC access. Ads is the only API that sends `login-customer-id`.
+`--login-customer-id <id>` sets the manager header for MCC access. Ads alone sends `login-customer-id`.
 
-## Surface
+## Command reference — one file per API
 
-`gapi --help` is the source of truth. Summary:
+`gapi --help` (whole tree) and `gapi <api>` (one API) are the **live source of truth**. The files below add what `--help` omits: HTTP method, full path with `{param}` names, per-verb scope, and which verbs need `--body`.
 
-| API | Key | Resources |
-|---|---|---|
-| **Google Ads** | `ads` | `gaql` (search/searchStream), per-resource `mutate` (campaigns, ad-groups, ad-group-ads, campaign-budgets, campaign-criteria, ad-group-criteria), `customers list-accessible` |
-| **GA4 Admin** (v1beta) | `ga4-admin` | accounts, properties, data-streams, key-events, conversion-events, custom-dimensions/-metrics, firebase-/google-ads-links, measurement-protocol-secrets, account-summaries |
-| **GA4 Admin** (v1alpha) | `ga4-admin-alpha` | access-bindings (+account-), audiences, calculated-metrics, channel-groups, rollup-properties, subproperties, subproperty-event-filters/-sync-configs |
-| **GA4 Data** | `ga4-data` | reports (run/run-pivot/run-realtime/batch-run/check-compatibility), audience-exports, metadata |
-| **Search Console** | `gsc` | sites, sitemaps, searchanalytics query, url-inspection, url-testing-tools |
-| **Tag Manager** | `gtm` | accounts, containers, workspaces, tags, triggers, variables, folders, clients, templates, environments, versions (incl. `publish`), user-permissions, and more |
-| **Indexing** | `indexing` | url-notifications publish / get-metadata |
+- **Ads** — GAQL search/searchStream + per-resource mutate → [`reference/ads.md`](reference/ads.md)
+- **GA4 Admin** (v1beta) — accounts, properties, data-streams, key/conversion events, custom dimensions/metrics, links → [`reference/ga4-admin.md`](reference/ga4-admin.md)
+- **GA4 Admin** (v1alpha) — access-bindings, audiences, calculated-metrics, channel-groups, sub/rollup properties → [`reference/ga4-admin-alpha.md`](reference/ga4-admin-alpha.md)
+- **GA4 Data** — reports (run/pivot/realtime/batch/compatibility), audience-exports, metadata → [`reference/ga4-data.md`](reference/ga4-data.md)
+- **Search Console** — sites, sitemaps, searchanalytics, url-inspection, mobile-friendly-test → [`reference/gsc.md`](reference/gsc.md)
+- **Tag Manager** — accounts→containers→workspaces→tags/triggers/variables/…/versions:publish → [`reference/gtm.md`](reference/gtm.md)
+- **Indexing** — url-notifications publish / get-metadata → [`reference/indexing.md`](reference/indexing.md)
 
 ## Quota project
 
