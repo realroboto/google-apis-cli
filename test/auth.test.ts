@@ -88,3 +88,16 @@ test('logout removes the credentials file', () => {
   auth.logout();
   assert.equal(existsSync(config.CREDENTIALS_PATH), false);
 });
+
+test('configureAuth prompts client id/secret + login-customer-id, writes config, blank keeps current', async () => {
+  const answers = ['CID', 'SECRET', '9998887776'];
+  let i = 0;
+  const cfg = await auth.configureAuth({ prompt: async () => answers[i++] ?? '' });
+  assert.equal(cfg.oauth_client_id, 'CID');
+  assert.equal(cfg.oauth_client_secret, 'SECRET');
+  assert.equal(config.readConfigFile()['login-customer-id'], '9998887776');
+  // Blank answers keep stored values (required fields stay satisfied).
+  const kept = await auth.configureAuth({ prompt: async () => '' });
+  assert.equal(kept.oauth_client_id, 'CID');
+  assert.equal(kept.oauth_client_secret, 'SECRET');
+});

@@ -10,6 +10,17 @@
 
 Command shape: `gapi <api> <resource> <verb> [--json|--raw]`
 
+## Start here
+
+```
+gapi auth setup   # store your own OAuth Desktop client (id + secret)
+gapi auth login   # one consent, all 13 scopes
+gapi auth status  # account, refresh token, granted scopes
+```
+
+First run, or a console step fails? **[docs/SETUP.md](docs/SETUP.md)** walks the five steps and
+the traps in each. `gapi` is multi-tenant: every operator brings their own Cloud project.
+
 ## Flow
 
 The project has 3 parts. A call moves through them in order.
@@ -26,6 +37,7 @@ The project has 3 parts. A call moves through them in order.
 
 | For | Read |
 |---|---|
+| Onboarding a Google account: consent, Ads access level, customer IDs, runtime errors | **[docs/SETUP.md](docs/SETUP.md)** |
 | What the CLI does, decisions, scopes, endpoints, risks | **[docs/SPEC.md](docs/SPEC.md)** — behavior source of truth |
 | How work is tracked (issues, blocking edges) | [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) |
 | Triage labels | [docs/agents/triage-labels.md](docs/agents/triage-labels.md) |

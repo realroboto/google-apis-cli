@@ -1,9 +1,12 @@
 // Google Ads API v25 (REST) — GAQL search/searchStream + per-resource :mutate.
 // Ads has no discovery REST doc (the API is proto-defined); endpoints verified
-// against the v25 RPC reference (googleads.googleapis.com/v25). Every call needs
-// the `developer-token` header (rest.ts enforces requiredHeaders); MCC callers
-// add the optional `login-customer-id` — both resolved flag→env→config in
+// against the v25 RPC reference (googleads.googleapis.com/v25). MCC callers add
+// the optional `login-customer-id` header, resolved flag→env→config in
 // src/config.ts (resolveAdsHeaders). One OAuth scope: `adwords`.
+//
+// developer-token was sunset 2026-09-09 — the header is ignored by the API
+// (access is now governed by the Cloud project that owns the OAuth client), so
+// no row requires it.
 //
 // searchStream is a gRPC server-streaming method: over REST the transport
 // transcodes it to a JSON ARRAY of SearchGoogleAdsStreamResponse objects, each
@@ -18,7 +21,6 @@
 import type { Manifest } from '../types.ts';
 
 const ADS = ['adwords'];
-const DEV = ['developer-token']; // login-customer-id is optional, not required
 const C = '/v25/customers/{customer}';
 
 // Build the search-request body from a bare GAQL string (story 31). Trivial by
@@ -37,7 +39,6 @@ const mutate = (collection: string) => ({
     httpMethod: 'POST' as const,
     pathTemplate: `${C}/${collection}:mutate`,
     scopes: ADS,
-    requiredHeaders: DEV,
   },
 });
 
@@ -52,7 +53,6 @@ export default {
         httpMethod: 'GET',
         pathTemplate: '/v25/customers:listAccessibleCustomers',
         scopes: ADS,
-        requiredHeaders: DEV,
       },
     },
     gaql: {
@@ -61,14 +61,12 @@ export default {
         httpMethod: 'POST',
         pathTemplate: `${C}/googleAds:search`,
         scopes: ADS,
-        requiredHeaders: DEV,
       },
       // Streams the whole result set in one response (array of chunks).
       searchStream: {
         httpMethod: 'POST',
         pathTemplate: `${C}/googleAds:searchStream`,
         scopes: ADS,
-        requiredHeaders: DEV,
         decoder: streamConcat,
       },
     },

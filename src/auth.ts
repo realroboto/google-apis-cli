@@ -8,13 +8,21 @@ import { createServer } from 'node:http';
 import { createInterface } from 'node:readline/promises';
 import type { Credentials } from 'google-auth-library';
 import { OAuth2Client } from 'google-auth-library';
-import { CONFIG_DIR, CONSENT_SCOPES, CREDENTIALS_PATH, OAUTH_CLIENT, SCOPES } from './config.ts';
+import {
+  CONFIG_DIR,
+  CONSENT_SCOPES,
+  CREDENTIALS_PATH,
+  getOAuthClient,
+  readConfigFile,
+  SCOPES,
+  writeConfigFile,
+} from './config.ts';
 import type { AccessTokenClient } from './types.ts';
 
 const LOOPBACK_PORT = 4600; // fixed port; vmCODE forwards it for headless use
 
 function newClient(redirectUri?: string): OAuth2Client {
-  const { clientId, clientSecret } = OAUTH_CLIENT;
+  const { clientId, clientSecret } = getOAuthClient();
   if (!clientId || !clientSecret) {
     throw new Error(
       'OAuth client not configured. Set GAPI_OAUTH_CLIENT_ID and GAPI_OAUTH_CLIENT_SECRET.',
@@ -63,6 +71,35 @@ export async function loginManual({
   const { tokens } = await client.getToken(code);
   saveCredentials(tokens);
   return tokens;
+}
+
+// Guided setup: prompt the OAuth Desktop client id/secret and the optional Ads
+// login-customer-id (MCC), then merge into ~/.config/gapi/config.json (mode
+// 600). A blank answer keeps the current stored value. `prompt` is injectable
+// for tests. The operator types the secret at the prompt — it is never echoed
+// elsewhere. config.ts reads these back with precedence env → config → embedded.
+const SETUP_FIELDS = [
+  { key: 'oauth_client_id', label: 'OAuth client id', required: true },
+  { key: 'oauth_client_secret', label: 'OAuth client secret', required: true },
+  { key: 'login-customer-id', label: 'Ads login-customer-id (optional, MCC)', required: false },
+] as const;
+
+export async function configureAuth({
+  prompt,
+}: {
+  prompt?: (q: string) => Promise<string>;
+} = {}): Promise<Record<string, unknown>> {
+  const ask = prompt || defaultPrompt;
+  const cfg = readConfigFile();
+  for (const { key, label, required } of SETUP_FIELDS) {
+    const cur = cfg[key];
+    const hint = cur != null ? ' [keep current]' : required ? '' : ' (blank to skip)';
+    const v = (await ask(`${label}${hint}: `)).trim();
+    if (v) cfg[key] = v;
+    else if (required && cur == null) throw new Error(`${label} is required`);
+  }
+  writeConfigFile(cfg);
+  return cfg;
 }
 
 async function defaultPrompt(q: string): Promise<string> {
