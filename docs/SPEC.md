@@ -23,8 +23,8 @@ O operador quer uma superfície única, previsível e com escrita nativa.
 ## Solution
 
 Um **repositório novo** com um **pacote npm** publicável cujo binário é **`gapi`**,
-que expõe **100% das capacidades** de Google Ads, GTM, GA4 (Admin + Data) e
-Search Console em **read+write com todos os scopes**, sob **um único login** que
+que expõe as **capacidades operacionais completas** (read+write) de Google Ads,
+GTM, GA4 (Admin + Data) e Search Console, sob **um único login** que
 não expira. A CLI absorve as funções de `google-relogin.sh` (auth) e
 `ga4-write.sh` (escrita GA4), e depois é bakeada no vmCODE substituindo os 4 MCPs
 — seguindo o mesmo padrão MCP→CLI já aplicado a context7 (`ctx7`), firecrawl
@@ -80,6 +80,7 @@ argumentos com `node:util parseArgs` (stdlib). Sem oclif, sem commander, sem
 27. Como operador, quero criar container-versions e **publicar** (publish), para lançar mudanças ao vivo.
 28. Como operador, quero **delete** de containers/recursos e gerenciar user-permissions (manage), para operação plena — todos os scopes.
 29. Como operador, quero gerenciar environments e destinations, para configurar entrega.
+29b. Como operador, quero atualizar configurações de conta GTM (`accounts.update`), para gerenciar a conta — cobre o scope `tagmanager.manage.accounts`.
 
 ### Google Ads (REST cru)
 30. Como operador, quero listar contas acessíveis e a hierarquia customer_client (MCC), para descobrir contas.
@@ -108,11 +109,11 @@ argumentos com `node:util parseArgs` (stdlib). Sem oclif, sem commander, sem
 - **Dispatch:** `bin/gapi.js` faz parse de `argv` com `parseArgs` e roteia por uma tabela `{ api → módulo }` (`ga4`, `gsc`, `gtm`, `ads`, `auth`). Cada módulo expõe um dispatcher `{ recurso → { verbo → handler } }`. Sem framework CLI.
 - **Módulo auth:** `OAuth2Client` do google-auth-library. `login` sobe loopback em porta fixa e imprime URL; `--manual` usa fluxo copy-paste do `code` (para headless). `access_type: 'offline'`, `prompt: 'consent'` → refresh token. `getToken(code)` troca code por tokens. Persistência em `~/.config/gapi/credentials.json` (mode 600). Refresh automático via `OAuth2Client` antes de cada request.
 - **OAuth client próprio, modo produção** (não Testing) → sem a expiração de 7 dias do Testing mode. Google mantém gatilhos residuais (inatividade 6 meses, cap ~100 refresh tokens/client, troca de senha em tokens Gmail-scoped) — não aplicáveis ao uso normal desta CLI; o refresh automático (getAccessToken) reidrata transparente. Client type: Desktop app. `client_id`/`client_secret` embutidos no pacote (padrão de CLIs OAuth públicas: gcloud/gh/firebase-tools).
-- **Scopes (máximos read+write das 4 APIs + Indexing):** `adwords`; GTM os 7 (`tagmanager.readonly`, `.edit.containers`, `.edit.containerversions`, `.publish`, `.delete.containers`, `.manage.users`, `.manage.accounts`); GA4 `analytics.readonly`, `analytics.edit`, `analytics.manage.users` (esta gateia o recurso v1alpha `accessBindings`, incluído nos endpoints abaixo); GSC `webmasters`; Indexing API `indexing`. **`cloud-platform` NÃO é pedido** — não é scope de nenhuma das 4 APIs; o quota project via header `x-goog-user-project` exige a permissão IAM `serviceusage.services.use`, não um scope OAuth (doc Google; confirmar no T1 ao exercitar o header `x-goog-user-project`). Co-consentimento em prod: `google-relogin.sh:33-59` já concede num único login **9 destes 13 scopes** — `adwords`, `analytics.readonly/edit/manage.users`, `webmasters`, `indexing`, `tagmanager.readonly/edit.containers/edit.containerversions` [V]. Os **4 scopes GTM restantes** (`.publish`, `.delete.containers`, `.manage.accounts`, `.manage.users`) foram *deliberadamente omitidos* naquele script (least-privilege, `google-relogin.sh:51-53`) e são portanto **novos/não-verificados [A]** neste consentimento — T1 valida com um `gapi auth login` real da lista completa (ver Risco [B] e critério de aceite de T1).
+- **Scopes (máximos read+write das 4 APIs + Indexing):** `adwords`; GTM os 7 (`tagmanager.readonly`, `.edit.containers`, `.edit.containerversions`, `.publish`, `.delete.containers`, `.manage.users`, `.manage.accounts`); GA4 `analytics.readonly`, `analytics.edit`, `analytics.manage.users` (esta gateia o recurso v1alpha `accessBindings`, incluído nos endpoints abaixo); GSC `webmasters`; Indexing API `indexing`. **`cloud-platform` NÃO é pedido** — não é scope de nenhuma das 4 APIs; o quota project via header `x-goog-user-project` exige a permissão IAM `serviceusage.services.use`, não um scope OAuth [A — doc Google; confirmar no T1 ao exercitar o header `x-goog-user-project`]. Co-consentimento em prod: `google-relogin.sh:33-59` já concede num único login **9 destes 13 scopes** — `adwords`, `analytics.readonly/edit/manage.users`, `webmasters`, `indexing`, `tagmanager.readonly/edit.containers/edit.containerversions` [V]. Os **4 scopes GTM restantes** (`.publish`, `.delete.containers`, `.manage.accounts`, `.manage.users`) foram *deliberadamente omitidos* naquele script (least-privilege, `google-relogin.sh:51-53`) e são portanto **novos/não-verificados [A]** neste consentimento — T1 valida com um `gapi auth login` real da lista completa (ver Risco [B] e critério de aceite de T1).
 - **Módulo rest (seam central):** um `apiCall({ method, url, body, headers })` genérico — generaliza o `api_call()` de `ga4-write.sh` (curl → fetch): injeta `Authorization: Bearer`, `x-goog-user-project` (quota project), headers extra (Ads `developer-token`/`login-customer-id`), faz paginação (segue `nextPageToken`), e formata `--json`/`--raw`. **Todo acesso a API passa por aqui.**
 - **Endpoints REST [V]:**
   - GA4 Data — `POST analyticsdata.googleapis.com/v1beta/properties/{id}:runReport` (+ `batchRunReports`, `runRealtimeReport`, `checkCompatibility`, `GET :getMetadata`).
-  - GA4 Admin — `analyticsadmin.googleapis.com/v1beta` (accounts/properties/dataStreams/conversionEvents/customDimensions/customMetrics/googleAdsLinks/firebaseLinks/dataRetention) **+ `v1alpha`** para recursos que só existem lá (`accessBindings` [usuários/permissões], `audiences`, `channelGroups`, `calculatedMetrics`, subproperties/rollups).
+  - GA4 Admin — `analyticsadmin.googleapis.com/v1beta` (accounts/properties/dataStreams/conversionEvents/customDimensions/customMetrics/googleAdsLinks/firebaseLinks; data-retention-settings via get/update em `properties`) **+ `v1alpha`** para recursos que só existem lá (`accessBindings` [usuários/permissões], `audiences`, `channelGroups`, `calculatedMetrics`, subproperties/rollups).
   - Ads — `POST googleads.googleapis.com/v25/customers/{id}/googleAds:searchStream` e `:search`; `:mutate` por recurso; header `developer-token` obrigatório.
   - GSC — `searchconsole.googleapis.com` (sites, sitemaps, searchanalytics, urlInspection:index).
   - Indexing API — `POST indexing.googleapis.com/v3/urlNotifications:publish` e `GET :getMetadata` (parte da superfície do gsc-mcp substituído; scope `indexing`).
@@ -138,6 +139,7 @@ argumentos com `node:util parseArgs` (stdlib). Sem oclif, sem commander, sem
 
 - Empacotar wrappers `@googleapis/*` / `@google-analytics/*` (deps extra; REST cru cobre 100% com 1 dep). Reavaliar só se o boilerplate REST doer.
 - Framework CLI (oclif/commander) — `parseArgs` + dispatch bastam.
+- GA4 `analytics.provision` (provisionar contas novas) e `analytics.user.deletion` (GDPR) — scopes do script legado sem demanda atual; add quando pedir.
 - Outras APIs Google (BigQuery, Ads Data Manager, Merchant, YouTube) — fora das 4 pedidas. A **Indexing API está incluída** (fazia parte da superfície do gsc-mcp substituído).
 - Cache local de respostas / camada offline.
 - UI/TUI interativa; a CLI é não-interativa exceto o consent do `auth login`.
