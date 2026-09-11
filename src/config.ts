@@ -57,12 +57,34 @@ export function readConfigFile(): Record<string, unknown> {
 }
 
 // Precedence flag -> env -> config file. `flags` is the parsed argv values.
+// `cfg` defaults to the config file; injectable so precedence is unit-testable
+// without writing to ~/.config.
 export function resolveSetting(
   flags: Record<string, unknown> | undefined,
   { flag, env, key }: { flag: string; env?: string; key: string },
+  cfg: Record<string, unknown> = readConfigFile(),
 ): unknown {
-  const cfg = readConfigFile();
   return flags?.[flag] ?? (env && process.env[env]) ?? cfg?.[key];
 }
 
 export const QUOTA_PROJECT_ENV = 'GOOGLE_CLOUD_PROJECT';
+
+// Google Ads sends two credentials as HTTP headers (not OAuth scopes):
+// developer-token (required) and login-customer-id (optional, MCC). Each
+// resolves flag -> env -> config file. Header name == flag == config key.
+const ADS_HEADERS: { name: string; env: string }[] = [
+  { name: 'developer-token', env: 'GOOGLE_ADS_DEVELOPER_TOKEN' },
+  { name: 'login-customer-id', env: 'GOOGLE_ADS_LOGIN_CUSTOMER_ID' },
+];
+
+export function resolveAdsHeaders(
+  flags: Record<string, unknown> | undefined,
+  cfg: Record<string, unknown> = readConfigFile(),
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const { name, env } of ADS_HEADERS) {
+    const v = resolveSetting(flags, { flag: name, env, key: name }, cfg);
+    if (v != null) out[name] = String(v);
+  }
+  return out;
+}
