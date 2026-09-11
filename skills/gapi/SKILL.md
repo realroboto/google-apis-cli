@@ -18,7 +18,7 @@ gapi auth status   # account email, refresh token presence, granted scopes
 gapi auth logout   # wipe stored credentials
 ```
 
-Headless box (no browser)? `gapi auth login --manual` prints the URL and reads the pasted code. Credentials live in `~/.config/gapi/`. Console steps (enable APIs, Ads access level, OAuth client) and their traps: [docs/SETUP.md](../../docs/SETUP.md). In **Testing** mode the refresh token expires ~7 days; **Production** needs OAuth App Verification (see the README).
+Headless box (no browser)? `gapi auth login --manual` prints the URL and reads the pasted code. Credentials live in `~/.config/gapi/`. Console steps (enable APIs, Ads access level, OAuth client) and their traps: [docs/SETUP.md](https://github.com/realroboto/google-apis-cli/blob/main/docs/SETUP.md). In **Testing** mode the refresh token expires ~7 days; **Production** needs OAuth App Verification (see the README).
 
 ## The one pattern
 
