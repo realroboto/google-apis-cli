@@ -39,6 +39,7 @@ The project has 3 parts. A call moves through them in order.
 - Accept rule — **coverage-oracle**: the self-check fails if the manifest does not cover 100% of the discovery-doc resources.
 - Test through the executor seam. Inject a fake `tokenProvider` and `fetch`. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
+- Fix lint by fixing the code it flags — never `biome --unsafe`, never disable a rule to clear it.
 
 ## Agent skills
 
