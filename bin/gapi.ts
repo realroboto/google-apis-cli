@@ -108,7 +108,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  const detail = e.body ? '\n' + JSON.stringify(e.body.error ?? e.body, null, 2) : '';
-  console.error('gapi: ' + e.message + detail);
+  const detail = e.body ? `\n${JSON.stringify(e.body.error ?? e.body, null, 2)}` : '';
+  console.error(`gapi: ${e.message}${detail}`);
   process.exit(1);
 });

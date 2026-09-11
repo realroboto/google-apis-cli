@@ -28,7 +28,7 @@ function fakeClient(): OAuth2Client {
   return {
     getToken: async (code: string) => ({
       tokens: {
-        refresh_token: 'RT-' + code,
+        refresh_token: `RT-${code}`,
         id_token: idTokenFor('op@example.com'),
         scope: config.ALL_SCOPE_URLS.join(' '),
         expiry_date: 111,
@@ -78,7 +78,7 @@ test('authUrl requests offline access, consent, and every consent scope', () => 
 test('makeTokenProvider refreshes an expired access token via the client', async () => {
   let calls = 0;
   const provider = auth.makeTokenProvider({
-    client: { getAccessToken: async () => ({ token: 'FRESH-' + ++calls }) },
+    client: { getAccessToken: async () => ({ token: `FRESH-${++calls}` }) },
   });
   assert.equal(await provider(), 'FRESH-1');
   assert.equal(await provider(), 'FRESH-2'); // called again → refreshed each time
