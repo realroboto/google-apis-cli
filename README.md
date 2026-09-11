@@ -5,7 +5,7 @@
 - One login. One refresh token. All scopes. Read and write.
 - One runtime dependency: `google-auth-library` (Google). Nothing third-party.
 - All network calls use native `fetch`.
-- TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format.
+- TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (corepack-pinned) for package management.
 - It replaces the 4 fragmented Google MCPs in vmCODE.
 
 Command shape: `gapi <api> <resource> <verb> [--json|--raw]`
@@ -38,7 +38,7 @@ The project has 3 parts. A call moves through them in order.
 - New API = one new `src/apis/<api>.ts` file (default-export `satisfies Manifest`). The glob finds it. No shared file changes.
 - Accept rule — **coverage-oracle**: the self-check fails if the manifest does not cover 100% of the discovery-doc resources.
 - Test through the executor seam. Inject a fake `tokenProvider` and `fetch`. Use no real network.
-- Before commit: `npm run typecheck` (tsc --noEmit) · `npm run lint` (biome) · `npm test`.
+- Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
 
 ## Agent skills
 
