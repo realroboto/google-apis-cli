@@ -21,7 +21,7 @@ test('--help lists the derived command tree and exits 0', async () => {
   const r = await gapi(['--help']);
   assert.equal(r.code, 0);
   assert.match(r.stdout, /gsc/);
-  assert.match(r.stdout, /sites {2}list/);
+  assert.match(r.stdout, /sites {2}add \| delete \| get \| list/);
   assert.match(r.stdout, /auth {2}login/);
 });
 

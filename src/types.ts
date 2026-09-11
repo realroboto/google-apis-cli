@@ -10,6 +10,9 @@ export type ManifestRow = {
   scopes: string[];
   requiredHeaders?: string[];
   listKey?: string;
+  // Query-param names filled from trailing positionals (after path params), in
+  // order — the GET counterpart of path {placeholders} (e.g. indexing getMetadata ?url=).
+  query?: string[];
   decoder?: (data: unknown, raw: unknown) => unknown;
 };
 
