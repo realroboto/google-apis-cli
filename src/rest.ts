@@ -2,51 +2,60 @@
 // A manifest row + params become an authenticated REST call.
 // tokenProvider and fetch are injected (the test seam): callers never
 // build a URL or touch the token.
+import type { ExecuteOpts, Params, ResolvedRow } from './types.ts';
+import { RestError } from './types.ts';
 
 const RESERVED = new Set(['json', 'raw', 'limit', 'body']);
 
 // The {name} placeholders a pathTemplate declares. Shared with the dispatcher
 // so path params are extracted in exactly one place.
-export function pathParams(pathTemplate) {
+export function pathParams(pathTemplate: string): string[] {
   return [...pathTemplate.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
 }
 
 // Fill {placeholders} in the path from params; return the used keys too.
-export function resolvePath(pathTemplate, params) {
-  const used = new Set();
+export function resolvePath(
+  pathTemplate: string,
+  params: Params,
+): { path: string; used: Set<string> } {
+  const used = new Set<string>();
   const path = pathTemplate.replace(/\{(\w+)\}/g, (_, name) => {
     if (params[name] == null) throw new Error(`missing path param: ${name}`);
     used.add(name);
-    return encodeURIComponent(params[name]);
+    return encodeURIComponent(String(params[name]));
   });
   return { path, used };
 }
 
-function buildUrl(baseUrl, pathTemplate, params, method) {
+function buildUrl(baseUrl: string, pathTemplate: string, params: Params, method: string): URL {
   const { path, used } = resolvePath(pathTemplate, params);
   const url = new URL(baseUrl + path);
   // For GET, leftover non-reserved params become query string.
   if (method === 'GET') {
     for (const [k, v] of Object.entries(params)) {
       if (used.has(k) || RESERVED.has(k) || v == null) continue;
-      url.searchParams.set(k, v);
+      url.searchParams.set(k, String(v));
     }
   }
   return url;
 }
 
 // Merge a page's list array into acc under listKey. Returns the merged list.
-function mergeList(acc, page, listKey) {
-  const items = page?.[listKey];
+function mergeList(acc: unknown[], page: unknown, listKey: string): unknown[] {
+  const items = (page as Record<string, unknown>)?.[listKey];
   if (Array.isArray(items)) return acc.concat(items);
   return acc;
 }
 
-export async function execute(row, params, opts) {
+export async function execute(
+  row: ResolvedRow,
+  params: Params,
+  opts: ExecuteOpts,
+): Promise<{ json: unknown; raw: unknown }> {
   const { tokenProvider, fetch: fetchImpl, quotaProject, extraHeaders = {} } = opts;
   const method = row.httpMethod;
 
-  const headers = { Authorization: `Bearer ${await tokenProvider()}` };
+  const headers: Record<string, string> = { Authorization: `Bearer ${await tokenProvider()}` };
   if (quotaProject) headers['x-goog-user-project'] = quotaProject;
   for (const name of row.requiredHeaders || []) {
     if (extraHeaders[name] == null) throw new Error(`missing required header: ${name}`);
@@ -58,8 +67,8 @@ export async function execute(row, params, opts) {
 
   const limit = params.limit != null ? Number(params.limit) : undefined;
   let url = buildUrl(row.baseUrl, row.pathTemplate, params, method);
-  let last;
-  let merged = [];
+  let last: unknown;
+  let merged: unknown[] = [];
   let paged = false;
 
   while (true) {
@@ -71,10 +80,7 @@ export async function execute(row, params, opts) {
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) {
-      const err = new Error(data?.error?.message || `HTTP ${res.status}`);
-      err.status = res.status;
-      err.body = data;
-      throw err;
+      throw new RestError(data?.error?.message || `HTTP ${res.status}`, res.status, data);
     }
     last = data;
 
@@ -94,7 +100,7 @@ export async function execute(row, params, opts) {
   }
 
   const raw = last;
-  let payload = paged ? { [row.listKey]: merged } : last;
+  let payload: unknown = paged ? { [row.listKey as string]: merged } : last;
   if (row.decoder) payload = row.decoder(paged ? merged : last, raw);
   return { json: payload, raw };
 }

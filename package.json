@@ -4,20 +4,28 @@
   "description": "One CLI (gapi) for Google Ads, GTM, GA4 (Admin+Data), Search Console, and Indexing. One login, all scopes, read+write.",
   "type": "module",
   "bin": {
-    "gapi": "./bin/gapi.js"
+    "gapi": "./bin/gapi.ts"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "format": "biome check --write"
   },
   "files": [
     "bin/",
     "src/"
   ],
   "dependencies": {
-    "google-auth-library": "^9.15.1"
+    "google-auth-library": "^11.0.2"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@types/node": "^24.13.4",
+    "typescript": "^7.0.2"
+  }
 }

@@ -1,18 +1,19 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
-const BIN = fileURLToPath(new URL('../bin/gapi.js', import.meta.url));
+const BIN = fileURLToPath(new URL('../bin/gapi.ts', import.meta.url));
 
-async function gapi(args) {
+async function gapi(args: string[]) {
   try {
     const { stdout, stderr } = await run('node', [BIN, ...args]);
     return { code: 0, stdout, stderr };
   } catch (e) {
-    return { code: e.code, stdout: e.stdout, stderr: e.stderr };
+    const err = e as { code?: number; stdout?: string; stderr?: string };
+    return { code: err.code ?? 1, stdout: err.stdout ?? '', stderr: err.stderr ?? '' };
   }
 }
 
