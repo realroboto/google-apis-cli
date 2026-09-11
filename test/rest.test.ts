@@ -67,6 +67,20 @@ test('GET leftover params become query string; reserved excluded', async () => {
   assert.equal(u.searchParams.get('limit'), null);
 });
 
+test('non-GET leftover params become query too; body excluded (PATCH updateMask)', async () => {
+  const row = { httpMethod: 'PATCH', baseUrl: 'https://h', pathTemplate: '/v/x' };
+  const fetch = fakeFetch([{ body: {} }]);
+  await execute(
+    row as unknown as ResolvedRow,
+    { updateMask: 'displayName', body: { displayName: 'n' } },
+    { tokenProvider: token, fetch },
+  );
+  const u = new URL(fetch.calls[0].url);
+  assert.equal(u.searchParams.get('updateMask'), 'displayName');
+  assert.equal(u.searchParams.get('body'), null);
+  assert.equal(fetch.calls[0].init.body, JSON.stringify({ displayName: 'n' }));
+});
+
 test('x-goog-user-project header set from quotaProject', async () => {
   const row = { httpMethod: 'GET', baseUrl: 'https://h', pathTemplate: '/v/x' };
   const fetch = fakeFetch([{ body: {} }]);
