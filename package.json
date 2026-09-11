@@ -4,7 +4,7 @@
   "description": "One CLI (gapi) for Google Ads, GTM, GA4 (Admin+Data), Search Console, and Indexing. One login, all scopes, read+write.",
   "type": "module",
   "bin": {
-    "gapi": "./bin/gapi.ts"
+    "gapi": "dist/bin/gapi.js"
   },
   "engines": {
     "node": ">=24"
@@ -13,12 +13,32 @@
     "test": "node --test",
     "typecheck": "tsc --noEmit",
     "lint": "biome check",
-    "format": "biome check --write"
+    "format": "biome check --write",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
   "files": [
-    "bin/",
-    "src/"
+    "dist/"
   ],
+  "keywords": [
+    "google",
+    "google-ads",
+    "gtm",
+    "tag-manager",
+    "ga4",
+    "analytics",
+    "search-console",
+    "indexing",
+    "cli"
+  ],
+  "homepage": "https://github.com/realroboto/google-apis-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/realroboto/google-apis-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/realroboto/google-apis-cli/issues"
+  },
   "dependencies": {
     "google-auth-library": "^11.0.2"
   },

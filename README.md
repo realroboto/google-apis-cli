@@ -10,6 +10,14 @@
 
 Command shape: `gapi <api> <resource> <verb> [--json|--raw]`
 
+## Install
+
+```
+npm i -g google-apis-cli    # installs the `gapi` bin
+```
+
+Needs **Node ≥ 24** — `gapi` ships as TypeScript and runs on Node's native type-stripping, so there is no build step and no bundle.
+
 ## Start here
 
 ```
@@ -20,6 +28,15 @@ gapi auth status  # account, refresh token, granted scopes
 
 First run, or a console step fails? **[docs/SETUP.md](docs/SETUP.md)** walks the five steps and
 the traps in each. `gapi` is multi-tenant: every operator brings their own Cloud project.
+
+## OAuth App Verification
+
+`gapi` asks for sensitive scopes (`analytics.manage.users`, `tagmanager.manage.*`, `adwords`, `webmasters`).
+
+- **Testing mode** (default) works for all commands, but the refresh token expires every ~7 days — re-run `gapi auth login` when it does.
+- **Production** removes that expiry, but Google requires **OAuth App Verification** first: a privacy-policy URL, a homepage, and a reviewed consent screen. Review timeline is not guaranteed.
+
+Testing mode is enough to use the CLI; Production is the no-expiry target. Until verification passes, stay in Testing and re-auth on the ~7-day cadence.
 
 ## Flow
 
