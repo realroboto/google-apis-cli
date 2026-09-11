@@ -63,6 +63,6 @@ export function checkSchema(manifests: Record<string, Manifest>): boolean {
       }
     }
   }
-  if (errors.length) throw new Error('manifest schema errors:\n' + errors.join('\n'));
+  if (errors.length) throw new Error(`manifest schema errors:\n${errors.join('\n')}`);
   return true;
 }
