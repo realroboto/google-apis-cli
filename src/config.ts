@@ -68,10 +68,11 @@ export function readConfigFile(): Record<string, unknown> {
   }
 }
 
-// Write ~/.config/gapi/config.json (mode 600, dir 700). Used by `gapi auth setup`.
-export function writeConfigFile(cfg: Record<string, unknown>): void {
+// Write JSON under CONFIG_DIR readable only by the owner (dir 700, file 600).
+// Shared by the two things we persist: the config file and the credentials.
+export function writeSecureJson(path: string, data: unknown): void {
   mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
-  writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), { mode: 0o600 });
+  writeFileSync(path, JSON.stringify(data, null, 2), { mode: 0o600 });
 }
 
 // Precedence flag -> env -> config file. `flags` is the parsed argv values.

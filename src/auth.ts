@@ -2,20 +2,21 @@
 // tokenProvider the executor injects. One consent grants all 13 scopes; the
 // refresh token is persisted and getAccessToken() rehydrates transparently.
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createServer } from 'node:http';
 import { createInterface } from 'node:readline/promises';
+import { Writable } from 'node:stream';
 import type { Credentials } from 'google-auth-library';
 import { OAuth2Client } from 'google-auth-library';
 import {
-  CONFIG_DIR,
+  CONFIG_PATH,
   CONSENT_SCOPES,
   CREDENTIALS_PATH,
   getOAuthClient,
   readConfigFile,
   SCOPES,
-  writeConfigFile,
+  writeSecureJson,
 } from './config.ts';
 import type { AccessTokenClient } from './types.ts';
 
@@ -32,8 +33,7 @@ function newClient(redirectUri?: string): OAuth2Client {
 }
 
 function saveCredentials(tokens: Credentials): void {
-  mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
-  writeFileSync(CREDENTIALS_PATH, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+  writeSecureJson(CREDENTIALS_PATH, tokens);
 }
 
 export function loadCredentials(): Credentials {
@@ -76,40 +76,70 @@ export async function loginManual({
 // Guided setup: prompt the OAuth Desktop client id/secret and the optional Ads
 // login-customer-id (MCC), then merge into ~/.config/gapi/config.json (mode
 // 600). A blank answer keeps the current stored value. `prompt` is injectable
-// for tests. The operator types the secret at the prompt — it is never echoed
-// elsewhere. config.ts reads these back with precedence env → config → embedded.
+// for tests. The secret field is masked at the prompt and goes straight to the
+// file. config.ts reads these back with precedence env → config → embedded.
 const SETUP_FIELDS = [
-  { key: 'oauth_client_id', label: 'OAuth client id', required: true },
-  { key: 'oauth_client_secret', label: 'OAuth client secret', required: true },
-  { key: 'login-customer-id', label: 'Ads login-customer-id (optional, MCC)', required: false },
+  { key: 'oauth_client_id', label: 'OAuth client id', required: true, secret: false },
+  { key: 'oauth_client_secret', label: 'OAuth client secret', required: true, secret: true },
+  {
+    key: 'login-customer-id',
+    label: 'Ads login-customer-id (optional, MCC)',
+    required: false,
+    secret: false,
+  },
 ] as const;
 
 export async function configureAuth({
   prompt,
 }: {
-  prompt?: (q: string) => Promise<string>;
+  prompt?: (q: string, opts?: { secret?: boolean }) => Promise<string>;
 } = {}): Promise<Record<string, unknown>> {
   const ask = prompt || defaultPrompt;
   const cfg = readConfigFile();
-  for (const { key, label, required } of SETUP_FIELDS) {
+  for (const { key, label, required, secret } of SETUP_FIELDS) {
     const cur = cfg[key];
     const hint = cur != null ? ' [keep current]' : required ? '' : ' (blank to skip)';
-    const v = (await ask(`${label}${hint}: `)).trim();
+    const v = (await ask(`${label}${hint}: `, { secret })).trim();
     if (v) cfg[key] = v;
     else if (required && cur == null) throw new Error(`${label} is required`);
   }
-  writeConfigFile(cfg);
+  writeSecureJson(CONFIG_PATH, cfg);
   return cfg;
 }
 
-async function defaultPrompt(q: string): Promise<string> {
-  const rl = createInterface({ input: process.stdin, output: process.stderr });
+// `secret: true` keeps the typed value off the screen. Node has no masking
+// option, so point readline's echo at a sink and print the question ourselves.
+// `terminal: true` is what makes this safe: it puts the tty in raw mode, so the
+// driver stops echoing too and the sink is the only writer left. Streams are
+// injectable so the masking has a test.
+export async function defaultPrompt(
+  q: string,
+  {
+    secret = false,
+    input = process.stdin,
+    output = process.stderr,
+    terminal,
+  }: PromptIo & { secret?: boolean } = {},
+): Promise<string> {
+  if (secret) output.write(q);
+  const rl = createInterface({
+    input,
+    output: secret ? new Writable({ write: (_c, _e, cb) => cb() }) : output,
+    terminal: secret ? true : terminal,
+  });
   try {
-    return await rl.question(q);
+    return await rl.question(secret ? '' : q);
   } finally {
     rl.close();
+    if (secret) output.write('\n'); // the swallowed Enter never printed one
   }
 }
+
+type PromptIo = {
+  input?: NodeJS.ReadableStream;
+  output?: NodeJS.WritableStream;
+  terminal?: boolean;
+};
 
 // Loopback: run a local server on LOOPBACK_PORT, open the consent URL, capture
 // the redirect's ?code=, exchange it, shut down. `handleRedirect` is exported

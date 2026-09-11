@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough, Writable } from 'node:stream';
 import { before, test } from 'node:test';
 import { OAuth2Client } from 'google-auth-library';
 
@@ -87,6 +88,32 @@ test('makeTokenProvider refreshes an expired access token via the client', async
 test('logout removes the credentials file', () => {
   auth.logout();
   assert.equal(existsSync(config.CREDENTIALS_PATH), false);
+});
+
+// Masking runs through readline's own terminal echo, so drive a terminal-mode
+// interface over in-memory streams: unmasked, the typed value reaches `output`.
+test('defaultPrompt masks a secret answer but echoes a normal one', async () => {
+  const run = async (secret: boolean) => {
+    const input = new PassThrough();
+    let seen = '';
+    const output = new Writable({
+      write(chunk, _enc, cb) {
+        seen += String(chunk);
+        cb();
+      },
+    });
+    const answered = auth.defaultPrompt('pw: ', { secret, input, output, terminal: true });
+    input.write('hunter2\n');
+    return { value: await answered, seen };
+  };
+
+  const masked = await run(true);
+  assert.equal(masked.value, 'hunter2'); // still captured
+  assert.equal(masked.seen.includes('hunter2'), false, 'secret must not reach the screen');
+  assert.equal(masked.seen.includes('pw: '), true, 'question still shown');
+
+  const plain = await run(false);
+  assert.equal(plain.seen.includes('hunter2'), true, 'non-secret answers echo as before');
 });
 
 test('configureAuth prompts client id/secret + login-customer-id, writes config, blank keeps current', async () => {

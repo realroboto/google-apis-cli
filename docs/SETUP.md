@@ -107,6 +107,7 @@ gapi auth setup
 
 It prompts for the client ID, the client secret, and the optional Ads `login-customer-id`.
 A blank answer keeps whatever is already stored. It writes `~/.config/gapi/config.json` (mode 600).
+The secret prompt stays blank while you type — that is the masking, not a dead terminal.
 
 For CI, set `GAPI_OAUTH_CLIENT_ID` and `GAPI_OAUTH_CLIENT_SECRET` and skip the prompt —
 environment wins over the config file.
