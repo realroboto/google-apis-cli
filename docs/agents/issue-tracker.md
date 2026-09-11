@@ -17,6 +17,12 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
 
+## Branch / PR policy
+
+**PR-per-ticket.** One branch per ticket (`t<N>-<slug>`), branched from `main`.
+Open a PR with `Closes #<n>`; merge to `main` via the PR. Never commit a ticket
+directly to `main`.
+
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
