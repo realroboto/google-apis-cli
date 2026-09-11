@@ -4,36 +4,45 @@
 //   { api, baseUrl, resources: { <resource>: { <verb>: row } } }
 // row = { httpMethod, pathTemplate, scopes, requiredHeaders?, decoder?, listKey? }
 import { readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { SCOPES } from './config.js';
+import { fileURLToPath } from 'node:url';
+import { SCOPES } from './config.ts';
+import type { Manifest, ManifestRow, ResolvedRow } from './types.ts';
 
 const APIS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'apis');
 
-export async function loadManifests(dir = APIS_DIR) {
-  const files = readdirSync(dir).filter((f) => f.endsWith('.js'));
-  const manifests = {};
+export async function loadManifests(dir = APIS_DIR): Promise<Record<string, Manifest>> {
+  // Match dev (.ts) and published (.js); skip declaration files.
+  const files = readdirSync(dir).filter(
+    (f) => (f.endsWith('.ts') || f.endsWith('.js')) && !f.endsWith('.d.ts'),
+  );
+  const manifests: Record<string, Manifest> = {};
   for (const f of files) {
     const mod = await import(join(dir, f));
-    const m = mod.default;
+    const m = mod.default as Manifest;
     manifests[m.api] = m;
   }
   return manifests;
 }
 
 // Flatten one manifest row and inject baseUrl so the executor is self-contained.
-export function findRow(manifests, api, resource, verb) {
+export function findRow(
+  manifests: Record<string, Manifest>,
+  api: string,
+  resource: string,
+  verb: string,
+): ResolvedRow | null {
   const m = manifests[api];
   const row = m?.resources?.[resource]?.[verb];
   if (!row) return null;
   return { ...row, baseUrl: m.baseUrl };
 }
 
-const REQUIRED = ['httpMethod', 'pathTemplate', 'scopes'];
+const REQUIRED: (keyof ManifestRow)[] = ['httpMethod', 'pathTemplate', 'scopes'];
 
 // Schema self-check. Throws with all problems found. Substitutes N handler tests.
-export function checkSchema(manifests) {
-  const errors = [];
+export function checkSchema(manifests: Record<string, Manifest>): boolean {
+  const errors: string[] = [];
   const known = new Set(Object.keys(SCOPES));
   for (const [api, m] of Object.entries(manifests)) {
     if (!m.baseUrl) errors.push(`${api}: missing baseUrl`);
@@ -54,6 +63,6 @@ export function checkSchema(manifests) {
       }
     }
   }
-  if (errors.length) throw new Error('manifest schema errors:\n' + errors.join('\n'));
+  if (errors.length) throw new Error(`manifest schema errors:\n${errors.join('\n')}`);
   return true;
 }

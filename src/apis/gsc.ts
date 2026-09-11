@@ -1,5 +1,7 @@
 // Search Console — tracer manifest for T1 (the live proof `gapi gsc sites list`).
 // T3 (#4) completes GSC coverage (sitemaps, searchanalytics, urlInspection).
+import type { Manifest } from '../types.ts';
+
 export default {
   api: 'gsc',
   baseUrl: 'https://searchconsole.googleapis.com',
@@ -13,4 +15,4 @@ export default {
       },
     },
   },
-};
+} satisfies Manifest;

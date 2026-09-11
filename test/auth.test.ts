@@ -1,8 +1,8 @@
-import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, existsSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { before, test } from 'node:test';
 import { OAuth2Client } from 'google-auth-library';
 
 // Point HOME at a temp dir before importing config/auth (paths resolve at import).
@@ -10,30 +10,31 @@ process.env.HOME = mkdtempSync(join(tmpdir(), 'gapi-test-'));
 process.env.GAPI_OAUTH_CLIENT_ID = 'cid';
 process.env.GAPI_OAUTH_CLIENT_SECRET = 'secret';
 
-let auth, config;
+let auth: typeof import('../src/auth.ts');
+let config: typeof import('../src/config.ts');
 before(async () => {
-  auth = await import('../src/auth.js');
-  config = await import('../src/config.js');
+  auth = await import('../src/auth.ts');
+  config = await import('../src/config.ts');
 });
 
 // A minimal unsigned JWT with an email claim (display-only; never verified).
-function idTokenFor(email) {
-  const b = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+function idTokenFor(email: string): string {
+  const b = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
   return `${b({ alg: 'none' })}.${b({ email })}.`;
 }
 
 // Fake OAuth2Client: getToken returns fixed tokens, no network.
-function fakeClient() {
+function fakeClient(): OAuth2Client {
   return {
-    getToken: async (code) => ({
+    getToken: async (code: string) => ({
       tokens: {
-        refresh_token: 'RT-' + code,
+        refresh_token: `RT-${code}`,
         id_token: idTokenFor('op@example.com'),
         scope: config.ALL_SCOPE_URLS.join(' '),
         expiry_date: 111,
       },
     }),
-  };
+  } as unknown as OAuth2Client;
 }
 
 test('handleRedirect extracts code, exchanges, and persists 600', async () => {
@@ -45,7 +46,10 @@ test('handleRedirect extracts code, exchanges, and persists 600', async () => {
 });
 
 test('handleRedirect rejects a redirect without a code', async () => {
-  await assert.rejects(auth.handleRedirect(fakeClient(), '/?error=denied', 'http://127.0.0.1:4600'), /no code/);
+  await assert.rejects(
+    auth.handleRedirect(fakeClient(), '/?error=denied', 'http://127.0.0.1:4600'),
+    /no code/,
+  );
 });
 
 test('status shows the account and maps scope URLs to short names', () => {
@@ -67,13 +71,14 @@ test('authUrl requests offline access, consent, and every consent scope', () => 
   assert.equal(url.searchParams.get('access_type'), 'offline');
   assert.equal(url.searchParams.get('prompt'), 'consent');
   const scope = url.searchParams.get('scope');
+  assert.ok(scope);
   for (const s of config.CONSENT_SCOPES) assert.ok(scope.includes(s), `missing ${s}`);
 });
 
 test('makeTokenProvider refreshes an expired access token via the client', async () => {
   let calls = 0;
   const provider = auth.makeTokenProvider({
-    client: { getAccessToken: async () => ({ token: 'FRESH-' + ++calls }) },
+    client: { getAccessToken: async () => ({ token: `FRESH-${++calls}` }) },
   });
   assert.equal(await provider(), 'FRESH-1');
   assert.equal(await provider(), 'FRESH-2'); // called again → refreshed each time
