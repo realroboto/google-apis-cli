@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // argv -> dispatch. The command tree, --help, and URL resolution all derive
-// from the auto-discovered manifests (single source). auth is the one branch
-// with real handlers.
+// from the auto-discovered manifests (single source). Two branches step outside
+// generic dispatch: `auth` (real handlers) and the `ads gaql` sugar (story 31,
+// query positional + --customer/--stream). Ads credentials ride as HTTP headers
+// (resolveAdsHeaders), gated on a row's requiredHeaders.
 import { parseArgs } from 'node:util';
+import { gaqlBody } from '../src/apis/ads.ts';
 import { loginLoopback, loginManual, logout, makeTokenProvider, status } from '../src/auth.ts';
-import { QUOTA_PROJECT_ENV, resolveSetting } from '../src/config.ts';
+import { QUOTA_PROJECT_ENV, resolveAdsHeaders, resolveSetting } from '../src/config.ts';
 import { checkSchema, findRow, loadManifests } from '../src/manifest.ts';
 import { execute, pathParams } from '../src/rest.ts';
 import type { Manifest, Params } from '../src/types.ts';
@@ -16,6 +19,12 @@ const GLOBAL_OPTIONS = {
   limit: { type: 'string' },
   body: { type: 'string' },
   project: { type: 'string' },
+  // Ads (see `ads gaql` sugar + resolveAdsHeaders): credentials sent as headers,
+  // target account, and search/searchStream toggle.
+  'developer-token': { type: 'string' },
+  'login-customer-id': { type: 'string' },
+  customer: { type: 'string' },
+  stream: { type: 'boolean' },
 } as const;
 
 function printTree(manifests: Record<string, Manifest>): void {
@@ -82,20 +91,31 @@ async function main() {
     return;
   }
 
-  const row = findRow(manifests, api, resource, verb);
+  // `ads gaql` is the one sugar beyond generic dispatch (story 31): the query is
+  // a positional, --stream picks searchStream, --customer fills the path param.
+  const isGaql = api === 'ads' && resource === 'gaql';
+  const row = isGaql
+    ? findRow(manifests, api, 'gaql', values.stream ? 'searchStream' : 'search')
+    : findRow(manifests, api, resource, verb);
   if (!row) throw new Error(`unknown command: ${api} ${resource} ${verb}`);
 
-  // params = positional path args after verb, then row.query params as further
-  // positionals, plus body/limit from flags.
   const params: Params = {};
-  const pp = pathParams(row.pathTemplate);
-  pp.forEach((name, i) => {
-    if (positionals[2 + i] != null) params[name] = positionals[2 + i];
-  });
-  (row.query ?? []).forEach((name, i) => {
-    const v = positionals[2 + pp.length + i];
-    if (v != null) params[name] = v;
-  });
+  if (isGaql) {
+    if (!values.customer) throw new Error('ads gaql requires --customer <id>');
+    params.customer = values.customer;
+    params.body = gaqlBody(verb); // `verb` is the GAQL query string here
+  } else {
+    // params = positional path args after verb, then row.query params as further
+    // positionals, plus body/limit from flags.
+    const pp = pathParams(row.pathTemplate);
+    pp.forEach((name, i) => {
+      if (positionals[2 + i] != null) params[name] = positionals[2 + i];
+    });
+    (row.query ?? []).forEach((name, i) => {
+      const v = positionals[2 + pp.length + i];
+      if (v != null) params[name] = v;
+    });
+  }
   if (values.limit != null) params.limit = values.limit;
   if (values.body != null) params.body = JSON.parse(values.body);
 
@@ -105,10 +125,17 @@ async function main() {
     key: 'project',
   }) as string | undefined;
 
+  // Ads rows declare requiredHeaders (developer-token); resolve the header
+  // credentials only for them so other APIs never carry an Ads token.
+  const extraHeaders = row.requiredHeaders?.length
+    ? resolveAdsHeaders(values as Record<string, unknown>)
+    : undefined;
+
   const { json, raw } = await execute(row, params, {
     tokenProvider: makeTokenProvider(),
     fetch,
     quotaProject,
+    extraHeaders,
   });
   console.log(JSON.stringify(values.raw ? raw : json, null, 2));
 }

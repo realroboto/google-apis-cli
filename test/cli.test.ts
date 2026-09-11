@@ -36,3 +36,11 @@ test('gapi <api> with no verb prints that api subtree', async () => {
   assert.equal(r.code, 0);
   assert.match(r.stdout, /sites/);
 });
+
+test('ads gaql sugar: query positional routes into the gaql branch (needs --customer)', async () => {
+  // Proves argv reaches the `ads gaql` branch with the query bound as a
+  // positional; the missing --customer guard fires before any network call.
+  const r = await gapi(['ads', 'gaql', 'SELECT campaign.id FROM campaign']);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /ads gaql requires --customer/);
+});
