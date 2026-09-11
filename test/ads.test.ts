@@ -48,7 +48,7 @@ test('coverage-oracle: ads manifest covers the T5 subset exactly', async () => {
 
 // --- executor-seam demos (fake fetch; no real network) ---
 const token = async () => 'TOK';
-const DEV = { 'developer-token': 'DEV' };
+const LCI = { 'login-customer-id': '999' };
 type Rec = {
   url: string;
   init: { method?: string; headers: Record<string, string>; body?: string };
@@ -70,18 +70,18 @@ const row = async (resource: string, verb: string): Promise<ResolvedRow> => {
   return r;
 };
 
-test('customers list-accessible: GET, sends developer-token header (read demo)', async () => {
+test('customers list-accessible: GET, no developer-token header (read demo)', async () => {
   const fetch = fakeFetch([{ resourceNames: ['customers/123'] }]);
   const { json } = await execute(
     await row('customers', 'list-accessible'),
     {},
-    { tokenProvider: token, fetch, extraHeaders: DEV },
+    { tokenProvider: token, fetch },
   );
   assert.deepEqual(json, { resourceNames: ['customers/123'] });
   const c = fetch.calls[0];
   assert.equal(c.init.method, 'GET');
   assert.equal(new URL(c.url).pathname, '/v25/customers:listAccessibleCustomers');
-  assert.equal(c.init.headers['developer-token'], 'DEV');
+  assert.equal('developer-token' in c.init.headers, false);
 });
 
 test('gaql search: POST {query} body, raw {results,nextPageToken} out', async () => {
@@ -89,7 +89,7 @@ test('gaql search: POST {query} body, raw {results,nextPageToken} out', async ()
   const { json } = await execute(
     await row('gaql', 'search'),
     { customer: '55', body: gaqlBody('SELECT campaign.id FROM campaign') },
-    { tokenProvider: token, fetch, extraHeaders: { ...DEV, 'login-customer-id': '999' } },
+    { tokenProvider: token, fetch, extraHeaders: LCI },
   );
   assert.deepEqual(json, { results: [{ a: 1 }], nextPageToken: 'p2' });
   const c = fetch.calls[0];
@@ -104,7 +104,7 @@ test('gaql searchStream: stream-concat decoder flattens the chunk array', async 
   const { json } = await execute(
     await row('gaql', 'searchStream'),
     { customer: '55', body: gaqlBody('SELECT campaign.id FROM campaign') },
-    { tokenProvider: token, fetch, extraHeaders: DEV },
+    { tokenProvider: token, fetch, extraHeaders: LCI },
   );
   assert.deepEqual(json, [{ a: 1 }, { b: 2 }]);
   assert.equal(new URL(fetch.calls[0].url).pathname, '/v25/customers/55/googleAds:searchStream');
@@ -116,7 +116,7 @@ test('campaigns mutate: POST :mutate with operations body (write demo)', async (
   await execute(
     await row('campaigns', 'mutate'),
     { customer: '55', body: ops },
-    { tokenProvider: token, fetch, extraHeaders: DEV },
+    { tokenProvider: token, fetch, extraHeaders: LCI },
   );
   const c = fetch.calls[0];
   assert.equal(c.init.method, 'POST');
@@ -124,20 +124,15 @@ test('campaigns mutate: POST :mutate with operations body (write demo)', async (
   assert.equal(c.init.body, JSON.stringify(ops));
 });
 
-test('missing developer-token: executor rejects before fetch', async () => {
-  const fetch = fakeFetch([{}]);
-  await assert.rejects(
-    execute(
-      await row('gaql', 'search'),
-      { customer: '55', body: gaqlBody('SELECT 1') },
-      {
-        tokenProvider: token,
-        fetch,
-      },
-    ),
-    /missing required header: developer-token/,
+test('gaql search: no login-customer-id → header omitted, call proceeds', async () => {
+  const fetch = fakeFetch([{ results: [] }]);
+  await execute(
+    await row('gaql', 'search'),
+    { customer: '55', body: gaqlBody('SELECT 1') },
+    { tokenProvider: token, fetch },
   );
-  assert.equal(fetch.calls.length, 0);
+  assert.equal(fetch.calls.length, 1);
+  assert.equal('login-customer-id' in fetch.calls[0].init.headers, false);
 });
 
 // --- pure units ---
@@ -148,22 +143,20 @@ test('gaqlBody wraps the query string', () => {
 });
 
 test('resolveAdsHeaders precedence: flag > env > config', () => {
+  const K = 'login-customer-id';
   // flag wins
-  assert.equal(
-    resolveAdsHeaders({ 'developer-token': 'F' }, { 'developer-token': 'C' })['developer-token'],
-    'F',
-  );
+  assert.equal(resolveAdsHeaders({ [K]: 'F' }, { [K]: 'C' })[K], 'F');
   // env over config (no flag)
-  process.env.GOOGLE_ADS_DEVELOPER_TOKEN = 'E';
+  process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID = 'E';
   try {
-    assert.equal(resolveAdsHeaders({}, { 'developer-token': 'C' })['developer-token'], 'E');
+    assert.equal(resolveAdsHeaders({}, { [K]: 'C' })[K], 'E');
   } finally {
-    delete process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
   }
   // config fallback
-  assert.equal(resolveAdsHeaders({}, { 'developer-token': 'C' })['developer-token'], 'C');
-  // login-customer-id resolved too; absent creds omitted
-  const h = resolveAdsHeaders({ 'login-customer-id': '999' }, {});
-  assert.equal(h['login-customer-id'], '999');
+  assert.equal(resolveAdsHeaders({}, { [K]: 'C' })[K], 'C');
+  // absent → omitted (and developer-token is never sent)
+  const h = resolveAdsHeaders({}, {});
+  assert.equal(K in h, false);
   assert.equal('developer-token' in h, false);
 });

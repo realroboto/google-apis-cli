@@ -22,7 +22,7 @@ test('--help lists the derived command tree and exits 0', async () => {
   assert.equal(r.code, 0);
   assert.match(r.stdout, /gsc/);
   assert.match(r.stdout, /sites {2}add \| delete \| get \| list/);
-  assert.match(r.stdout, /auth {2}login/);
+  assert.match(r.stdout, /auth {2}setup \| login/);
 });
 
 test('unknown api exits non-zero with a clear message', async () => {

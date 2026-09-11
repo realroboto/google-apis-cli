@@ -97,20 +97,20 @@ test('requiredHeaders: throws when missing, passes when supplied', async () => {
     httpMethod: 'GET',
     baseUrl: 'https://h',
     pathTemplate: '/v/x',
-    requiredHeaders: ['developer-token'],
+    requiredHeaders: ['x-required-header'],
   };
   const fetch = fakeFetch([{ body: {} }]);
   await assert.rejects(
     execute(row as unknown as ResolvedRow, {}, { tokenProvider: token, fetch }),
-    /missing required header: developer-token/,
+    /missing required header: x-required-header/,
   );
   const f2 = fakeFetch([{ body: {} }]);
   await execute(
     row as unknown as ResolvedRow,
     {},
-    { tokenProvider: token, fetch: f2, extraHeaders: { 'developer-token': 'DT' } },
+    { tokenProvider: token, fetch: f2, extraHeaders: { 'x-required-header': 'V' } },
   );
-  assert.equal(f2.calls[0].init.headers['developer-token'], 'DT');
+  assert.equal(f2.calls[0].init.headers['x-required-header'], 'V');
 });
 
 test('POST sends JSON body and Content-Type', async () => {

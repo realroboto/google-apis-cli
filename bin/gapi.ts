@@ -2,11 +2,18 @@
 // argv -> dispatch. The command tree, --help, and URL resolution all derive
 // from the auto-discovered manifests (single source). Two branches step outside
 // generic dispatch: `auth` (real handlers) and the `ads gaql` sugar (story 31,
-// query positional + --customer/--stream). Ads credentials ride as HTTP headers
-// (resolveAdsHeaders), gated on a row's requiredHeaders.
+// query positional + --customer/--stream). Ads adds the optional
+// login-customer-id HTTP header (resolveAdsHeaders) on `ads` calls only.
 import { parseArgs } from 'node:util';
 import { gaqlBody } from '../src/apis/ads.ts';
-import { loginLoopback, loginManual, logout, makeTokenProvider, status } from '../src/auth.ts';
+import {
+  configureAuth,
+  loginLoopback,
+  loginManual,
+  logout,
+  makeTokenProvider,
+  status,
+} from '../src/auth.ts';
 import { QUOTA_PROJECT_ENV, resolveAdsHeaders, resolveSetting } from '../src/config.ts';
 import { checkSchema, findRow, loadManifests } from '../src/manifest.ts';
 import { execute, pathParams } from '../src/rest.ts';
@@ -19,9 +26,8 @@ const GLOBAL_OPTIONS = {
   limit: { type: 'string' },
   body: { type: 'string' },
   project: { type: 'string' },
-  // Ads (see `ads gaql` sugar + resolveAdsHeaders): credentials sent as headers,
+  // Ads (see `ads gaql` sugar + resolveAdsHeaders): login-customer-id header,
   // target account, and search/searchStream toggle.
-  'developer-token': { type: 'string' },
   'login-customer-id': { type: 'string' },
   customer: { type: 'string' },
   stream: { type: 'boolean' },
@@ -29,7 +35,7 @@ const GLOBAL_OPTIONS = {
 
 function printTree(manifests: Record<string, Manifest>): void {
   console.log('gapi <api> <resource> <verb> [--json|--raw]\n');
-  console.log('auth  login [--manual] | status | logout\n');
+  console.log('auth  setup | login [--manual] | status | logout\n');
   for (const [api, m] of Object.entries(manifests).sort()) {
     console.log(api);
     for (const [resource, verbs] of Object.entries(m.resources).sort()) {
@@ -47,6 +53,10 @@ async function runAuth(sub: string | undefined, values: { manual?: boolean }): P
         ')',
     );
     return;
+  }
+  if (sub === 'setup') {
+    await configureAuth();
+    return console.error('gapi: saved to ~/.config/gapi/config.json');
   }
   if (sub === 'status') return console.log(JSON.stringify(status(), null, 2));
   if (sub === 'logout') {
@@ -125,11 +135,10 @@ async function main() {
     key: 'project',
   }) as string | undefined;
 
-  // Ads rows declare requiredHeaders (developer-token); resolve the header
-  // credentials only for them so other APIs never carry an Ads token.
-  const extraHeaders = row.requiredHeaders?.length
-    ? resolveAdsHeaders(values as Record<string, unknown>)
-    : undefined;
+  // Only Ads calls carry the optional login-customer-id header, so other APIs
+  // never send an Ads-specific header.
+  const extraHeaders =
+    api === 'ads' ? resolveAdsHeaders(values as Record<string, unknown>) : undefined;
 
   const { json, raw } = await execute(row, params, {
     tokenProvider: makeTokenProvider(),
