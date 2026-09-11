@@ -4,40 +4,97 @@ import { findRow, loadManifests } from '../src/manifest.ts';
 import { execute } from '../src/rest.ts';
 import type { FetchLike, FetchResponse, ResolvedRow } from '../src/types.ts';
 
-// Coverage-oracle fixture: the T4a core-family subset of the tagmanager v2
-// discovery doc, as `${httpMethod} ${path}` with path params collapsed to `{}`.
-// Frozen to discovery revision 20260909. Regenerate the full list with:
+// Coverage-oracle fixture: the full tagmanager v2 discovery surface MINUS the
+// four methods flagged `deprecated: true` (containers.combine, .move_tag_id,
+// destinations.get, destinations.link), as `${httpMethod} ${path}` with path
+// params collapsed to `{}`. Frozen to discovery revision 20260909. Regenerate,
+// excluding deprecated methods, with:
 //   curl -s 'https://tagmanager.googleapis.com/$discovery/rest?version=v2' \
-//   | jq -r 'def w: to_entries[]|.value as $r|(($r.methods//{})[]|"\(.httpMethod) /\(.flatPath//.path)"),(($r.resources//{})|w); .resources|w' \
+//   | jq -r 'def w: to_entries[]|.value as $r|(($r.methods//{})[]|select(.deprecated!=true)|"\(.httpMethod) /\(.flatPath//.path)"),(($r.resources//{})|w); .resources|w' \
 //   | sed -E 's/\{[^}]+\}/{}/g' | sort
-// then keep the accounts/containers/workspaces get+list rows and the
-// tags/triggers/variables/folders create+list+get+update+delete rows.
-// yagni: T4a subset only — T4b adds the rest and extends this list.
+// The self-check below fails if the manifest drops a non-deprecated method or
+// adds a deprecated/out-of-scope one.
 const A = '/tagmanager/v2/accounts';
-const WS = `${A}/{}/containers/{}/workspaces/{}`;
-const entityRows = (name: string) => [
-  `GET ${WS}/${name}`,
-  `GET ${WS}/${name}/{}`,
-  `POST ${WS}/${name}`,
-  `PUT ${WS}/${name}/{}`,
-  `DELETE ${WS}/${name}/{}`,
+const C = `${A}/{}/containers/{}`;
+const WS = `${C}/workspaces/{}`;
+
+const crud = (base: string, name: string) => [
+  `GET ${base}/${name}`,
+  `GET ${base}/${name}/{}`,
+  `POST ${base}/${name}`,
+  `PUT ${base}/${name}/{}`,
+  `DELETE ${base}/${name}/{}`,
 ];
-const DISCOVERY_T4A = [
+const wsEntity = (name: string) => [...crud(WS, name), `POST ${WS}/${name}/{}:revert`];
+
+const DISCOVERY = [
+  // accounts + user_permissions
   `GET ${A}`,
   `GET ${A}/{}`,
+  `PUT ${A}/{}`,
+  ...crud(`${A}/{}`, 'user_permissions'),
+  // containers
   `GET ${A}/{}/containers`,
-  `GET ${A}/{}/containers/{}`,
-  `GET ${A}/{}/containers/{}/workspaces`,
-  `GET ${A}/{}/containers/{}/workspaces/{}`,
-  ...entityRows('tags'),
-  ...entityRows('triggers'),
-  ...entityRows('variables'),
-  ...entityRows('folders'),
+  `GET ${C}`,
+  `POST ${A}/{}/containers`,
+  `PUT ${C}`,
+  `DELETE ${C}`,
+  `GET ${A}/containers:lookup`,
+  `GET ${C}:snippet`,
+  // destinations (get + link deprecated)
+  `GET ${C}/destinations`,
+  // environments
+  ...crud(C, 'environments'),
+  `POST ${C}/environments/{}:reauthorize`,
+  // versions (no list/create)
+  `GET ${C}/versions/{}`,
+  `GET ${C}/versions:live`,
+  `PUT ${C}/versions/{}`,
+  `DELETE ${C}/versions/{}`,
+  `POST ${C}/versions/{}:publish`,
+  `POST ${C}/versions/{}:set_latest`,
+  `POST ${C}/versions/{}:undelete`,
+  // version_headers
+  `GET ${C}/version_headers`,
+  `GET ${C}/version_headers:latest`,
+  // workspaces
+  `GET ${C}/workspaces`,
+  `GET ${WS}`,
+  `POST ${C}/workspaces`,
+  `PUT ${WS}`,
+  `DELETE ${WS}`,
+  `GET ${WS}/status`,
+  `POST ${WS}:create_version`,
+  `POST ${WS}/bulk_update`,
+  `POST ${WS}:quick_preview`,
+  `POST ${WS}:resolve_conflict`,
+  `POST ${WS}:sync`,
+  // built_in_variables (no get/update; collection-keyed)
+  `GET ${WS}/built_in_variables`,
+  `POST ${WS}/built_in_variables`,
+  `DELETE ${WS}/built_in_variables`,
+  `POST ${WS}/built_in_variables:revert`,
+  // folders (crud + revert + entities + move)
+  ...crud(WS, 'folders'),
+  `POST ${WS}/folders/{}:revert`,
+  `POST ${WS}/folders/{}:entities`,
+  `POST ${WS}/folders/{}:move_entities_to_folder`,
+  // workspace entities
+  ...wsEntity('tags'),
+  ...wsEntity('triggers'),
+  ...wsEntity('variables'),
+  ...wsEntity('clients'),
+  ...wsEntity('transformations'),
+  ...wsEntity('zones'),
+  ...wsEntity('templates'),
+  `POST ${WS}/templates:import_from_gallery`,
+  // gtag_config (no revert)
+  ...crud(WS, 'gtag_config'),
 ];
 
 const norm = (p: string) => p.replace(/\{\w+\}/g, '{}');
 
-test('coverage-oracle: gtm manifest covers the T4a core families exactly', async () => {
+test('coverage-oracle: gtm manifest covers the full v2 surface minus deprecated', async () => {
   const m = (await loadManifests()).gtm;
   assert.ok(m, 'gtm manifest discovered');
   const manifest = new Set<string>();
@@ -46,11 +103,12 @@ test('coverage-oracle: gtm manifest covers the T4a core families exactly', async
       manifest.add(`${row.httpMethod} ${norm(row.pathTemplate)}`);
     }
   }
-  const discovery = new Set(DISCOVERY_T4A);
+  const discovery = new Set(DISCOVERY);
+  assert.equal(DISCOVERY.length, 102, 'expected 102 non-deprecated v2 methods');
   const missing = [...discovery].filter((x) => !manifest.has(x));
   const extra = [...manifest].filter((x) => !discovery.has(x));
-  assert.deepEqual(missing, [], 'T4a discovery methods missing from manifest');
-  assert.deepEqual(extra, [], 'manifest methods outside the T4a subset');
+  assert.deepEqual(missing, [], 'discovery methods missing from manifest');
+  assert.deepEqual(extra, [], 'manifest methods outside the non-deprecated surface');
 });
 
 // --- executor-seam demos (fake fetch; no real network) ---
@@ -154,4 +212,81 @@ test('folders get: GET to item path (read demo)', async () => {
     new URL(fetch.calls[0].url).pathname,
     '/tagmanager/v2/accounts/1/containers/9/workspaces/7/folders/4',
   );
+});
+
+// --- T4b demos ---
+
+test('versions publish: POST to :publish action path (go-live demo)', async () => {
+  const fetch = fakeFetch([{ containerVersion: { published: true } }]);
+  const r = await execute(
+    await row('versions', 'publish'),
+    { account: '1', container: '9', version: '3' },
+    { tokenProvider: token, fetch },
+  );
+  const c = fetch.calls[0];
+  assert.equal(c.init.method, 'POST');
+  assert.equal(
+    new URL(c.url).pathname,
+    '/tagmanager/v2/accounts/1/containers/9/versions/3:publish',
+  );
+  assert.deepEqual(r.json, { containerVersion: { published: true } });
+});
+
+test('version-headers list: GET pages under containerVersionHeader listKey', async () => {
+  const fetch = fakeFetch([
+    { containerVersionHeader: [{ containerVersionId: '1' }], nextPageToken: 'n' },
+    { containerVersionHeader: [{ containerVersionId: '2' }] },
+  ]);
+  const { json } = await execute(
+    await row('version-headers', 'list'),
+    { account: '1', container: '9' },
+    { tokenProvider: token, fetch },
+  );
+  assert.deepEqual(json, {
+    containerVersionHeader: [{ containerVersionId: '1' }, { containerVersionId: '2' }],
+  });
+  assert.equal(
+    new URL(fetch.calls[0].url).pathname,
+    '/tagmanager/v2/accounts/1/containers/9/version_headers',
+  );
+});
+
+test('user-permissions create: POST under manage.users scope', async () => {
+  const fetch = fakeFetch([{ path: 'accounts/1/user_permissions/8' }]);
+  const r = await row('user-permissions', 'create');
+  assert.deepEqual(r.scopes, ['tagmanager.manage.users']);
+  await execute(
+    r,
+    { account: '1', body: { emailAddress: 'x@y.z' } },
+    { tokenProvider: token, fetch },
+  );
+  const c = fetch.calls[0];
+  assert.equal(c.init.method, 'POST');
+  assert.equal(new URL(c.url).pathname, '/tagmanager/v2/accounts/1/user_permissions');
+});
+
+test('accounts update: PUT under manage.accounts scope', async () => {
+  const r = await row('accounts', 'update');
+  assert.deepEqual(r.scopes, ['tagmanager.manage.accounts']);
+  const fetch = fakeFetch([{ accountId: '1', name: 'renamed' }]);
+  await execute(r, { account: '1', body: { name: 'renamed' } }, { tokenProvider: token, fetch });
+  assert.equal(fetch.calls[0].init.method, 'PUT');
+  assert.equal(new URL(fetch.calls[0].url).pathname, '/tagmanager/v2/accounts/1');
+});
+
+test('built-in-variables delete: DELETE collection path keyed by ?type', async () => {
+  const fetch = fakeFetch([{}]);
+  await execute(
+    await row('built-in-variables', 'delete'),
+    { account: '1', container: '9', workspace: '7', type: 'pageUrl' },
+    { tokenProvider: token, fetch },
+  );
+  const c = fetch.calls[0];
+  const u = new URL(c.url);
+  assert.equal(c.init.method, 'DELETE');
+  assert.equal(
+    u.pathname,
+    '/tagmanager/v2/accounts/1/containers/9/workspaces/7/built_in_variables',
+  );
+  assert.equal(u.searchParams.get('type'), 'pageUrl');
 });
