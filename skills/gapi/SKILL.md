@@ -26,8 +26,8 @@ Headless box (no browser)? `gapi auth login --manual` prints the URL and reads t
 gapi <api> <resource> <verb> [positional ...] [--body '<json>'] [--limit N] [--json|--raw]
 ```
 
-- **Positionals fill path params in order** — the `{name}` tokens in the path, then any query params.
-  `gapi ga4-admin properties get properties/123`
+- **Positionals fill path params in order** — the `{name}` tokens in the path, then any query params. Pass the bare id: each positional is URL-encoded into its token, so `properties/123` breaks.
+  `gapi ga4-admin properties get 123`
 - **Write verbs take `--body '<json>'`** — parsed as JSON, sent as the request body.
   `gapi gsc sites add '--body={"siteUrl":"https://x.com/"}'`
 - `--limit N` caps paginated results; otherwise `nextPageToken` pages are followed automatically.
