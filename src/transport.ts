@@ -54,14 +54,21 @@ export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
     print(plan.decode ? plan.decode(data) : data);
     return;
   }
-  // D6: one compact JSON line per page, until no nextPageToken or pageLimit pages.
+  // D6: one compact JSON line per page, until no nextPageToken or pageLimit pages. The next
+  // page repeats the call with only pageToken changed (AIP-158), in the query or the body.
   const url = new URL(plan.url);
+  let pageInit = init;
   for (let page = 1; page <= plan.pageLimit; page++) {
-    const data = await json(await call(url.href, init));
+    const data = await json(await call(url.href, pageInit));
     deps.out.write(`${JSON.stringify(data)}\n`);
     const token = isRecord(data) ? data.nextPageToken : undefined;
     if (typeof token !== 'string' || !token) return;
-    url.searchParams.set('pageToken', token);
+    if (plan.paging === 'query') {
+      url.searchParams.set('pageToken', token);
+    } else {
+      const body = { ...(isRecord(plan.body) ? plan.body : {}), pageToken: token };
+      pageInit = { ...init, body: JSON.stringify(body) };
+    }
   }
 }
 

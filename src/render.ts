@@ -189,7 +189,7 @@ export function schemaView(
       response: m.response,
       scopes: m.scopes,
       supportsMediaUpload: m.upload !== undefined,
-      supportsMediaDownload: m.download,
+      supportsMediaDownload: m.download !== undefined,
     };
     return `${JSON.stringify(shape, null, 2)}\n`;
   }

@@ -75,7 +75,7 @@ Default: one request, response printed as pretty JSON (`nextPageToken` included)
 gapi gtm accounts list --page-all --page-limit 5
 ```
 
-`--page-all` follows `nextPageToken`: one compact JSON line per page (NDJSON), at most `--page-limit` pages (default 10; needs `--page-all`). Only on methods with a `pageToken` query parameter, else exit 3. Ads `googleAds.search` pages in the body: use `+gaql --stream` for every row.
+`--page-all` follows `nextPageToken`: one compact JSON line per page (NDJSON), at most `--page-limit` pages (default 10; needs `--page-all`). Only on methods with a `pageToken` query parameter, or a `pageToken` request field whose response has `nextPageToken` (Ads/SA360 `search`, Places `searchText`, Merchant `reports.search`, …): there each page re-sends the same `--body` with `pageToken` set. Else exit 3. For every Ads row in one response, `+gaql --stream`.
 
 ## Media
 
@@ -85,7 +85,7 @@ gapi cm360 files get --params '{"reportId":"1","fileId":"2"}' --output report.cs
 ```
 
 - `--upload <file>` on methods with media upload. `--upload-protocol media|multipart|resumable` (default `multipart` with `--body`, else `media`; `resumable` only where Google offers it, 8 MiB chunks). `--upload-content-type` default from the file extension, else `application/octet-stream`.
-- `--output <file>` on methods with media download: adds `alt=media`, writes the body to the file, prints `{"path","bytes"}`.
+- `--output <file>` on methods with media download: adds `alt=media` (and the `download/` path prefix where Google sets `useMediaDownloadService`), writes the body to the file, prints `{"path","bytes"}`.
 - `--page-all`, `--upload` and `--output` do not combine.
 
 ## Helpers

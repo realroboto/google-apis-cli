@@ -2,6 +2,7 @@
 // Pure: no I/O; every rejection is a GapiError thrown before any network call.
 import { extname } from 'node:path';
 import { GapiError } from './errors.ts';
+import { isRecord } from './json.ts';
 import type {
   ApiMethod,
   ApiModel,
@@ -75,10 +76,12 @@ export function resolve(
     }
     const next = node.resources.get(word);
     if (!next) {
-      // A level with both: the last word names a method, an inner word a resource.
-      const last = i === words.length - 1;
       const kind =
-        node.methods.size > 0 && (node.resources.size === 0 || last) ? 'method' : 'resource';
+        node.methods.size === 0
+          ? 'resource'
+          : node.resources.size === 0
+            ? 'method'
+            : 'resource or method';
       const valid = [...node.resources.keys(), ...node.methods.keys()].join(', ');
       throw invalid(`unknown ${kind} '${word}' (valid: ${valid})`);
     }
@@ -110,11 +113,16 @@ export function plan(
 
   const values = paramValues(model, method, parseJson('--params', input.params) ?? {});
 
-  const body = parseJson('--body', input.body);
+  let body = parseJson('--body', input.body);
   if (body !== undefined && !method.request)
     throw invalid(`--body: ${command} takes no request body`);
 
   const mode = sendMode(method, command, input, body !== undefined);
+  // Body paging: every page sends this object, from page 2 on with pageToken set (D6).
+  if (mode.send === 'pages' && mode.paging === 'body') {
+    body ??= {};
+    if (!isRecord(body)) throw invalid('--page-all: --body must be a JSON object');
+  }
   const url = buildUrl(model, method, values, mode);
 
   const headers = contentHeaders(mode, body !== undefined);
@@ -174,10 +182,12 @@ function sendMode(
     return { send: 'download', output: input.output };
   }
   if (!input.pageAll) return { send: 'once' };
-  if (!method.pageable) throw invalid(`--page-all: ${command} has no pageToken parameter`);
+  if (!method.paging) {
+    throw invalid(`--page-all: ${command} has no pageToken parameter or request field`);
+  }
   const limit = input.pageLimit ?? '10';
   if (!/^[1-9]\d*$/.test(limit)) throw invalid('--page-limit must be a positive integer');
-  return { send: 'pages', pageLimit: Number(limit) };
+  return { send: 'pages', pageLimit: Number(limit), paging: method.paging };
 }
 
 // D7: protocol defaults to multipart with --body, else media; the type must fit `accept`.
@@ -292,7 +302,8 @@ function paramValues(
 }
 
 // rootUrl + servicePath + the discovery `path` with {x}/{+x} expanded, then the query string.
-// D7: an upload goes to rootUrl + `upload/` + …, a download adds alt=media.
+// D7: an upload goes to rootUrl + `upload/` + …, a download adds alt=media and, on a
+// `useMediaDownloadService` method, goes to rootUrl + `download/` + … (Discovery "Using").
 function buildUrl(
   model: ApiModel,
   method: ApiMethod,
@@ -316,7 +327,7 @@ function buildUrl(
           `pass the bare id: ${value.slice(segment.length)} (the path already has ${segment})`,
         );
       }
-      return encodeURIComponent(value);
+      return encodeSegment(value);
     },
   );
   const query = new URLSearchParams();
@@ -326,6 +337,19 @@ function buildUrl(
   if (mode.send === 'upload') query.append('uploadType', mode.upload.protocol);
   if (mode.send === 'download') query.append('alt', 'media');
   const qs = query.toString();
-  const root = mode.send === 'upload' ? `${model.rootUrl}upload/` : model.rootUrl;
+  const root =
+    mode.send === 'upload'
+      ? `${model.rootUrl}upload/`
+      : mode.send === 'download' && method.download?.service
+        ? `${model.rootUrl}download/`
+        : model.rootUrl;
   return `${root}${model.servicePath}${path}${qs ? `?${qs}` : ''}`;
 }
+
+// google/api/http.proto: {x} percent-encodes every character except [-_.~0-9a-zA-Z];
+// encodeURIComponent leaves !'()* as is.
+const encodeSegment = (value: string): string =>
+  encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );

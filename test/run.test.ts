@@ -255,6 +255,10 @@ test('path and query encoding: {+x} per segment, repeated params, scalars', asyn
       .url,
     'https://mini.googleapis.com/v1/files?view=BASIC&view=FULL&pageSize=5',
   );
+  assert.equal(
+    (await dryRun(['gsc', 'sites', 'get', '--params', `{"siteUrl":"a!'()*~"}`], true)).url,
+    'https://searchconsole.googleapis.com/webmasters/v3/sites/a%21%27%28%29%2A~',
+  );
 });
 
 test('an unavailable method exits 2 without a fetch; --dry-run still prints it', async () => {
@@ -304,6 +308,10 @@ test('validation errors exit 3 before any network call', async () => {
   const get = ['ga4-admin', 'properties', 'dataStreams', 'get'];
   const rows: [string[], RegExp, boolean?][] = [
     [['ga4-admin', 'bogus', 'list'], /^gapi: unknown resource 'bogus' \(valid: properties\)\n$/],
+    [
+      ['ga4-admin', 'properties', 'bogus'],
+      /^gapi: unknown resource or method 'bogus' \(valid: dataStreams, list\)\n$/,
+    ],
     [['gsc', 'sites', 'get', 'extra'], /^gapi: unexpected argument 'extra'\n$/],
     [['bogus'], /^gapi: unknown api: bogus\n$/],
     [[...get, '--params', '{'], /^gapi: --params is not valid JSON: /],
@@ -546,8 +554,38 @@ test('send: --page-all follows nextPageToken and prints one NDJSON line per page
   const none = fakeFetch(() => Response.json({}));
   const bad = await fx(['gsc', 'sites', 'list', '--page-all'], { fetch: none.fetch });
   assert.equal(bad.code, 3);
-  assert.equal(bad.stderr, 'gapi: --page-all: gsc sites list has no pageToken parameter\n');
+  assert.equal(
+    bad.stderr,
+    'gapi: --page-all: gsc sites list has no pageToken parameter or request field\n',
+  );
   assert.equal(none.calls.length, 0);
+});
+
+test('send: --page-all pages through the request body, same body plus pageToken', async () => {
+  const pages = [{ files: [1], nextPageToken: 't2' }, { files: [2] }];
+  const { fetch, calls } = fakeFetch(() => Response.json(pages[calls.length - 1]));
+  const r = await fx(['mini', 'files', 'search', '--body', '{"query":"q"}', '--page-all'], {
+    fetch,
+  });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.stdout, pages.map((p) => `${JSON.stringify(p)}\n`).join(''));
+  for (const c of calls) {
+    assert.equal(c.url, 'https://mini.googleapis.com/v1/files:search');
+    assert.equal(c.init?.method, 'POST');
+    assert.deepEqual(c.init?.headers, {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer TOK',
+    });
+  }
+  assert.deepEqual(
+    calls.map((c) => JSON.parse(String(c.init?.body))),
+    [{ query: 'q' }, { query: 'q', pageToken: 't2' }],
+  );
+  const bare = await dryRun(['mini', 'files', 'search', '--page-all']);
+  assert.deepEqual([bare.headers['Content-Type'], bare.body], ['application/json', {}]);
+  const list = await fx(['mini', 'files', 'search', '--body', '[]', '--page-all', '--dry-run']);
+  assert.equal(list.code, 3);
+  assert.equal(list.stderr, 'gapi: --page-all: --body must be a JSON object\n');
 });
 
 test('send: reads only the config dir in io.env, never HOME', async () => {
@@ -666,7 +704,7 @@ test('media --dry-run prints the upload session request and the alt=media reques
   const download = ['mini', 'files', 'download', '--params', '{"name":"files/a"}'];
   assert.deepEqual(await dryRun([...download, '--output', out]), {
     method: 'GET',
-    url: 'https://mini.googleapis.com/v1/files/a:download?alt=media',
+    url: 'https://mini.googleapis.com/download/v1/files/a:download?alt=media',
     headers: { Authorization: 'Bearer <redacted>' },
     output: out,
   });
@@ -787,7 +825,7 @@ test('send: --output streams the body to the file and prints its path and size',
   assert.equal(r.code, 0, r.stderr);
   assert.equal(r.stdout, `${JSON.stringify({ path: out, bytes: body.length }, null, 2)}\n`);
   assert.deepEqual(readFileSync(out), body);
-  assert.equal(calls[0].url, 'https://mini.googleapis.com/v1/files/a:download?alt=media');
+  assert.equal(calls[0].url, 'https://mini.googleapis.com/download/v1/files/a:download?alt=media');
 
   const empty = fakeFetch(() => new Response(null));
   assert.equal((await fx(download, { fetch: empty.fetch })).code, 0);

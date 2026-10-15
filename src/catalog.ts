@@ -36,6 +36,7 @@ type DiscoveryMethod = {
   supportsMediaUpload?: boolean;
   mediaUpload?: { accept?: string[]; maxSize?: string; protocols?: { resumable?: object } };
   supportsMediaDownload?: boolean;
+  useMediaDownloadService?: boolean;
 };
 type DiscoveryResource = {
   resources?: Record<string, DiscoveryResource>;
@@ -144,7 +145,7 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
   const build = (node: DiscoveryResource, words: string[]): ApiResource => ({
     methods: new Map(
       Object.entries(node.methods ?? {}).map(([key, m]) => {
-        const method = toMethod(m, [...words, key], scopes);
+        const method = toMethod(m, [...words, key], scopes, doc.schemas ?? {});
         byId.set(method.id, method);
         return [key, method];
       }),
@@ -208,9 +209,18 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
 }
 
 // A method whose document lists no scopes takes the entry scopes (D8: `business-*`).
-function toMethod(m: DiscoveryMethod, words: string[], entryScopes: string[]): ApiMethod {
+function toMethod(
+  m: DiscoveryMethod,
+  words: string[],
+  entryScopes: string[],
+  schemas: Record<string, DiscoverySchema>,
+): ApiMethod {
   const scopes = m.scopes?.length ? m.scopes : entryScopes;
   const parameters = new Map(Object.entries(m.parameters ?? {}));
+  const schemaHas = (ref: { $ref: string } | undefined, field: string): boolean => {
+    const properties = ref && Object.hasOwn(schemas, ref.$ref) ? schemas[ref.$ref].properties : {};
+    return isRecord(properties) && Object.hasOwn(properties, field);
+  };
   return {
     id: m.id,
     words,
@@ -232,8 +242,14 @@ function toMethod(m: DiscoveryMethod, words: string[], entryScopes: string[]): A
           resumable: m.mediaUpload?.protocols?.resumable !== undefined,
         }
       : undefined,
-    download: m.supportsMediaDownload === true,
-    pageable: parameters.get('pageToken')?.location === 'query',
+    download: m.supportsMediaDownload ? { service: m.useMediaDownloadService === true } : undefined,
+    // D6: a `pageToken` query parameter, else a request field answered by `nextPageToken`.
+    paging:
+      parameters.get('pageToken')?.location === 'query'
+        ? 'query'
+        : schemaHas(m.request, 'pageToken') && schemaHas(m.response, 'nextPageToken')
+          ? 'body'
+          : undefined,
   };
 }
 
