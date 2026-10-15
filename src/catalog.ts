@@ -219,8 +219,7 @@ function toMethod(m: DiscoveryMethod, words: string[]): ApiMethod {
   };
 }
 
-// Default exports of the API directory, keyed by `api`, which must equal the file
-// base name (D1). Matches dev (.ts) and published (.js) files; skips declaration files.
+// Dev (.ts) and published (.js) entries, keyed by `api`; D1 ties `api` to the file name.
 async function loadEntries(dir: string): Promise<Record<string, ApiEntry>> {
   const files = (await readdir(dir)).filter(
     (f) => (f.endsWith('.ts') || f.endsWith('.js')) && !f.endsWith('.d.ts'),
