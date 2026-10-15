@@ -253,6 +253,38 @@ test('setup prompts every field, writes config.json mode 600, blank keeps curren
   );
 });
 
+test('invalid config.json exits 2 naming the file, before any prompt or write', async () => {
+  const dir = tempDir();
+  const file = join(dir, 'config.json');
+  writeFileSync(file, '{');
+  const creds = openCredentials({ dir, env: {} });
+  const fails = { exit: 2, message: /config\.json/ };
+  assert.throws(() => creds.settings({}), fails);
+  assert.throws(() => creds.status(CONSENT), fails);
+  let prompted = false;
+  await assert.rejects(
+    creds.setup(async () => {
+      prompted = true;
+      return 'x';
+    }),
+    fails,
+  );
+  assert.equal(prompted, false);
+  assert.equal(readFileSync(file, 'utf8'), '{');
+});
+
+test('credentials.json without a string refresh_token reads as not logged in', () => {
+  const dir = tempDir();
+  const creds = openCredentials({ dir, env: {} });
+  for (const stored of ['[]', '{}']) {
+    writeFileSync(join(dir, 'credentials.json'), stored);
+    assert.throws(() => creds.status(CONSENT), {
+      exit: 2,
+      message: 'not logged in; run gapi auth login',
+    });
+  }
+});
+
 // Masking runs through readline's own terminal echo, so drive a terminal-mode
 // interface over in-memory streams: unmasked, the typed value reaches `output`.
 test('defaultPrompt masks a secret answer but echoes a normal one', async () => {
