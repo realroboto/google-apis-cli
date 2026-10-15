@@ -155,13 +155,13 @@ Both are 10 digits with the hyphens removed (`123-456-7890` → `1234567890`).
 
 | Value | Meaning | Where to read it |
 |---|---|---|
-| `--customer` | the account a call targets | Google Ads UI, top right, while in that account |
+| `--customer` (`+gaql`) or `customerId` (`--params`) | the account a call targets | Google Ads UI, top right, while in that account |
 | `--login-customer-id` | the manager (MCC) account acting on it | the manager account's own ID; omit it for direct access |
 
 Direct-access accounts need only `--customer`. Confirm what your login can reach:
 
 ```
-gapi ads customers list-accessible
+gapi ads customers listAccessibleCustomers
 gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
 ```
 
