@@ -96,7 +96,10 @@ test('method --help shows the story-8 fields', async () => {
 
 test('D5 examples: --dry-run prints the exact request', async () => {
   assert.deepEqual(
-    await dryRun(['ga4-admin', 'properties', 'list', '--params', '{"filter":"parent:accounts/1"}']),
+    await dryRun(
+      ['ga4-admin', 'properties', 'list', '--params', '{"filter":"parent:accounts/1"}'],
+      true,
+    ),
     {
       method: 'GET',
       url: 'https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent%3Aaccounts%2F1',
@@ -105,10 +108,10 @@ test('D5 examples: --dry-run prints the exact request', async () => {
   );
   const get = ['ga4-admin', 'properties', 'dataStreams', 'get', '--params'];
   assert.equal(
-    (await dryRun([...get, '{"name":"properties/1/dataStreams/2"}'])).url,
+    (await dryRun([...get, '{"name":"properties/1/dataStreams/2"}'], true)).url,
     'https://analyticsadmin.googleapis.com/v1beta/properties/1/dataStreams/2',
   );
-  const bad = await fx([...get, '{"name":"2"}', '--dry-run']);
+  const bad = await sh([...get, '{"name":"2"}', '--dry-run']);
   assert.equal(bad.code, 3);
   assert.equal(bad.stderr, 'gapi: name must match ^properties/[^/]+/dataStreams/[^/]+$\n');
   assert.equal(
@@ -245,8 +248,8 @@ test('validation errors exit 3 before any network call', async () => {
     [['ads', '+nope'], /^gapi: unknown helper '\+nope' \(valid: \+gaql\)\n$/, true],
     // #28: the value repeats the literal segment before a simple {x} placeholder.
     [
-      ['ga4-admin', 'properties', 'get', '--params', '{"property":"properties/1"}'],
-      /^gapi: pass the bare id: 1 \(the path already has properties\/\)\n$/,
+      ['gsc', 'sites', 'get', '--params', '{"siteUrl":"sites/x"}'],
+      /^gapi: pass the bare id: x \(the path already has sites\/\)\n$/,
       true,
     ],
   ];
