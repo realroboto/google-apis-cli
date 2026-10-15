@@ -57,6 +57,12 @@ const SETUP_FIELDS = [
   { key: 'api_key', label: 'API key (optional, CrUX/PageSpeed)', required: false, secret: true },
 ] as const;
 
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+const isCredentials = (v: unknown): v is Credentials =>
+  isRecord(v) && typeof v.refresh_token === 'string';
+
 const short = (scope: string): string =>
   scope.startsWith(AUTH_PREFIX) ? scope.slice(AUTH_PREFIX.length) : scope;
 
@@ -71,12 +77,25 @@ export function openCredentials({
   let apiKey: string | undefined;
   let tokenClient: OAuthClient | undefined;
 
+  // Only a missing file reads as {}: anything else stops before `setup` can overwrite it.
+  // The parse error is not echoed, since V8 quotes the file text (secrets) in it.
   const readConfig = (): Record<string, unknown> => {
+    let text: string;
     try {
-      return JSON.parse(readFileSync(configFile, 'utf8'));
-    } catch {
-      return {};
+      text = readFileSync(configFile, 'utf8');
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return {};
+      throw new GapiError(2, `cannot read ${configFile}: ${(e as Error).message}`);
     }
+    let cfg: unknown;
+    try {
+      cfg = JSON.parse(text);
+    } catch {
+      throw new GapiError(2, `${configFile} is not valid JSON; fix or remove it`);
+    }
+    if (!isRecord(cfg))
+      throw new GapiError(2, `${configFile} is not a JSON object; fix or remove it`);
+    return cfg;
   };
 
   // Owner-only: dir 700, file 600. `mode` applies only on create, so a file that
@@ -88,11 +107,14 @@ export function openCredentials({
   };
 
   const readCredentials = (): Credentials => {
+    let creds: unknown;
     try {
-      return JSON.parse(readFileSync(credentialsFile, 'utf8'));
+      creds = JSON.parse(readFileSync(credentialsFile, 'utf8'));
     } catch {
-      throw new GapiError(2, `not logged in; ${RELOGIN}`);
+      // missing or unreadable reads as logged out, same as a bad shape below
     }
+    if (!isCredentials(creds)) throw new GapiError(2, `not logged in; ${RELOGIN}`);
+    return creds;
   };
 
   const client = (redirectUri?: string): OAuthClient => {
@@ -220,12 +242,13 @@ export function openCredentials({
   }
 
   function status(consent: string[]) {
+    const cfg = readConfig();
     const creds = readCredentials();
     const granted = new Set((creds.scope ?? '').split(' ').filter(Boolean));
     return {
       account: creds.id_token ? accountFromIdToken(creds.id_token) : null,
       hasRefreshToken: Boolean(creds.refresh_token),
-      hasApiKey: setting({}, readConfig(), API_KEY_SETTING) !== undefined,
+      hasApiKey: setting({}, cfg, API_KEY_SETTING) !== undefined,
       expiryDate: creds.expiry_date ? new Date(creds.expiry_date).toISOString() : null,
       scopes: [...granted].map(short),
       missing: consent.filter((s) => !granted.has(s)).map(short),
