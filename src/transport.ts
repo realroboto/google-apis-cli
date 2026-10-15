@@ -31,12 +31,14 @@ export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
     return;
   }
   if (plan.send === 'batch') {
-    const results = (await batch(plan, call)).map(({ status, text }) => ({
+    const sent = await batch(plan, call);
+    const results = sent.results.map(({ status, text }) => ({
       status,
       body: text ? parseOrText(text) : undefined,
     }));
-    print(plan.decode ? plan.decode(results) : results);
-    // Every result is printed first; a failed part is in its `status` and `body`.
+    // Results print before any failure: the parts already sent were acted on.
+    if (results.length > 0 || !sent.error) print(plan.decode ? plan.decode(results) : results);
+    if (sent.error) throw sent.error;
     const failed = results.filter((r) => r.status < 200 || r.status > 299).length;
     if (failed > 0) throw new GapiError(1, `${failed} of ${results.length} batch parts failed`);
     return;

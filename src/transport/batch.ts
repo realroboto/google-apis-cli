@@ -8,16 +8,24 @@ import type { BatchPart, CallPlan } from '../types.ts';
 const MAX_PARTS = 100;
 
 type BatchPlan = Extract<CallPlan, { send: 'batch' }>;
-// One inner response: its status and raw body text (Transport decodes it).
+// Transport decodes `text`, as it decodes every other response body.
 export type PartResult = { status: number; text: string };
 
-// One result per part, in the plan's part order.
-export async function batch(plan: BatchPlan, call: Call): Promise<PartResult[]> {
+// A failed call stops the run but keeps the results of the calls before it: Google has
+// already acted on those parts, so the caller must still see them.
+export async function batch(
+  plan: BatchPlan,
+  call: Call,
+): Promise<{ results: PartResult[]; error?: unknown }> {
   const results: PartResult[] = [];
   for (let start = 0; start < plan.parts.length; start += MAX_PARTS) {
-    results.push(...(await chunk(plan, plan.parts.slice(start, start + MAX_PARTS), call)));
+    try {
+      results.push(...(await chunk(plan, plan.parts.slice(start, start + MAX_PARTS), call)));
+    } catch (error) {
+      return { results, error };
+    }
   }
-  return results;
+  return { results };
 }
 
 async function chunk(plan: BatchPlan, parts: BatchPart[], call: Call): Promise<PartResult[]> {
@@ -26,9 +34,11 @@ async function chunk(plan: BatchPlan, parts: BatchPart[], call: Call): Promise<P
   const headers = { ...plan.headers, 'Content-Type': `multipart/mixed; boundary=${boundary}` };
   const res = await call(plan.url, { method: 'POST', headers, body });
   // Google picks its own response boundary.
-  const answer = /boundary="?([^";]+)"?/i.exec(res.headers.get('Content-Type') ?? '')?.[1];
-  if (!answer) throw new Error('batch: the response has no multipart boundary');
-  const byId = responses(await res.text(), answer);
+  const responseBoundary = /boundary="?([^";]+)"?/i.exec(
+    res.headers.get('Content-Type') ?? '',
+  )?.[1];
+  if (!responseBoundary) throw new Error('batch: the response has no multipart boundary');
+  const byId = responses(await res.text(), responseBoundary);
   return parts.map((_, i) => {
     const result = byId.get(String(i + 1));
     if (!result) throw new Error(`batch: no response for part ${i + 1}`);
@@ -53,9 +63,9 @@ function responses(text: string, boundary: string): Map<string, PartResult> {
   const byId = new Map<string, PartResult>();
   for (const raw of text.split(`--${boundary}`).slice(1)) {
     if (raw.startsWith('--')) break;
-    const [head, response] = cut(raw.replace(/^\r?\n/, ''));
+    const [head, response] = splitAtBlankLine(raw.replace(/^\r?\n/, ''));
     const id = /^content-id:\s*<response-([^>]+)>\s*$/im.exec(head)?.[1];
-    const [statusHead, content] = cut(response);
+    const [statusHead, content] = splitAtBlankLine(response);
     const status = Number(/^HTTP\/\S+ (\d{3})/.exec(statusHead)?.[1]);
     if (id === undefined || !status) throw new Error('batch: malformed response part');
     byId.set(id, { status, text: content.trim() });
@@ -63,8 +73,7 @@ function responses(text: string, boundary: string): Map<string, PartResult> {
   return byId;
 }
 
-// Splits at the first blank line: [headers, rest].
-function cut(text: string): [string, string] {
+function splitAtBlankLine(text: string): [string, string] {
   const blank = /\r?\n\r?\n/.exec(text);
   return blank
     ? [text.slice(0, blank.index), text.slice(blank.index + blank[0].length)]

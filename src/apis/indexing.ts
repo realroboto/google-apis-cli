@@ -38,13 +38,9 @@ const publishBatch: Helper = {
       auth: parts[0].auth,
       warnings: parts[0].warnings,
       send: 'batch',
-      parts: parts.map(({ httpMethod, url, headers, body }) => ({
-        httpMethod,
-        url,
-        headers,
-        body,
-      })),
-      decode: (results) => (results as object[]).map((r, i) => ({ ...notes[i], ...r })),
+      parts,
+      decode: (results) =>
+        Array.isArray(results) ? results.map((r, i) => ({ ...notes[i], ...r })) : results,
     };
   },
 };

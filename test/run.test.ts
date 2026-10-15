@@ -725,9 +725,9 @@ test('send: +publishBatch sends at most 100 parts per call, results in input ord
     [...(await new Response(body).text()).matchAll(/^Content-ID: <(\d+)>\r$/gm)].map((m) =>
       Number(m[1]),
     );
-  const { fetch, calls } = fakeFetch(async (_url, init) =>
-    batchAnswer((await ids(init?.body)).map((id) => [id, 200, { part: id }])),
-  );
+  const answer = async (_url: string, init?: RequestInit) =>
+    batchAnswer((await ids(init?.body)).map((id) => [id, 200, { part: id }]));
+  const { fetch, calls } = fakeFetch(answer);
   const r = await sh(['indexing', '+publishBatch', many], { fetch });
   assert.equal(r.code, 0, r.stderr);
   assert.deepEqual(
@@ -745,6 +745,16 @@ test('send: +publishBatch sends at most 100 parts per call, results in input ord
     body: { part: (i % 100) + 1 },
   }));
   assert.equal(r.stdout, `${JSON.stringify(results, null, 2)}\n`);
+
+  // A failed second call still prints the 100 parts Google took in the first.
+  const error = { code: 503, message: 'The service is currently unavailable.' };
+  const second = fakeFetch((url, init) =>
+    second.calls.length === 1 ? answer(url, init) : Response.json({ error }, { status: 503 }),
+  );
+  const p = await sh(['indexing', '+publishBatch', many], { fetch: second.fetch });
+  assert.equal(p.code, 1);
+  assert.equal(p.stderr, `gapi: ${error.message}\n${JSON.stringify(error, null, 2)}\n`);
+  assert.equal(p.stdout, `${JSON.stringify(results.slice(0, 100), null, 2)}\n`);
 });
 
 test('send: +publishBatch prints every part result and exits 1 when one part fails', async () => {
