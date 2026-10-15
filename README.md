@@ -21,9 +21,9 @@ Needs **Node ≥ 24** — `gapi` ships as TypeScript and runs on Node's native t
 ## Start here
 
 ```
-gapi auth setup   # store your own OAuth Desktop client (id + secret)
-gapi auth login   # one consent, all 13 scopes
-gapi auth status  # account, refresh token, granted scopes
+gapi auth setup   # store your own OAuth Desktop client (id + secret), optional ids and API key
+gapi auth login   # one consent for every scope the API entries use
+gapi auth status  # account, refresh token, granted and missing scopes
 ```
 
 First run, or a console step fails? **[docs/SETUP.md](docs/SETUP.md)** walks the five steps and
@@ -47,9 +47,9 @@ A call moves through these parts in order (migration in progress, epic #30).
 | **run** | `src/run.ts` | `run(argv, io)`: strict argv parse, routing (`--help`, `auth`, `schema`, `discovery`, `<api> …`), `GapiError` → exit code. `bin/gapi.ts` passes process io. |
 | **Catalog** | `src/catalog.ts` | API entries (`src/apis/*.ts`, glob, no registry) → `ApiModel`. Discovery entries: document cached 24 h. Hand manifests: `legacyDoc` until migrated. |
 | **Planner** | `src/plan.ts` | `plan(model, words \| methodId, input, settings)` → `CallPlan`. Pure. Every `--params`/`--body` rule; validation fails exit 3 before network. |
-| **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1. `--page-all` follows `nextPageToken`: one JSON line per page, max `--page-limit` (default 10). `--dry-run` prints the plan instead. |
+| **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1; 403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` → exit 2. `--page-all` follows `nextPageToken`: one JSON line per page, max `--page-limit` (default 10). `--dry-run` prints the plan instead. |
 | **Renderers** | `src/render.ts` | Root help, level listing, method help, `schemaView` (`$ref` expansion, cycle guard). |
-| **auth** | `src/auth.ts`, `src/config.ts` | `gapi auth login`: one OAuth consent, refresh token in `<config dir>/credentials.json` (mode 600). Interim token provider + settings resolvers until Credentials (#41). |
+| **Credentials** | `src/credentials.ts` | Only reader and writer of `config.json` and `credentials.json` (mode 600) in the config dir (`GAPI_CONFIG_DIR` or `~/.config/gapi`). `settings`: `--project`, `--api-key` and entry header flags, each flag → env → config. `authorize`: OAuth Bearer (refreshed token saved) or `X-Goog-Api-Key`. `login`, `status` (with `missing`), `logout`, `setup`. |
 
 CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Terms: [GLOSSARY.md](GLOSSARY.md).
 

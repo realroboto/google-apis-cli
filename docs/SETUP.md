@@ -105,9 +105,10 @@ Copy the **client ID** and **client secret** from the dialog, then store them:
 gapi auth setup
 ```
 
-It prompts for the client ID, the client secret, and the optional Ads `login-customer-id`.
+It prompts for the client ID, the client secret, and three optional values: the Ads
+`login-customer-id`, the SA360 `sa360-login-customer-id`, and an API key (CrUX, PageSpeed).
 A blank answer keeps whatever is already stored. It writes `~/.config/gapi/config.json` (mode 600).
-The secret prompt stays blank while you type — that is the masking, not a dead terminal.
+The secret and API-key prompts stay blank while you type — that is the masking, not a dead terminal.
 
 For CI, set `GAPI_OAUTH_CLIENT_ID` and `GAPI_OAUTH_CLIENT_SECRET` and skip the prompt —
 environment wins over the config file.
@@ -116,7 +117,7 @@ environment wins over the config file.
 > Treat it like a password: it belongs in the prompt or the environment, never in a shell
 > history, a commit, or a chat window. Leaked? Reset it under Clients → your client.
 
-**Done when** `gapi auth setup` prints `saved to ~/.config/gapi/config.json`.
+**Done when** `gapi auth setup` prints `saved to <config dir>/config.json`.
 
 ---
 
@@ -127,7 +128,7 @@ gapi auth login            # loopback on 127.0.0.1:4600
 gapi auth login --manual   # headless: prints the URL, takes the pasted code
 ```
 
-One consent grants all 13 scopes. Sign in with the address you listed as a test user.
+One consent grants every scope the API entries use, plus `openid` and `email`. Sign in with the address you listed as a test user.
 An unverified app shows a warning screen — continue through **Advanced** to reach the
 scope list, then accept.
 
@@ -137,7 +138,8 @@ Verify:
 gapi auth status
 ```
 
-It prints the account, whether a refresh token is stored, and the granted scopes.
+It prints the account, whether a refresh token is stored, the granted scopes, and `missing`:
+the consent scopes the stored grant lacks. A non-empty `missing` means run `gapi auth login` again.
 
 > **Trap — port 4600 lingers.** A login you interrupted keeps the listener, and the next one
 > dies on `EADDRINUSE`. Clear it: `lsof -tiTCP:4600 | xargs kill`.
@@ -174,6 +176,8 @@ gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
   "oauth_client_id": "...apps.googleusercontent.com",
   "oauth_client_secret": "...",
   "login-customer-id": "1234567890",
+  "sa360-login-customer-id": "1234567890",
+  "api_key": "...",
   "project": "my-quota-project"
 }
 ```
@@ -182,10 +186,16 @@ gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
 |---|---|---|
 | `oauth_client_id` | — | `GAPI_OAUTH_CLIENT_ID` |
 | `oauth_client_secret` | — | `GAPI_OAUTH_CLIENT_SECRET` |
-| `login-customer-id` | `--login-customer-id` | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` |
+| `login-customer-id` | `--login-customer-id` (ads only) | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` |
+| `sa360-login-customer-id` | `--login-customer-id` (sa360 only) | `SA360_LOGIN_CUSTOMER_ID` |
+| `api_key` | `--api-key` | `GAPI_API_KEY` |
 | `project` | `--project` | `GOOGLE_CLOUD_PROJECT` |
 
-Flags beat environment variables, which beat the file.
+Flags beat environment variables, which beat the file. A header flag such as
+`--login-customer-id` works only on the APIs that declare it; elsewhere it exits 3.
+API-key APIs (CrUX, PageSpeed) send `X-Goog-Api-Key`, never the OAuth token. CrUX needs the
+key (exit 2 without it). PageSpeed sends the key only when one is set. `project` (the
+`x-goog-user-project` header) is sent only with OAuth.
 
 `gapi auth logout` deletes `credentials.json` and leaves `config.json` — a later
 `gapi auth login` reuses the same client.
@@ -198,7 +208,9 @@ Flags beat environment variables, which beat the file.
 |---|---|---|
 | `OAuth client not configured` | no client ID or secret resolved | step 4 |
 | `Error 403: access_denied` at consent | Testing, and the address is not a test user | step 3 |
-| `invalid_grant` after about a week | Testing refresh token expired | `gapi auth login`, or publish |
+| `token expired or revoked` (exit 2) after about a week | Testing refresh token expired (`invalid_grant`) | `gapi auth login`, or publish |
+| `missing scope (…); run gapi auth login` (exit 2) | the stored grant predates a scope a new API needs | `gapi auth login` |
+| `API key required` (exit 2) | CrUX call with no key | `--api-key`, `GAPI_API_KEY`, or `gapi auth setup` |
 | `EADDRINUSE :::4600` | an earlier login still holds the port | `lsof -tiTCP:4600 \| xargs kill` |
 | `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | Ads level is Test | step 2 |
 | `403 SERVICE_DISABLED` | API not enabled on the project | step 1 |
