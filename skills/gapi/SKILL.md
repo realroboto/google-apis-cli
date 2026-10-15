@@ -42,6 +42,7 @@ gapi ga4-admin properties dataStreams list --params '{"parent":"properties/123"}
 - Repeated parameter → JSON array. Enum value outside the enum → exit 3.
 - Unknown name or missing required parameter → exit 3. Help shows `required (per description)` when only the description says "Required."; gapi does not enforce those (Google's 400 names them).
 - `--body` = request body JSON. Rejected (exit 3) on methods without a request body.
+- A number above 2^53 in `--params` or `--body` → exit 3 (JSON would round it). Pass int64 ids as strings: `{"profileId":"12345678901234567890"}`.
 
 ```sh
 gapi ga4-admin properties list --params '{"filter":"parent:accounts/123"}'
