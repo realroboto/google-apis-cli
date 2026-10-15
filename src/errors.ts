@@ -18,3 +18,6 @@ export const messageOf = (e: unknown): string => (e instanceof Error ? e.message
 // A Node system error's `code` (`ENOENT`, `EACCES`, …); undefined for anything else.
 export const codeOf = (e: unknown): unknown =>
   e instanceof Error && 'code' in e ? e.code : undefined;
+
+// Why a file operation failed: the system error code when there is one, else the message.
+export const reasonOf = (e: unknown): string => String(codeOf(e) ?? messageOf(e));

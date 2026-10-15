@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -243,6 +251,21 @@ test('authorize: Bearer from the stored token; refreshed tokens persisted; inval
   await assert.rejects(none.authorize(auth), GapiError);
 });
 
+test('authorize exits 2 when the refreshed token cannot be saved', async () => {
+  const dir = tempDir();
+  const file = join(dir, 'credentials.json');
+  writeFileSync(file, JSON.stringify({ refresh_token: 'RT', access_token: 'OLD' }));
+  chmodSync(file, 0o400); // readable, so only the write of the refreshed token fails
+  const { oauth } = fakeOAuth(async (emit) => {
+    emit({ access_token: 'NEW', expiry_date: 222 });
+    return { token: 'NEW' };
+  });
+  await assert.rejects(
+    openCredentials({ dir, env: ENV, oauth }).authorize({ kind: 'oauth', scopes: CONSENT }),
+    { exit: 2, message: /^cannot save the refreshed token: EACCES: permission denied/ },
+  );
+});
+
 test('authorize: API key from flag, env or config; required only where the method lists no scope', async () => {
   const warnings: string[] = [];
   const creds = openCredentials({ dir: tempDir(), env: {}, warn: (m) => warnings.push(m) });
@@ -374,6 +397,15 @@ test('logout revokes the refresh token, then deletes credentials.json', async ()
   const dir = loggedIn();
   const { oauth, seen } = fakeOAuth();
   await openCredentials({ dir, env: ENV, oauth }).logout();
+  assert.equal(seen.revoked, 'RT');
+  assert.equal(existsSync(join(dir, 'credentials.json')), false);
+});
+
+// Google's revoke endpoint takes only the token: no OAuth client id or secret.
+test('logout revokes and deletes with no OAuth client configured', async () => {
+  const dir = loggedIn();
+  const { oauth, seen } = fakeOAuth();
+  await openCredentials({ dir, env: {}, oauth }).logout();
   assert.equal(seen.revoked, 'RT');
   assert.equal(existsSync(join(dir, 'credentials.json')), false);
 });

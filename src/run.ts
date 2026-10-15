@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import { openCatalog } from './catalog.ts';
 import { configDir, openCredentials } from './credentials.ts';
-import { codeOf, GapiError, messageOf } from './errors.ts';
+import { GapiError, messageOf, reasonOf } from './errors.ts';
 import { isRecord } from './json.ts';
 import { parseJson, plan, resolve } from './plan.ts';
 import {
@@ -234,7 +234,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       settings: await creds.settings(values, model.headers),
       read: (path) =>
         readFile(path, 'utf8').catch((e: unknown) => {
-          throw new GapiError(3, `cannot read ${path}: ${codeOf(e) ?? messageOf(e)}`);
+          throw new GapiError(3, `cannot read ${path}: ${reasonOf(e)}`);
         }),
     });
     return perform(call, values['dry-run'] === true, io, creds.authorize);

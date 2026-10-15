@@ -114,16 +114,11 @@ export function plan(
 
   const values = paramValues(model, method, input.params ?? {});
 
-  let body = input.body;
-  if (body !== undefined && !method.request)
+  if (input.body !== undefined && !method.request)
     throw invalid(`--body: ${command} takes no request body`);
 
-  const mode = sendMode(method, command, input, body !== undefined);
-  // Body paging: every page sends this object, from page 2 on with pageToken set (D6).
-  if (mode.send === 'pages' && mode.paging === 'body') {
-    body ??= {};
-    if (!isRecord(body)) throw invalid('--page-all: --body must be a JSON object');
-  }
+  const mode = sendMode(method, command, input);
+  const body = mode.send === 'pages' && mode.paging === 'body' ? mode.body : input.body;
   const url = buildUrl(model, method, values, mode);
 
   const headers = contentHeaders(mode, body !== undefined);
@@ -170,12 +165,7 @@ function contentHeaders(mode: SendMode, hasBody: boolean): Record<string, string
 
 // D6 paging, D7 media: at most one of --page-all, --upload, --output, each only where the
 // method supports it.
-function sendMode(
-  method: ApiMethod,
-  command: string,
-  input: PlanInput,
-  hasBody: boolean,
-): SendMode {
+function sendMode(method: ApiMethod, command: string, input: PlanInput): SendMode {
   const chosen = [
     input.pageAll && '--page-all',
     input.upload !== undefined && '--upload',
@@ -186,6 +176,7 @@ function sendMode(
     throw invalid('--page-limit needs --page-all');
   }
   if (input.upload !== undefined) {
+    const hasBody = input.body !== undefined;
     return { send: 'upload', upload: upload(method, command, input.upload, input, hasBody) };
   }
   for (const [flag, value] of [
@@ -204,7 +195,12 @@ function sendMode(
   }
   const limit = input.pageLimit ?? '10';
   if (!/^[1-9]\d*$/.test(limit)) throw invalid('--page-limit must be a positive integer');
-  return { send: 'pages', pageLimit: Number(limit), paging: method.paging };
+  const pageLimit = Number(limit);
+  if (method.paging === 'query') return { send: 'pages', pageLimit, paging: 'query' };
+  // Body paging: every page sends this object, from page 2 on with pageToken set (D6).
+  const body = input.body ?? {};
+  if (!isRecord(body)) throw invalid('--page-all: --body must be a JSON object');
+  return { send: 'pages', pageLimit, paging: 'body', body };
 }
 
 // D7: protocol defaults to multipart with --body, else media; the type must fit `accept`.
