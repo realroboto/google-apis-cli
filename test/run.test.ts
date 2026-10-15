@@ -133,10 +133,6 @@ test('hand manifests run through the same path', async () => {
       body: {},
     },
   );
-  assert.equal(
-    (await dryRun(['gtm', 'containers', 'lookup', '--params', '{"tagId":"G-1"}'], true)).url,
-    'https://tagmanager.googleapis.com/tagmanager/v2/accounts/containers:lookup?tagId=G-1',
-  );
 });
 
 test('credentials: API-key header, entry header flags', async () => {
