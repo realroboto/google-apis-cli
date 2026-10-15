@@ -1,6 +1,7 @@
 // Transport: sends a CallPlan and prints the response (epic #30 D13).
 // `authorize` adds the credential before every request; a non-2xx exits 1, a missing scope 2.
 import { GapiError } from './errors.ts';
+import { batch } from './transport/batch.ts';
 import { download } from './transport/download.ts';
 import { upload } from './transport/upload.ts';
 import type { Authorize, CallPlan, FetchLike, FetchResponse } from './types.ts';
@@ -27,6 +28,19 @@ export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
   }
   if (plan.send === 'download') {
     print(await download(plan, call));
+    return;
+  }
+  if (plan.send === 'batch') {
+    const sent = await batch(plan, call);
+    const results = sent.results.map(({ status, text }) => ({
+      status,
+      body: text ? parseOrText(text) : undefined,
+    }));
+    // Results print before any failure: the parts already sent were acted on.
+    if (results.length > 0 || !sent.error) print(plan.decode ? plan.decode(results) : results);
+    if (sent.error) throw sent.error;
+    const failed = results.filter((r) => r.status < 200 || r.status > 299).length;
+    if (failed > 0) throw new GapiError(1, `${failed} of ${results.length} batch parts failed`);
     return;
   }
   const init = {

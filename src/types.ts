@@ -110,17 +110,26 @@ export type CallPlan = {
   headers: Record<string, string>;
   body?: unknown;
   auth: { kind: ApiModel['auth']; scopes: string[] };
-  decode?: (data: unknown) => unknown; // reshapes a `once` response before it prints
+  decode?: (data: unknown) => unknown; // reshapes a `once` response or the batch results
   warnings: string[];
 } & SendMode;
 
-// How Transport sends a plan: one request, `pageToken` pages (D6), a media upload or a
-// media download to a file (D7).
+// How Transport sends a plan: one request, `pageToken` pages (D6), a media upload, a
+// media download to a file, or batch parts (D7).
 export type SendMode =
   | { send: 'once' }
   | { send: 'pages'; pageLimit: number }
   | { send: 'upload'; upload: Upload }
-  | { send: 'download'; output: string };
+  | { send: 'download'; output: string }
+  | { send: 'batch'; parts: BatchPart[] };
+
+// One inner request of a batch call.
+export type BatchPart = {
+  httpMethod: HttpMethod;
+  url: string;
+  headers: Record<string, string>;
+  body?: unknown;
+};
 
 export type Upload = {
   path: string;
