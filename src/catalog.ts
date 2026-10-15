@@ -1,7 +1,7 @@
 // Catalog: the API entries found by glob, their discovery documents behind a
 // 24 h disk cache, and the one normalized ApiModel per API (epic #30 D2, D8, D13).
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { basename, dirname, extname, join } from 'node:path';
 import { GapiError } from './errors.ts';
 import type {
   ApiEntry,
@@ -12,15 +12,12 @@ import type {
   DiscoverySchema,
   FetchLike,
   HttpMethod,
-  Manifest,
-  ManifestRow,
 } from './types.ts';
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_PREFIX = 'https://www.googleapis.com/auth/';
 // Scopes gapi never requests (D8); `drive.*` is matched by prefix.
 const NEVER = new Set(['drive', 'openid', 'email', 'profile', 'display-video-user-management']);
-const BODY_METHODS = new Set<HttpMethod>(['POST', 'PUT', 'PATCH']);
 
 // The parts of a discovery document the model reads.
 type DiscoveryMethod = {
@@ -54,7 +51,6 @@ type DiscoveryDoc = DiscoveryResource & {
   parameters?: Record<string, DiscoveryParam>;
   schemas?: Record<string, DiscoverySchema>;
 };
-type Overlays = Omit<ApiEntry, 'discovery' | 'service'>;
 
 export type CatalogOptions = {
   dir: string; // config dir; the cache lives in <dir>/cache
@@ -62,8 +58,6 @@ export type CatalogOptions = {
   warn: (message: string) => void;
   apisDir?: string;
 };
-
-export const isApiEntry = (e: ApiEntry | Manifest): e is ApiEntry => 'discovery' in e;
 
 export async function openCatalog({
   dir,
@@ -114,9 +108,7 @@ export async function openCatalog({
     if (memo && !refresh) return memo;
     const entry = Object.hasOwn(entries, api) ? entries[api] : undefined;
     if (!entry) throw new GapiError(3, `unknown api: ${api}`);
-    const model = isApiEntry(entry)
-      ? toModel(await document(entry, refresh), entry)
-      : toModel(legacyDoc(entry), { api, headers: entry.headers });
+    const model = toModel(await document(entry, refresh), entry);
     models.set(api, model);
     return model;
   }
@@ -129,7 +121,7 @@ const isNever = (scope: string): boolean => {
   return NEVER.has(short) || short.startsWith('drive.');
 };
 
-function toModel(doc: DiscoveryDoc, entry: Overlays): ApiModel {
+function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
   const byId = new Map<string, ApiMethod>();
   const build = (node: DiscoveryResource, words: string[]): ApiResource => ({
     methods: new Map(
@@ -227,59 +219,17 @@ function toMethod(m: DiscoveryMethod, words: string[]): ApiMethod {
   };
 }
 
-// Strangler (D13 Migration): a hand manifest as a synthetic discovery document.
-// Deleted once no hand manifest remains (#47).
-function legacyDoc({ api, baseUrl, resources }: Manifest): DiscoveryDoc {
-  const method = (id: string, row: ManifestRow): DiscoveryMethod => {
-    const path = row.pathTemplate.replace(/^\//, '');
-    const pathParams = [...path.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
-    const param = (location: 'path' | 'query'): DiscoveryParam =>
-      location === 'path'
-        ? { type: 'string', location, required: true }
-        : { type: 'string', location };
-    return {
-      id,
-      httpMethod: row.httpMethod,
-      path,
-      parameterOrder: pathParams,
-      parameters: Object.fromEntries([
-        ...pathParams.map((name) => [name, param('path')]),
-        ...(row.query ?? []).map((name) => [name, param('query')]),
-      ]),
-      request: BODY_METHODS.has(row.httpMethod) ? { $ref: 'Body' } : undefined,
-      scopes: row.scopes.map((s) => AUTH_PREFIX + s),
-    };
-  };
-  return {
-    name: api,
-    rootUrl: `${baseUrl}/`,
-    servicePath: '',
-    resources: Object.fromEntries(
-      Object.entries(resources).map(([resource, verbs]) => [
-        resource,
-        {
-          methods: Object.fromEntries(
-            Object.entries(verbs).map(([verb, row]) => [
-              verb,
-              method(`${api}.${resource}.${verb}`, row),
-            ]),
-          ),
-        },
-      ]),
-    ),
-    schemas: { Body: { id: 'Body', type: 'object', additionalProperties: { type: 'any' } } },
-  };
-}
-
-// Default exports of the API directory, keyed by `api`. Matches dev (.ts) and
-// published (.js) files; skips declaration files.
-async function loadEntries(dir: string): Promise<Record<string, ApiEntry | Manifest>> {
+// Default exports of the API directory, keyed by `api`, which must equal the file
+// base name (D1). Matches dev (.ts) and published (.js) files; skips declaration files.
+async function loadEntries(dir: string): Promise<Record<string, ApiEntry>> {
   const files = (await readdir(dir)).filter(
     (f) => (f.endsWith('.ts') || f.endsWith('.js')) && !f.endsWith('.d.ts'),
   );
-  const entries: Record<string, ApiEntry | Manifest> = {};
+  const entries: Record<string, ApiEntry> = {};
   for (const f of files) {
-    const e = (await import(join(dir, f))).default as ApiEntry | Manifest;
+    const e = (await import(join(dir, f))).default as ApiEntry;
+    const name = basename(f, extname(f));
+    if (e.api !== name) throw new Error(`${join(dir, f)}: api '${e.api}' must equal '${name}'`);
     entries[e.api] = e;
   }
   return entries;

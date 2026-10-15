@@ -1,7 +1,7 @@
 // Process io is injected so tests drive the whole CLI in-process.
 import { readFile } from 'node:fs/promises';
 import { type ParseArgsConfig, parseArgs } from 'node:util';
-import { isApiEntry, openCatalog } from './catalog.ts';
+import { openCatalog } from './catalog.ts';
 import { configDir, openCredentials } from './credentials.ts';
 import { GapiError } from './errors.ts';
 import { plan, resolve } from './plan.ts';
@@ -165,12 +165,10 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       return;
     }
     if (sub !== 'refresh') throw new GapiError(3, `usage: ${DISCOVERY_USAGE}`);
-    const fetchable = Object.keys(catalog.entries).filter((a) => isApiEntry(catalog.entries[a]));
     // Validated and deduplicated before any fetch: parallel loads of one api share a temp file.
-    const names = apis.length > 0 ? [...new Set(apis)] : fetchable;
+    const names = apis.length > 0 ? [...new Set(apis)] : Object.keys(catalog.entries);
     for (const a of names) {
       if (!Object.hasOwn(catalog.entries, a)) throw new GapiError(3, `unknown api: ${a}`);
-      if (!fetchable.includes(a)) throw new GapiError(3, `${a} has no discovery document`);
     }
     await Promise.all(names.map((a) => catalog.load(a, { refresh: true })));
     for (const a of names) io.stdout.write(`refreshed ${a}\n`);

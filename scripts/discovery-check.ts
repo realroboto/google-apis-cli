@@ -3,7 +3,7 @@
 // fallback) or an overlay names a method id the document lacks. Prints the
 // unavailable method ids and the API-key APIs (epic #30 D8).
 import { resolve } from 'node:path';
-import { isApiEntry, openCatalog } from '../src/catalog.ts';
+import { openCatalog } from '../src/catalog.ts';
 import { configDir } from '../src/credentials.ts';
 
 let failed = false;
@@ -15,9 +15,7 @@ const fail = (message: string) => {
 const arg = process.argv[2];
 const apisDir = arg ? resolve(arg) : undefined;
 const catalog = await openCatalog({ dir: configDir(process.env), fetch, warn: fail, apisDir });
-const apis = Object.values(catalog.entries)
-  .filter(isApiEntry)
-  .map((e) => e.api);
+const apis = Object.keys(catalog.entries);
 const models = (
   await Promise.all(
     apis.map((api) =>
