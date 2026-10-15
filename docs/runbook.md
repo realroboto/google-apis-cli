@@ -15,13 +15,21 @@
    Do instead: `node bin/gapi.ts auth status` before any live read; re-run `gapi auth login` if token expired (~7 days, Testing mode)
    [google-apis-cli]
 
+3. **[2026-10-15] Operator `!` commands run in `~`, not the repo; `npm i -g --prefix` and live logins are denied to the agent**
+   Do instead: give the operator absolute paths (`node /home/r2/google-apis-cli/bin/gapi.ts …`, `/tmp/gapi-pack/*.tgz`)
+   [google-apis-cli]
+
+4. **[2026-10-15] Harness runs max 6 subagents at once; extra launches in one message fail**
+   Do instead: launch parallel review areas in batches of 6; start the next area on each completion notice
+   [google-apis-cli]
+
 ## Domain Behavior Guardrails
 1. **[2026-10-15] `indexing urlNotifications getMetadata` exits 1 with 404 `NOT_FOUND` for a URL never published**
    Do instead: treat as Google result, not gapi bug; only 403 (ownership/scope) or `SERVICE_DISABLED` signals setup failure
    [google-apis-cli]
 
-2. **[2026-10-15] Merchant API: 401 `GCP_NOT_REGISTERED` until Cloud project registered**
-   Do instead: register per `docs/SETUP.md` step 8; no Merchant account → record 401, probe lists with `parent: accounts/0`
+2. **[2026-10-15] Merchant API: 401 `GCP_NOT_REGISTERED` until Cloud project registered; then `accounts/0` → 401 "no access to the accounts: [0]"**
+   Do instead: register per `docs/SETUP.md` step 8; probe lists with `parent: accounts/0`; either 401 = Google result, endpoint live
    [google-apis-cli]
 
 3. **[2026-10-15] `bid-manager` 401 `Invalid credential, cannot get profile` = login has no DV360/CM360 profile, not a bad token**
@@ -39,6 +47,14 @@
 
 3. **[2026-10-15] `--dry-run` shows only the first request; multi-step sends (resumable, batch) hide later steps**
    Do instead: preload a `fetch` wrapper (`node --import <log.mjs> bin/gapi.ts …`) that logs method, path, status, headers to stderr
+   [google-apis-cli]
+
+4. **[2026-10-15] `gh issue create` outside the clone fails "not a git repository"; `| tail` hides it**
+   Do instead: run `gh` from the repo root; pass `--body-file` an absolute path; check `echo $?`
+   [google-apis-cli]
+
+5. **[2026-10-15] `ctx7` monthly quota can run out mid-review**
+   Do instead: fall back to `agent-browser read <url> --max-output 1000000 | rg -n -i '<term>'`
    [google-apis-cli]
 
 ## User Directives
