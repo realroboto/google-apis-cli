@@ -643,7 +643,7 @@ test('send: a resumable upload opens a session, then PUTs 8 MiB chunks until a 2
   );
   const s = await fx(argv, { fetch: stuck.fetch });
   assert.equal(s.code, 5);
-  assert.match(s.stderr, /^gapi: Error: resumable upload: 308 at byte 0 of 5, upload stalled\n$/);
+  assert.match(s.stderr, /^gapi: Error: resumable upload: 308 at byte 0 of 5, no progress\n$/);
   assert.equal(stuck.calls.length, 4);
 });
 

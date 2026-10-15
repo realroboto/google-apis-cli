@@ -1,7 +1,7 @@
 // Media upload (epic #30 D7): the file streams from disk as a Blob backed by it.
 import { randomUUID } from 'node:crypto';
 import { openAsBlob } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import { GapiError } from '../errors.ts';
 import type { Call } from '../transport.ts';
 import type { CallPlan, FetchResponse } from '../types.ts';
@@ -15,7 +15,7 @@ type UploadPlan = Extract<CallPlan, { send: 'upload' }>;
 
 // Returns the final response; Transport prints it like a `once` call.
 export async function upload(plan: UploadPlan, call: Call): Promise<FetchResponse> {
-  const file = await open(plan.upload.path);
+  const file = await readable(plan.upload.path);
   const { protocol, contentType } = plan.upload;
   if (protocol === 'media') {
     return call(plan.url, { method: plan.httpMethod, headers: plan.headers, body: file });
@@ -34,12 +34,17 @@ export async function upload(plan: UploadPlan, call: Call): Promise<FetchRespons
   return call(plan.url, { method: plan.httpMethod, headers, body });
 }
 
-// Checked before any request: a missing file or a directory is a validation error.
-async function open(path: string): Promise<Blob> {
-  const info = await stat(path).catch((e: NodeJS.ErrnoException) => {
+// Checked before any request: the Blob reads lazily, so a missing, unreadable or non-regular
+// file would otherwise fail mid-upload.
+async function readable(path: string): Promise<Blob> {
+  const handle = await open(path, 'r').catch((e: NodeJS.ErrnoException) => {
     throw new GapiError(3, `--upload: cannot read ${path}: ${e.code}`);
   });
-  if (!info.isFile()) throw new GapiError(3, `--upload: ${path} is not a file`);
+  try {
+    if (!(await handle.stat()).isFile()) throw new GapiError(3, `--upload: ${path} is not a file`);
+  } finally {
+    await handle.close();
+  }
   return openAsBlob(path);
 }
 
@@ -65,7 +70,7 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
     const next = kept ? Number(kept[1]) + 1 : 0;
     stalls = next > start ? 0 : stalls + 1;
     if (stalls === MAX_STALLS || next >= file.size) {
-      throw new Error(`resumable upload: 308 at byte ${next} of ${file.size}, upload stalled`);
+      throw new Error(`resumable upload: 308 at byte ${next} of ${file.size}, no progress`);
     }
     start = next;
   }
