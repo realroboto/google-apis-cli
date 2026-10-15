@@ -166,4 +166,5 @@ export type OAuthClient = AccessTokenClient & {
   getToken(opts: { code: string; codeVerifier: string }): Promise<{ tokens: Credentials }>;
   setCredentials(credentials: Credentials): void;
   on(event: 'tokens', listener: (tokens: Credentials) => void): unknown;
+  revokeToken(token: string): Promise<unknown>;
 };

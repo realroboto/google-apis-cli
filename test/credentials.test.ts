@@ -39,15 +39,17 @@ function idTokenFor(email: string): string {
 }
 
 // Fake OAuth port: records the consent URL options and the token-exchange arguments;
-// PKCE pairs come from the real library; getAccessToken runs `access`.
+// PKCE pairs come from the real library; getAccessToken runs `access`; revokeToken runs `revoke`.
 function fakeOAuth(
   access: (emit: (t: Credentials) => void) => Promise<{ token?: string }> = async () => ({
     token: 'T',
   }),
+  revoke: () => Promise<unknown> = async () => ({}),
 ) {
   const seen: {
     authOpts?: GenerateAuthUrlOpts;
     exchange?: { code: string; codeVerifier: string };
+    revoked?: string;
   } = {};
   let listener: (t: Credentials) => void = () => {};
   const pkce = new OAuth2Client();
@@ -74,6 +76,10 @@ function fakeOAuth(
       listener = l;
     },
     getAccessToken: () => access((t) => listener(t)),
+    revokeToken: (token) => {
+      seen.revoked = token;
+      return revoke();
+    },
   };
   return { oauth: () => client, seen };
 }
@@ -351,6 +357,51 @@ test('credentials.json without a string refresh_token reads as not logged in', a
       exit: 2,
       message: 'not logged in; run gapi auth login',
     });
+  }
+});
+
+// A config dir holding a stored login, for the logout tests.
+function loggedIn() {
+  const dir = tempDir();
+  writeFileSync(
+    join(dir, 'credentials.json'),
+    JSON.stringify({ refresh_token: 'RT', access_token: 'AT' }),
+  );
+  return dir;
+}
+
+test('logout revokes the refresh token, then deletes credentials.json', async () => {
+  const dir = loggedIn();
+  const { oauth, seen } = fakeOAuth();
+  await openCredentials({ dir, env: ENV, oauth }).logout();
+  assert.equal(seen.revoked, 'RT');
+  assert.equal(existsSync(join(dir, 'credentials.json')), false);
+});
+
+// Google answers 400 `invalid_token` for a token that is already invalid or revoked.
+test('logout deletes credentials.json with a warning when the token is already revoked (400)', async () => {
+  const dir = loggedIn();
+  const warnings: string[] = [];
+  const { oauth } = fakeOAuth(undefined, () =>
+    Promise.reject(Object.assign(new Error('invalid_token'), { status: 400 })),
+  );
+  await openCredentials({ dir, env: ENV, oauth, warn: (m) => warnings.push(m) }).logout();
+  assert.deepEqual(warnings, ['refresh token already invalid or revoked']);
+  assert.equal(existsSync(join(dir, 'credentials.json')), false);
+});
+
+test('logout keeps credentials.json and exits 1 on a network error or another status', async () => {
+  for (const [failure, reason] of [
+    [new TypeError('fetch failed'), 'fetch failed'],
+    [Object.assign(new Error('Service Unavailable'), { status: 503 }), 'Service Unavailable'],
+  ] as const) {
+    const dir = loggedIn();
+    const { oauth } = fakeOAuth(undefined, () => Promise.reject(failure));
+    await assert.rejects(openCredentials({ dir, env: ENV, oauth }).logout(), {
+      exit: 1,
+      message: `token revoke failed, credentials kept: ${reason}`,
+    });
+    assert.equal(existsSync(join(dir, 'credentials.json')), true);
   }
 });
 
