@@ -302,6 +302,10 @@ test('validation errors exit 3 before any network call', async () => {
     [[...get, '--params', '{"name":["a"]}'], /^gapi: name takes one value, not an array\n$/],
     [[...get, '--params', '{"name":{}}'], /^gapi: name must be a string, number or boolean\n$/],
     [
+      ['mini', 'files', 'list', '--params', '{"pageSize":12345678901234567890}'],
+      /^gapi: --params pageSize: integer exceeds 2\^53; pass it as a string\n$/,
+    ],
+    [
       ['mini', 'files', 'list', '--params', '{"view":"NOPE"}'],
       /^gapi: view must be one of: BASIC, FULL\n$/,
     ],
