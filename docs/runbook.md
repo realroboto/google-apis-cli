@@ -16,6 +16,10 @@
    Do instead: treat as Google result, not gapi bug; only 403 (ownership/scope) or `SERVICE_DISABLED` signals setup failure
    [google-apis-cli]
 
+2. **[2026-10-15] Merchant API: 401 `GCP_NOT_REGISTERED` until project registered via `merchant-accounts … developerRegistration registerGcp`**
+   Do instead: no Merchant account → record 401 as result; probe each list with `parent: accounts/0` (401 `PERMISSION_DENIED_ACCOUNTS`)
+   [google-apis-cli]
+
 ## Shell & Command Reliability
 1. **[2026-10-15] `cmd | head` hides the gapi exit code**
    Do instead: redirect to a file (`> /tmp/x.out; echo $?`), then inspect the file
