@@ -21,6 +21,10 @@
    [google-apis-cli]
 
 ## Shell & Command Reliability
-1. **[2026-10-15] `cmd | head` hides the gapi exit code**
+1. **[2026-10-15] `CLAUDE.md` is a symlink to `README.md`; `sed -i` on it replaces the link with a copy**
+   Do instead: edit `README.md` only; `git ls-files -s CLAUDE.md` must show mode 120000
+   [google-apis-cli]
+
+2. **[2026-10-15] `cmd | head` hides the gapi exit code**
    Do instead: redirect to a file (`> /tmp/x.out; echo $?`), then inspect the file
    [google-apis-cli]
