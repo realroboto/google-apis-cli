@@ -36,7 +36,7 @@ gapi auth status  # account, refresh token, API key, granted and missing scopes
 ```
 
 First run, or a console step fails? **[docs/SETUP.md](docs/SETUP.md)** walks the steps (services,
-API key, Business Profile access, consent) and the traps in each. `gapi` is multi-tenant: every operator brings their own Cloud project.
+API key, Business Profile access, consent, Merchant registration) and the traps in each. `gapi` is multi-tenant: every operator brings their own Cloud project.
 
 ## OAuth App Verification
 
@@ -66,7 +66,7 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 
 | For | Read |
 |---|---|
-| Onboarding a Google account: services to enable, Ads access level, Business Profile access, API key, consent, customer IDs, runtime errors | **[docs/SETUP.md](docs/SETUP.md)** |
+| Onboarding a Google account: services to enable, Ads access level, Business Profile access, API key, consent, Merchant registration, customer IDs, runtime errors | **[docs/SETUP.md](docs/SETUP.md)** |
 | Using the CLI as an agent: grammar, `--params`, `schema`, `--dry-run`, paging, media, helpers, exit codes, marks | [skills/gapi/SKILL.md](skills/gapi/SKILL.md) + generated [reference](skills/gapi/reference/index.md) |
 | What the CLI does, decisions, scopes, endpoints, risks | **[docs/SPEC.md](docs/SPEC.md)** — behavior source of truth |
 | How work is tracked (issues, blocking edges) | [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) |
