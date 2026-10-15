@@ -65,7 +65,7 @@ function fakeOAuth(
 const tempDir = () => mkdtempSync(join(tmpdir(), 'gapi-creds-'));
 const ENV = { GAPI_OAUTH_CLIENT_ID: 'cid', GAPI_OAUTH_CLIENT_SECRET: 'secret' };
 
-test('login writes credentials.json mode 600 for the consent plus identity scopes; status lists missing', async () => {
+test('login writes credentials.json mode 600 for the consent plus identity scopes; status lists missing and the API key', async () => {
   const dir = tempDir();
   const { oauth, seen } = fakeOAuth();
   const creds = openCredentials({ dir, env: ENV, oauth });
@@ -85,10 +85,15 @@ test('login writes credentials.json mode 600 for the consent plus identity scope
   assert.deepEqual(creds.status(CONSENT), {
     account: 'op@example.com',
     hasRefreshToken: true,
+    hasApiKey: false,
     expiryDate: new Date(111).toISOString(),
     scopes: ['webmasters', 'openid', 'userinfo.email'],
     missing: ['adwords'],
   });
+  const keyed = openCredentials({ dir, env: { ...ENV, GAPI_API_KEY: 'k' }, oauth });
+  assert.equal(keyed.status(CONSENT).hasApiKey, true);
+  writeFileSync(join(dir, 'config.json'), JSON.stringify({ api_key: 'k' }));
+  assert.equal(creds.status(CONSENT).hasApiKey, true);
 
   creds.logout();
   assert.throws(() => creds.status(CONSENT), {

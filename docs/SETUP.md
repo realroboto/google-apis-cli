@@ -220,13 +220,13 @@ Verify:
 gapi auth status
 ```
 
-It prints the account, whether a refresh token is stored, the granted scopes, and `missing`:
+It prints the account, whether a refresh token is stored, whether an API key is set (env or config), the granted scopes, and `missing`:
 the consent scopes the stored grant lacks. A non-empty `missing` means run `gapi auth login` again.
 
 > **Trap — port 4600 lingers.** A login you interrupted keeps the listener, and the next one
 > dies on `EADDRINUSE`. Clear it: `lsof -tiTCP:4600 | xargs kill`.
 
-**Done when** `gapi auth status` shows your account, `"hasRefreshToken": true`, and `"missing": []`.
+**Done when** `gapi auth status` shows your account, `"hasRefreshToken": true`, and `"missing": []`; after step 6, also `"hasApiKey": true`.
 
 ---
 

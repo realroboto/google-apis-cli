@@ -14,7 +14,7 @@ One-time, per operator — each brings their own Cloud project and Google accoun
 ```sh
 gapi auth setup    # OAuth Desktop client id + secret, optional login-customer ids and API key (stored 0600)
 gapi auth login    # one consent screen → every scope the API entries use; writes the refresh token
-gapi auth status   # account, refresh token presence, granted scopes, missing scopes
+gapi auth status   # account, refresh token and API key presence, granted scopes, missing scopes
 gapi auth logout   # delete stored credentials (config.json stays)
 ```
 

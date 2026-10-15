@@ -32,7 +32,7 @@ Needs **Node ≥ 24**. The package ships `dist/` (plain `tsc` output, built at p
 ```
 gapi auth setup   # store your own OAuth Desktop client (id + secret), optional ids and API key
 gapi auth login   # one consent for every scope the API entries use
-gapi auth status  # account, refresh token, granted and missing scopes
+gapi auth status  # account, refresh token, API key, granted and missing scopes
 ```
 
 First run, or a console step fails? **[docs/SETUP.md](docs/SETUP.md)** walks the steps (services,
