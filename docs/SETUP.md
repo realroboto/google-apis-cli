@@ -55,8 +55,11 @@ host of the entry's discovery URL (`src/apis/<api>.ts`); `business-v4` declares 
 
 With `gcloud`, one call per batch of names: `gcloud services enable <service> … --project <id>`.
 
-> **Trap — Places and Web Risk bill.** Places (New): free monthly caps, then billed to the
-> project; project needs billing enabled. Web Risk `hashes.search`: paid only.
+> **Trap — some APIs need a billing account, even for free calls.** Without a billing account
+> on the project, calls such as `bigquery-dts … dataSources list` and `web-risk uris search`
+> return 403 `PERMISSION_DENIED`, reason `BILLING_DISABLED`. Web Risk `uris.search` is free up
+> to 100,000 calls a month; `hashes.search` is paid only. Places (New) also needs a billing
+> account: free monthly caps, then billed.
 
 > **Trap — the Ads API Center is dead.** Ads onboarding moved out of the Google Ads UI into
 > Cloud Console. Applications started from `ads.google.com/aw/apicenter` are **not processed**.
@@ -325,6 +328,8 @@ key (exit 2 without it). PageSpeed sends the key only when one is set. `project`
 | `EADDRINUSE :::4600` | an earlier login still holds the port | `lsof -tiTCP:4600 \| xargs kill` |
 | `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | Ads level is Test | step 2 |
 | `403 SERVICE_DISABLED` | API not enabled on the project | step 1; Business Profile: step 3 |
+| `403 BILLING_DISABLED` | no billing account on the project | add a billing account to the project; step 1 trap |
 | `401 GCP_NOT_REGISTERED` on a `merchant-*` call | project not registered with a Merchant Center account | step 8 |
 | `unavailable: scope not grantable` (exit 2) | one of the 6 `dv360 users` methods; its only scope is never granted to this app | none; `--dry-run` still prints the request |
 | `401` on every call, fresh login | wrong Cloud project owns the client | check which project holds the client in use |
+| `401 UNAUTHENTICATED` `Invalid credential, cannot get profile` on `bid-manager` only | the login has no DV360 or CM360 user profile | get a DV360 or CM360 user profile for the login, or log in with an account that has one |
