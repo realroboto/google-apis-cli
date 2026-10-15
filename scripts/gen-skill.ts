@@ -1,0 +1,27 @@
+// `pnpm gen:skill` (epic #30 D12): a stale reference is worse than none, so any fetch failure aborts.
+import { readdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { openCatalog } from '../src/catalog.ts';
+import { configDir } from '../src/credentials.ts';
+import { indexMarkdown, referenceMarkdown } from '../src/render.ts';
+
+const outDir = join(import.meta.dirname, '..', 'skills', 'gapi', 'reference');
+const catalog = await openCatalog({
+  dir: configDir(process.env),
+  fetch,
+  warn: (message) => {
+    throw new Error(message);
+  },
+});
+const models = await Promise.all(
+  Object.keys(catalog.entries).map((api) => catalog.load(api, { refresh: true })),
+);
+const files = new Map([
+  ['index.md', indexMarkdown(models)],
+  ...models.map((m) => [`${m.api}.md`, referenceMarkdown(m)] as const),
+]);
+for (const name of await readdir(outDir)) {
+  if (name.endsWith('.md') && !files.has(name)) await rm(join(outDir, name));
+}
+for (const [name, text] of files) await writeFile(join(outDir, name), text);
+console.log(`gen:skill: ${files.size} files written to ${outDir}`);
