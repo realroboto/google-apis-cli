@@ -43,8 +43,10 @@ export function resolve(
     }
     const next = node.resources.get(word);
     if (!next) {
+      // A level with both: the last word names a method, an inner word a resource.
+      const last = i === words.length - 1;
       const kind =
-        node.methods.size === 0 ? 'resource' : node.resources.size === 0 ? 'method' : 'command';
+        node.methods.size > 0 && (node.resources.size === 0 || last) ? 'method' : 'resource';
       const valid = [...node.resources.keys(), ...node.methods.keys()].join(', ');
       throw invalid(`unknown ${kind} '${word}' (valid: ${valid})`);
     }
