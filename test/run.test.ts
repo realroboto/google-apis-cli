@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { fakeFetch } from './helpers/fetch.ts';
 import { gapi } from './helpers/io.ts';
@@ -23,6 +23,7 @@ const apisDir = join(FIXTURES, 'apis');
 // only. The cache is fresh, so no row fetches a document; the access token is unexpired,
 // so no row refreshes it.
 const dir = mkdtempSync(join(tmpdir(), 'gapi-run-'));
+after(() => rmSync(dir, { recursive: true, force: true }));
 const env = { GAPI_CONFIG_DIR: dir };
 mkdirSync(join(dir, 'cache'));
 const DOCS = {
@@ -540,6 +541,27 @@ test('a corrupt or wrong-kind cache file is refetched; a failed refetch exits 4'
   }
 });
 
+test('an empty cache and a failed fetch exit 4', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'gapi-empty-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const { fetch, calls } = fakeFetch(() => new Response('nope', { status: 503 }));
+  const r = await gapi(['mini'], { env: { GAPI_CONFIG_DIR: home }, apisDir, fetch });
+  assert.equal(r.code, 4);
+  assert.equal(r.stdout, '');
+  assert.equal(
+    r.stderr,
+    'gapi: discovery fetch failed for mini: HTTP 503; retry: gapi discovery refresh mini\n',
+  );
+  assert.equal(calls.length, 1);
+});
+
+test('a deprecated method warns on stderr and still runs', async () => {
+  const r = await fx(['mini', 'v26', 'listThings', '--body', '{}', '--dry-run']);
+  assert.equal(r.code, 0);
+  assert.equal(r.stderr, 'gapi: warning: mini v26 listThings is deprecated (fixture overlay)\n');
+  assert.match(r.stdout, /v26:listThings/);
+});
+
 test('send: one authorized request, response printed as JSON', async () => {
   const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [{ siteUrl: 'x' }] }));
   const r = await fx(['gsc', 'sites', 'list'], { fetch });
@@ -607,8 +629,9 @@ test('send: --page-all pages through the request body, same body plus pageToken'
   assert.equal(list.stderr, 'gapi: --page-all: --body must be a JSON object\n');
 });
 
-test('send: reads only the config dir in io.env, never HOME', async () => {
+test('send: reads only the config dir in io.env, never HOME', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'gapi-home-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
   const { fetch, calls } = fakeFetch(() => Response.json({ properties: [] }));
   const r = await fx(
     ['ga4-admin', 'properties', 'list', '--params', '{"filter":"parent:accounts/1"}'],

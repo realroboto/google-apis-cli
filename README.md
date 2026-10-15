@@ -14,7 +14,7 @@
 - One login. One refresh token. Every scope the entries use (computed from the documents). Read and write.
 - One runtime dependency: `google-auth-library` (Google). Nothing third-party.
 - All network calls use native `fetch`.
-- TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (corepack-pinned) for package management.
+- TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (pinned via `packageManager`) for package management.
 - It replaces the 4 fragmented Google MCPs in vmCODE.
 
 Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]] [--output <file>] [--page-all [--page-limit <n>]] [--dry-run]`. `gapi <api> [<resource>…]` lists a level (the api level also lists helpers); `… <method> --help` shows method help. `gapi <api> +<helper> … [--dry-run] [--project <id>] [--api-key <key>] [<entry header flag>]` runs a hand command, e.g. `gapi ads +gaql "<query>" --customer <id> [--stream]`, `gapi indexing +publishBatch <file>`. `gapi schema <api> <resource>[.<sub>…].<method> | <SchemaName> [--resolve-refs]` prints a method shape or a schema as JSON. `gapi discovery refresh [<api>…]` refetches discovery documents now; `gapi discovery path` prints the cache dir. `gapi schema --help`, `gapi discovery --help` and `gapi auth [<sub>] --help` print that command's usage and run nothing.
@@ -78,7 +78,7 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 ## Add an API or a resource
 
 - New API = one new `src/apis/<api>.ts` file that default-exports an API entry (`satisfies ApiEntry`): the discovery URL plus overlays (`retired`, `deprecated`, `paid`, `headers`, `helpers`). The discovery document gives every resource and method. The glob finds the file; `api` must equal the file name, or the Catalog fails to load. No shared file changes.
-- Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document. CI runs it weekly and on manual dispatch (`.github/workflows/discovery.yml`).
+- Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document. CI runs it weekly and on manual dispatch (`.github/workflows/discovery.yml`); `prepublishOnly` runs it before every publish.
 - Test through `run(argv, io)`: fixture entries via `io.apisDir`, cache seeded in a temp `GAPI_CONFIG_DIR`, fake `fetch` (`test/helpers/fetch.ts`). `--dry-run` shows the request. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
 - Fix lint by fixing the code it flags — never `biome --unsafe`, never disable a rule to clear it.
