@@ -351,6 +351,7 @@ key (exit 2 without it). PageSpeed sends the key only when one is set. `project`
 | `Error 403: access_denied` at consent | Testing, and the address is not a test user | step 4 |
 | `token expired or revoked` (exit 2) after about a week | Testing refresh token expired (`invalid_grant`) | `gapi auth login`, or publish |
 | `missing scope (…); run gapi auth login` (exit 2) | the stored grant predates a scope a new API needs | `gapi auth login` |
+| `discovery fetch failed for <api>: …; retry: gapi discovery refresh <api>` (exit 4) | the document fetch failed and no usable cache copy (missing, or not a discovery document) | check network, then `gapi discovery refresh <api>` |
 | `API key required` (exit 2) | CrUX call with no key | step 6 |
 | `config.json is not valid JSON` / `is not a JSON object` / `cannot read …config.json` (exit 2) | config file broken or unreadable; every command stops before any prompt or write | fix the file, or remove it and re-run step 5 (`gapi auth setup`) |
 | `not logged in` (exit 2) | `credentials.json` missing, or no `refresh_token` in it | `gapi auth login` |

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { openAsBlob } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { GapiError } from '../errors.ts';
+import { parseOrText } from '../json.ts';
 import type { Call } from '../transport.ts';
 import type { CallPlan, FetchResponse } from '../types.ts';
 
@@ -56,9 +57,12 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
     body: plan.body === undefined ? undefined : JSON.stringify(plan.body),
   });
   const location = session.headers.get('Location');
+  if (!location) {
+    const body = parseOrText(await session.text()) || undefined;
+    throw new GapiError(1, 'resumable upload: the session response has no Location header', body);
+  }
   // undici holds the connection until a body is read or cancelled; only headers matter here.
   await session.body?.cancel();
-  if (!location) throw new Error('resumable upload: the session response has no Location header');
   let start = 0;
   let stalls = 0;
   for (;;) {
@@ -69,12 +73,17 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
     if (res.status !== 308) return res;
     // `Range: bytes=0-<last>` names the bytes Google kept; no Range means it kept none.
     const kept = /^bytes=0-(\d+)$/.exec(res.headers.get('Range') ?? '');
-    await res.body?.cancel();
     const next = kept ? Number(kept[1]) + 1 : 0;
     stalls = next > start ? 0 : stalls + 1;
     if (stalls === MAX_STALLS || next >= file.size) {
-      throw new Error(`resumable upload: 308 at byte ${next} of ${file.size}, no progress`);
+      const body = parseOrText(await res.text()) || undefined;
+      throw new GapiError(
+        1,
+        `resumable upload: 308 at byte ${next} of ${file.size}, no progress`,
+        body,
+      );
     }
+    await res.body?.cancel();
     start = next;
   }
 }

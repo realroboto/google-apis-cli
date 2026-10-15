@@ -7,15 +7,28 @@
 // `:search` keeps its raw {results, nextPageToken}: it pages via the request body, not a
 // query token, so gapi does not page it (epic #30 D6); `--stream` is the all-rows path.
 import { GapiError } from '../errors.ts';
+import { isRecord } from '../json.ts';
 import { plan } from '../plan.ts';
 import type { ApiEntry, Helper } from '../types.ts';
 
 const GAQL_ARGS = '"<query>" --customer <id> [--stream]';
 
 // searchStream (gRPC server-streaming) → over REST a JSON array of {results, ...} chunks
-// with no nextPageToken; concat into one list.
-const streamConcat = (data: unknown): unknown =>
-  Array.isArray(data) ? data.flatMap((c) => (c as { results?: unknown[] })?.results ?? []) : data;
+// with no nextPageToken; concat into one list. No Google doc covers an error mid-stream,
+// so a chunk with an `error` key fails the call rather than vanish from the rows.
+const streamConcat = (data: unknown): unknown => {
+  if (!Array.isArray(data)) return data;
+  const failed = data.find((c) => isRecord(c) && Object.hasOwn(c, 'error'));
+  if (isRecord(failed)) {
+    const message = isRecord(failed.error) ? failed.error.message : undefined;
+    throw new GapiError(
+      1,
+      typeof message === 'string' ? message : 'searchStream: a chunk holds an error',
+      failed,
+    );
+  }
+  return data.flatMap((c) => (isRecord(c) && Array.isArray(c.results) ? c.results : []));
+};
 
 // D10: one GAQL query; `--stream` returns every row, without it the first page as returned.
 const gaql: Helper = {

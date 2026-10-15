@@ -11,6 +11,7 @@ import { Writable } from 'node:stream';
 import type { Credentials } from 'google-auth-library';
 import { CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
 import { GapiError } from './errors.ts';
+import { isRecord } from './json.ts';
 import type { ApiEntry, Authorize, OAuthClient, Settings } from './types.ts';
 
 const LOOPBACK_HOST = '127.0.0.1';
@@ -63,9 +64,6 @@ const SETUP_FIELDS = [
   },
   { key: 'api_key', label: 'API key (optional, CrUX/PageSpeed)', required: false, secret: true },
 ] as const;
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 const isCredentials = (v: unknown): v is Credentials =>
   isRecord(v) && typeof v.refresh_token === 'string';

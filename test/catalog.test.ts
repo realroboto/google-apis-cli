@@ -20,6 +20,7 @@ import { fakeFetch } from './helpers/fetch.ts';
 
 const apisDir = join(import.meta.dirname, 'fixtures', 'apis');
 const DAY = 24 * 60 * 60;
+const KIND = 'discovery#restDescription';
 
 // A temp config dir, optionally holding a cached `mini` document aged `ageSec`.
 function setup(cached?: { doc: unknown; ageSec: number }) {
@@ -41,30 +42,30 @@ async function open(dir: string, respond: () => Response | Promise<Response>) {
   return { catalog, calls, warnings };
 }
 
-const fresh = () => Response.json({ name: 'fresh' });
+const fresh = () => Response.json({ kind: KIND, name: 'fresh' });
 const down = () => Promise.reject(new TypeError('fetch failed'));
 
 test('a fresh cache file is used without a fetch', async () => {
-  const { dir } = setup({ doc: { name: 'cached' }, ageSec: 60 });
+  const { dir } = setup({ doc: { kind: KIND, name: 'cached' }, ageSec: 60 });
   const { catalog, calls } = await open(dir, fresh);
   assert.equal((await catalog.load('mini')).name, 'cached');
   assert.equal(calls.length, 0);
 });
 
 test('a stale cache file is refetched and rewritten with mode 600', async () => {
-  const { dir, file } = setup({ doc: { name: 'cached' }, ageSec: DAY + 60 });
+  const { dir, file } = setup({ doc: { kind: KIND, name: 'cached' }, ageSec: DAY + 60 });
   const { catalog, calls } = await open(dir, fresh);
   assert.equal((await catalog.load('mini')).name, 'fresh');
   assert.deepEqual(
     calls.map((c) => c.url),
     ['https://mini.invalid/$discovery/rest?version=v1'],
   );
-  assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { name: 'fresh' });
+  assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { kind: KIND, name: 'fresh' });
   assert.equal(statSync(file).mode & 0o777, 0o600);
 });
 
 test('a failed fetch falls back to a stale file and warns', async () => {
-  const { dir } = setup({ doc: { name: 'cached' }, ageSec: DAY + 60 });
+  const { dir } = setup({ doc: { kind: KIND, name: 'cached' }, ageSec: DAY + 60 });
   const { catalog, warnings } = await open(dir, () => new Response('nope', { status: 503 }));
   assert.equal((await catalog.load('mini')).name, 'cached');
   assert.deepEqual(warnings, ['discovery fetch failed for mini: HTTP 503; using cached copy']);
@@ -75,7 +76,8 @@ test('a failed fetch with no cache file exits 4, caches nothing, and a later loa
     [down, 'fetch failed'],
     [() => Response.json({ error: { code: 404 } }, { status: 404 }), 'HTTP 404'],
     [() => new Response('<html>'), 'Unexpected token'],
-    [() => Response.json([]), 'response is not a JSON object'],
+    [() => Response.json([]), 'response is not a discovery#restDescription'],
+    [() => Response.json({ name: 'x' }), 'response is not a discovery#restDescription'],
   ];
   for (const [respond, reason] of failures) {
     const { dir } = setup();
@@ -95,10 +97,10 @@ test('a failed fetch with no cache file exits 4, caches nothing, and a later loa
 });
 
 test('refresh ignores the TTL; one parse per api otherwise', async () => {
-  const { dir, file } = setup({ doc: { name: 'cached' }, ageSec: 60 });
+  const { dir, file } = setup({ doc: { kind: KIND, name: 'cached' }, ageSec: 60 });
   const { catalog, calls } = await open(dir, fresh);
   await catalog.load('mini');
-  writeFileSync(file, JSON.stringify({ name: 'edited' }));
+  writeFileSync(file, JSON.stringify({ kind: KIND, name: 'edited' }));
   assert.equal((await catalog.load('mini')).name, 'cached'); // parsed once, file not re-read
   assert.equal((await catalog.load('mini', { refresh: true })).name, 'fresh');
   assert.equal((await catalog.load('mini')).name, 'fresh');

@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promi
 import { basename, dirname, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { GapiError } from './errors.ts';
+import { isRecord, parseOrText } from './json.ts';
 import type {
   ApiEntry,
   ApiMethod,
@@ -41,6 +42,7 @@ type DiscoveryResource = {
   methods?: Record<string, DiscoveryMethod>;
 };
 type DiscoveryDoc = DiscoveryResource & {
+  kind: 'discovery#restDescription';
   name?: string;
   version?: string;
   title?: string;
@@ -52,6 +54,10 @@ type DiscoveryDoc = DiscoveryResource & {
   parameters?: Record<string, DiscoveryParam>;
   schemas?: Record<string, DiscoverySchema>;
 };
+
+// Discovery reference: `kind` is "The fixed string discovery#restDescription."
+const isRestDescription = (v: unknown): v is DiscoveryDoc =>
+  isRecord(v) && v.kind === 'discovery#restDescription';
 
 export type CatalogOptions = {
   dir: string; // config dir; the cache lives in <dir>/cache
@@ -70,17 +76,21 @@ export async function openCatalog({
   const cacheDir = join(dir, 'cache');
   const models = new Map<string, ApiModel>();
 
-  // A non-2xx answer or a body that is not a JSON object is a failed fetch, so it is never cached.
+  // A non-2xx answer or a body that is not a discovery document is a failed fetch, never cached.
   async function download(url: string): Promise<{ text: string; doc: DiscoveryDoc }> {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     const doc: unknown = JSON.parse(text);
-    if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) {
-      throw new Error('response is not a JSON object');
-    }
+    if (!isRestDescription(doc)) throw new Error('response is not a discovery#restDescription');
     return { text, doc };
   }
+
+  // A cache file that is unreadable, not JSON or not a discovery document reads as absent.
+  const cached = async (file: string): Promise<DiscoveryDoc | undefined> => {
+    const doc = await readFile(file, 'utf8').then(parseOrText, () => undefined);
+    return isRestDescription(doc) ? doc : undefined;
+  };
 
   async function document(entry: ApiEntry, refresh: boolean): Promise<DiscoveryDoc> {
     const file = join(cacheDir, `${entry.api}.json`);
@@ -88,8 +98,10 @@ export async function openCatalog({
       (s) => s.mtimeMs,
       () => undefined,
     );
-    const cached = async (): Promise<DiscoveryDoc> => JSON.parse(await readFile(file, 'utf8'));
-    if (!refresh && mtime !== undefined && Date.now() - mtime < TTL_MS) return cached();
+    if (!refresh && mtime !== undefined && Date.now() - mtime < TTL_MS) {
+      const doc = await cached(file);
+      if (doc) return doc;
+    }
     const got = await download(entry.discovery).catch((e: unknown) =>
       e instanceof Error ? e : new Error(String(e)),
     );
@@ -97,11 +109,15 @@ export async function openCatalog({
       await writeAtomic(file, got.text);
       return got.doc;
     }
-    if (mtime === undefined) {
-      throw new GapiError(4, `discovery fetch failed for ${entry.api}: ${got.message}`);
+    const stale = mtime === undefined ? undefined : await cached(file);
+    if (!stale) {
+      throw new GapiError(
+        4,
+        `discovery fetch failed for ${entry.api}: ${got.message}; retry: gapi discovery refresh ${entry.api}`,
+      );
     }
     warn(`discovery fetch failed for ${entry.api}: ${got.message}; using cached copy`);
-    return cached();
+    return stale;
   }
 
   async function load(api: string, { refresh = false } = {}): Promise<ApiModel> {

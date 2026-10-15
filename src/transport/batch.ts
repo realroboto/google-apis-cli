@@ -1,6 +1,8 @@
 // Batch (epic #30 D7): parts go out as one multipart/mixed request per 100, sequentially.
 // Format: https://developers.google.com/search/apis/indexing-api/v3/using-api#batch
 import { randomUUID } from 'node:crypto';
+import { GapiError } from '../errors.ts';
+import { parseOrText } from '../json.ts';
 import type { Call } from '../transport.ts';
 import type { BatchPart, CallPlan } from '../types.ts';
 
@@ -37,11 +39,15 @@ async function chunk(plan: BatchPlan, parts: BatchPart[], call: Call): Promise<P
   const responseBoundary = /boundary="?([^";]+)"?/i.exec(
     res.headers.get('Content-Type') ?? '',
   )?.[1];
-  if (!responseBoundary) throw new Error('batch: the response has no multipart boundary');
-  const byId = responses(await res.text(), responseBoundary);
+  // A response gapi cannot map to its parts is Google's surprise: exit 1 with the body.
+  const text = await res.text();
+  const surprise = (message: string) => new GapiError(1, message, parseOrText(text) || undefined);
+  if (!responseBoundary) throw surprise('batch: the response has no multipart boundary');
+  const byId = responses(text, responseBoundary);
+  if (!byId) throw surprise('batch: malformed response part');
   return parts.map((_, i) => {
     const result = byId.get(String(i + 1));
-    if (!result) throw new Error(`batch: no response for part ${i + 1}`);
+    if (!result) throw surprise(`batch: no response for part ${i + 1}`);
     return result;
   });
 }
@@ -59,7 +65,8 @@ function request(boundary: string, id: number, part: BatchPart): string {
 
 // Response parts keyed by request Content-ID: each answers `<response-n>` with an inner
 // `HTTP/1.1 <status> …`, headers, blank line, body. Google may answer in any order.
-function responses(text: string, boundary: string): Map<string, PartResult> {
+// A part with no Content-ID or status line makes the whole response unreadable: undefined.
+function responses(text: string, boundary: string): Map<string, PartResult> | undefined {
   const byId = new Map<string, PartResult>();
   for (const raw of text.split(`--${boundary}`).slice(1)) {
     if (raw.startsWith('--')) break;
@@ -67,7 +74,7 @@ function responses(text: string, boundary: string): Map<string, PartResult> {
     const id = /^content-id:\s*<response-([^>]+)>\s*$/im.exec(head)?.[1];
     const [statusHead, content] = splitAtBlankLine(response);
     const status = Number(/^HTTP\/\S+ (\d{3})/.exec(statusHead)?.[1]);
-    if (id === undefined || !status) throw new Error('batch: malformed response part');
+    if (id === undefined || !status) return undefined;
     byId.set(id, { status, text: content.trim() });
   }
   return byId;
