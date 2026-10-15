@@ -10,9 +10,9 @@ import { Writable } from 'node:stream';
 import type { Credentials } from 'google-auth-library';
 import { OAuth2Client } from 'google-auth-library';
 import {
-  CONFIG_PATH,
   CONSENT_SCOPES,
-  CREDENTIALS_PATH,
+  configPath,
+  credentialsPath,
   getOAuthClient,
   readConfigFile,
   SCOPES,
@@ -33,11 +33,11 @@ function newClient(redirectUri?: string): OAuth2Client {
 }
 
 function saveCredentials(tokens: Credentials): void {
-  writeSecureJson(CREDENTIALS_PATH, tokens);
+  writeSecureJson(credentialsPath(), tokens);
 }
 
 export function loadCredentials(): Credentials {
-  return JSON.parse(readFileSync(CREDENTIALS_PATH, 'utf8'));
+  return JSON.parse(readFileSync(credentialsPath(), 'utf8'));
 }
 
 const AUTH_OPTS = { access_type: 'offline', prompt: 'consent', scope: CONSENT_SCOPES };
@@ -103,7 +103,7 @@ export async function configureAuth({
     if (v) cfg[key] = v;
     else if (required && cur == null) throw new Error(`${label} is required`);
   }
-  writeSecureJson(CONFIG_PATH, cfg);
+  writeSecureJson(configPath(), cfg);
   return cfg;
 }
 
@@ -224,5 +224,5 @@ export function status() {
 }
 
 export function logout() {
-  rmSync(CREDENTIALS_PATH, { force: true });
+  rmSync(credentialsPath(), { force: true });
 }

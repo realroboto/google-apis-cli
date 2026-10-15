@@ -22,6 +22,18 @@ export type Manifest = {
   resources: Record<string, Record<string, ManifestRow>>;
 };
 
+// One discovery-driven API (epic #30 D1). `helpers` arrives with the Planner (#37).
+export type ApiEntry = {
+  api: string; // CLI name, ^[a-z0-9-]+$, equals the file base name
+  discovery: string; // discovery document URL
+  service?: string; // Cloud service name, only when the discovery URL host is not it
+  scopes?: string[]; // only when the document has no auth.oauth2 section
+  retired?: Record<string, { reason: string; source: string }>; // method id → why it always fails
+  deprecated?: Record<string, { source: string }>; // method id → marks deprecated
+  paid?: Record<string, { reason: string; source: string }>; // method id → billed or closed
+  headers?: { name: string; flag: string; env: string; configKey: string }[];
+};
+
 // A manifest row flattened with its manifest's baseUrl (what the executor gets).
 export type ResolvedRow = ManifestRow & { baseUrl: string };
 
