@@ -19,9 +19,8 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 ## Branch / PR policy
 
-**PR-per-ticket.** One branch per ticket (`t<N>-<slug>`), branched from `main`.
-Open a PR with `Closes #<n>`; merge to `main` via the PR. Never commit a ticket
-directly to `main`.
+**PR-per-ticket.** One branch, one PR per ticket. Never commit a ticket directly to `main`.
+Branch name, commit format, merge: [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## When a skill says "publish to the issue tracker"
 
