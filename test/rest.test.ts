@@ -40,6 +40,30 @@ test('resolvePath throws on missing param', () => {
   assert.throws(() => resolvePath('/x/{id}', {}), /missing path param: id/);
 });
 
+test('rejects a positional that repeats the path segment, before token or fetch', async () => {
+  const row = {
+    httpMethod: 'GET',
+    baseUrl: 'https://h',
+    pathTemplate: '/v1beta/properties/{property}/metadata',
+  };
+  const fetch = fakeFetch([]);
+  let tokenCalls = 0;
+  const tokenProvider = async () => {
+    tokenCalls++;
+    return 'TOK';
+  };
+  await assert.rejects(
+    execute(
+      row as unknown as ResolvedRow,
+      { property: 'properties/543525027' },
+      { tokenProvider, fetch },
+    ),
+    { message: 'pass the bare id: 543525027 (the path already has properties/)' },
+  );
+  assert.equal(tokenCalls, 0);
+  assert.equal(fetch.calls.length, 0);
+});
+
 test('builds URL, Bearer header, and returns payload', async () => {
   const row = { httpMethod: 'GET', baseUrl: 'https://h', pathTemplate: '/v/sites' };
   const fetch = fakeFetch([{ body: { siteEntry: [1] } }]);
