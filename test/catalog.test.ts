@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -11,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { openCatalog } from '../src/catalog.ts';
+import { isApiEntry, openCatalog } from '../src/catalog.ts';
 import { GapiError } from '../src/errors.ts';
 import { fakeFetch } from './helpers/fetch.ts';
 
@@ -44,14 +45,14 @@ const down = () => Promise.reject(new TypeError('fetch failed'));
 test('a fresh cache file is used without a fetch', async () => {
   const { dir } = setup({ doc: { name: 'cached' }, ageSec: 60 });
   const { catalog, calls } = await open(dir, fresh);
-  assert.deepEqual(await catalog.load('mini'), { name: 'cached' });
+  assert.equal((await catalog.load('mini')).name, 'cached');
   assert.equal(calls.length, 0);
 });
 
 test('a stale cache file is refetched and rewritten with mode 600', async () => {
   const { dir, file } = setup({ doc: { name: 'cached' }, ageSec: DAY + 60 });
   const { catalog, calls } = await open(dir, fresh);
-  assert.deepEqual(await catalog.load('mini'), { name: 'fresh' });
+  assert.equal((await catalog.load('mini')).name, 'fresh');
   assert.deepEqual(
     calls.map((c) => c.url),
     ['https://mini.invalid/$discovery/rest?version=v1'],
@@ -63,7 +64,7 @@ test('a stale cache file is refetched and rewritten with mode 600', async () => 
 test('a failed fetch falls back to a stale file and warns', async () => {
   const { dir } = setup({ doc: { name: 'cached' }, ageSec: DAY + 60 });
   const { catalog, warnings } = await open(dir, () => new Response('nope', { status: 503 }));
-  assert.deepEqual(await catalog.load('mini'), { name: 'cached' });
+  assert.equal((await catalog.load('mini')).name, 'cached');
   assert.deepEqual(warnings, ['discovery fetch failed for mini: HTTP 503; using cached copy']);
 });
 
@@ -96,8 +97,78 @@ test('refresh ignores the TTL; one parse per api otherwise', async () => {
   const { catalog, calls } = await open(dir, fresh);
   await catalog.load('mini');
   writeFileSync(file, JSON.stringify({ name: 'edited' }));
-  assert.deepEqual(await catalog.load('mini'), { name: 'cached' }); // parsed once, file not re-read
-  assert.deepEqual(await catalog.load('mini', { refresh: true }), { name: 'fresh' });
-  assert.deepEqual(await catalog.load('mini'), { name: 'fresh' });
+  assert.equal((await catalog.load('mini')).name, 'cached'); // parsed once, file not re-read
+  assert.equal((await catalog.load('mini', { refresh: true })).name, 'fresh');
+  assert.equal((await catalog.load('mini')).name, 'fresh');
   assert.equal(calls.length, 1);
+});
+
+test('fixture documents normalize into auth kind, scopes, overlays, words and media facts', async () => {
+  const { dir } = setup();
+  mkdirSync(join(dir, 'cache'));
+  const docs = join(import.meta.dirname, 'fixtures', 'discovery');
+  const files = {
+    gsc: 'searchconsole',
+    dv360: 'dv360',
+    crux: 'crux',
+    pagespeed: 'pagespeed',
+    mini: 'mini',
+  };
+  for (const [api, file] of Object.entries(files)) {
+    copyFileSync(join(docs, `${file}.json`), join(dir, 'cache', `${api}.json`));
+  }
+  const { catalog, calls } = await open(dir, down);
+  const [gsc, dv360, crux, pagespeed, mini] = await Promise.all(
+    Object.keys(files).map((api) => catalog.load(api)),
+  );
+  assert.deepEqual(
+    [gsc, dv360, crux, pagespeed, mini].map((m) => m.auth),
+    ['oauth', 'oauth', 'apiKey', 'apiKey', 'oauth'],
+  );
+  assert.deepEqual(
+    [...dv360.byId.values()].filter((m) => m.unavailable).map((m) => m.words.join(' ')),
+    [
+      'users bulkEditAssignedUserRoles',
+      'users patch',
+      'users get',
+      'users list',
+      'users delete',
+      'users create',
+    ],
+  );
+  assert.equal(
+    dv360.byId.get('displayvideo.advertisers.get')?.scope,
+    'https://www.googleapis.com/auth/display-video',
+  );
+  assert.equal(pagespeed.byId.get('pagespeedonline.pagespeedapi.runpagespeed')?.unavailable, false);
+  assert.ok(gsc.byId.get('searchconsole.urlTestingTools.mobileFriendlyTest.run')?.retired);
+  assert.deepEqual(gsc.problems, []);
+  assert.deepEqual(mini.problems, ['retired mini.files.gone: not in the document']);
+  assert.deepEqual(mini.resources.get('v26')?.methods.get('listThings')?.words, [
+    'v26',
+    'listThings',
+  ]);
+  assert.equal(mini.byId.get('mini.files.list')?.pageable, true);
+  assert.equal(mini.byId.get('mini.files.download')?.download, true);
+  assert.equal(mini.byId.get('mini.files.upload')?.upload?.resumable, true);
+  assert.equal(mini.schemas.has('constructor'), false);
+  assert.equal(calls.length, 0);
+});
+
+test('every hand manifest loads as a discovery-shaped model without a fetch', async () => {
+  const { dir } = setup();
+  const { fetch, calls } = fakeFetch(down);
+  const catalog = await openCatalog({ dir, fetch, warn: assert.fail }); // shipped src/apis
+  const hand = Object.values(catalog.entries).filter((e) => !isApiEntry(e));
+  assert.ok(hand.length > 0);
+  for (const { api } of hand) {
+    const model = await catalog.load(api);
+    assert.ok(model.rootUrl.endsWith('/'), api);
+    assert.ok(model.byId.size > 0, api);
+    for (const m of model.byId.values()) {
+      assert.ok(!m.path.startsWith('/'), m.id);
+      assert.equal(m.request !== undefined, ['POST', 'PUT', 'PATCH'].includes(m.httpMethod), m.id);
+    }
+  }
+  assert.equal(calls.length, 0);
 });
