@@ -1,6 +1,6 @@
 # Epic Spec: `gapi` — CLI Google unificada
 
-> Status: ready-for-agent · Tipo: epic · Fundamentada (fatos [V] verificados contra
+> Status: publicada em 0.2.0 (epic #30 e release #72 fechados) · Tipo: epic · Fundamentada (fatos [V] verificados contra
 > docs oficiais Google; wiring do vmCODE citado por `file:line` no plano de origem
 > `~/.claude/plans/liste-todos-os-mcps-greedy-pine.md`).
 
