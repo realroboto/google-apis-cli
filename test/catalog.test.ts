@@ -154,3 +154,14 @@ test('fixture documents normalize into auth kind, scopes, overlays, words and me
   assert.equal(mini.schemas.has('constructor'), false);
   assert.equal(calls.length, 0);
 });
+
+test('an entry whose api differs from its file name is rejected', async () => {
+  const { dir } = setup();
+  const apis = join(dir, 'apis');
+  mkdirSync(apis);
+  writeFileSync(join(apis, 'wrong.ts'), "export default { api: 'right', discovery: 'x' };\n");
+  const { fetch } = fakeFetch(fresh);
+  await assert.rejects(openCatalog({ dir, fetch, warn: () => {}, apisDir: apis }), {
+    message: `${join(apis, 'wrong.ts')}: api 'right' must equal 'wrong'`,
+  });
+});

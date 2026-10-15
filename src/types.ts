@@ -1,29 +1,10 @@
-// Shared types for the two seams: the declarative manifest row and the
-// executor's injected dependencies. Kept in one file so an API slice only
-// imports types, never redefines the contract.
+// Shared types: the API entry, the normalized ApiModel, the CallPlan and the
+// injected ports. Kept in one file so an API entry only imports types, never
+// redefines the contract.
 import type { ParseArgsOptionsConfig } from 'node:util';
 import type { Credentials } from 'google-auth-library';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
-export type ManifestRow = {
-  httpMethod: HttpMethod;
-  pathTemplate: string;
-  scopes: string[];
-  requiredHeaders?: string[];
-  listKey?: string;
-  // Query-param names filled from trailing positionals (after path params), in
-  // order — the GET counterpart of path {placeholders} (e.g. indexing getMetadata ?url=).
-  query?: string[];
-};
-
-export type Manifest = {
-  api: string;
-  baseUrl: string;
-  resources: Record<string, Record<string, ManifestRow>>;
-  headers?: ApiEntry['headers'];
-  helpers?: Helpers;
-};
 
 // A `+name` hand command (epic #30 D10): parses its own options, then builds its
 // CallPlan through the Planner by method id.
@@ -101,7 +82,7 @@ export type ApiResource = {
   methods: Map<string, ApiMethod>;
 };
 
-// The normalized form of one API's discovery document or hand manifest (epic #30 D13).
+// The normalized form of one API's discovery document (epic #30 D13).
 export type ApiModel = ApiResource & {
   api: string;
   name: string;

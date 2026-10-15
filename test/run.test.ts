@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, extname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { fakeFetch } from './helpers/fetch.ts';
@@ -101,8 +108,12 @@ test('--help prints the usage and every api entry without loading a document', a
   assert.equal(r.code, 0);
   assert.ok(r.stdout.startsWith('gapi <api> <resource> [<sub-resource>…] <method>'));
   assert.match(r.stdout, /^gapi <api> \+<helper> … /m);
-  assert.match(r.stdout, /^apis:\n {2}ads\n/m);
-  assert.match(r.stdout, /^ {2}gsc$/m);
+  const shipped = readdirSync(fileURLToPath(new URL('../src/apis/', import.meta.url)))
+    .filter((f) => (f.endsWith('.ts') || f.endsWith('.js')) && !f.endsWith('.d.ts'))
+    .map((f) => basename(f, extname(f)))
+    .sort();
+  assert.ok(shipped.length > 0);
+  assert.ok(r.stdout.endsWith(`\napis:\n${shipped.map((api) => `  ${api}\n`).join('')}`));
   assert.equal(r.stderr, '');
 });
 
