@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   statSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { test } from 'node:test';
 import { openCatalog } from '../src/catalog.ts';
 import { GapiError } from '../src/errors.ts';
@@ -164,4 +166,18 @@ test('an entry whose api differs from its file name is rejected', async () => {
   await assert.rejects(openCatalog({ dir, fetch, warn: () => {}, apisDir: apis }), {
     message: `${join(apis, 'wrong.ts')}: api 'right' must equal 'wrong'`,
   });
+});
+
+test('entries load from a directory whose path holds a #', async () => {
+  const { dir } = setup();
+  const apis = mkdtempSync(join(tmpdir(), 'gapi-#-'));
+  cpSync(apisDir, apis, { recursive: true });
+  const { fetch } = fakeFetch(fresh);
+  const catalog = await openCatalog({ dir, fetch, warn: () => {}, apisDir: apis });
+  assert.deepEqual(
+    Object.keys(catalog.entries).sort(),
+    readdirSync(apisDir)
+      .map((f) => basename(f, '.ts'))
+      .sort(),
+  );
 });
