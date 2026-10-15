@@ -67,7 +67,7 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 ## Add an API or a resource
 
 - New API = one new `src/apis/<api>.ts` file that default-exports an API entry (`satisfies ApiEntry`): the discovery URL plus overlays (`retired`, `deprecated`, `paid`, `headers`, `helpers`). The discovery document gives every resource and method. The glob finds the file; `api` must equal the file name, or the Catalog fails to load. No shared file changes.
-- Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document.
+- Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document. CI runs it weekly and on manual dispatch (`.github/workflows/discovery.yml`).
 - Test through `run(argv, io)`: fixture entries via `io.apisDir`, cache seeded in a temp `GAPI_CONFIG_DIR`, fake `fetch` (`test/helpers/fetch.ts`). `--dry-run` shows the request. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
 - Fix lint by fixing the code it flags — never `biome --unsafe`, never disable a rule to clear it.
