@@ -2,6 +2,7 @@
 // executor's injected dependencies. Kept in one file so an API slice only
 // imports types, never redefines the contract.
 import type { ParseArgsOptionsConfig } from 'node:util';
+import type { Credentials } from 'google-auth-library';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -20,6 +21,7 @@ export type Manifest = {
   api: string;
   baseUrl: string;
   resources: Record<string, Record<string, ManifestRow>>;
+  headers?: ApiEntry['headers'];
   helpers?: Helpers;
 };
 
@@ -148,8 +150,16 @@ export type FetchResponse = Pick<Response, 'ok' | 'status' | 'headers' | 'text' 
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<FetchResponse>;
 
-// The minimal token client makeTokenProvider needs; lets tests inject a fake
+// The minimal token client authorize needs; lets tests inject a fake
 // without constructing a real OAuth2Client.
 export type AccessTokenClient = {
   getAccessToken(): Promise<{ token?: string | null }>;
+};
+
+// The OAuth client port Credentials drives (google-auth-library's OAuth2Client, or a fake).
+export type OAuthClient = AccessTokenClient & {
+  generateAuthUrl(opts: { access_type: string; prompt: string; scope: string[] }): string;
+  getToken(code: string): Promise<{ tokens: Credentials }>;
+  setCredentials(credentials: Credentials): void;
+  on(event: 'tokens', listener: (tokens: Credentials) => void): unknown;
 };

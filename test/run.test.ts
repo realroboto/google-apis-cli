@@ -10,12 +10,11 @@ import { gapi } from './helpers/io.ts';
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const apisDir = join(FIXTURES, 'apis');
 
-// Config, cache and credentials live in a temp GAPI_CONFIG_DIR. The cache is fresh, so
-// no row fetches a document; the access token is unexpired, so no row refreshes it.
+// Config, cache and credentials live in a temp GAPI_CONFIG_DIR, passed through io.env
+// only. The cache is fresh, so no row fetches a document; the access token is unexpired,
+// so no row refreshes it.
 const dir = mkdtempSync(join(tmpdir(), 'gapi-run-'));
-process.env.GAPI_CONFIG_DIR = dir;
-delete process.env.GOOGLE_CLOUD_PROJECT;
-delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+const env = { GAPI_CONFIG_DIR: dir };
 mkdirSync(join(dir, 'cache'));
 const DOCS = {
   crux: 'crux',
@@ -31,24 +30,26 @@ for (const [api, doc] of Object.entries(DOCS)) {
 }
 writeFileSync(
   join(dir, 'config.json'),
-  JSON.stringify({ oauth_client_id: 'cid', oauth_client_secret: 'secret' }),
+  JSON.stringify({ oauth_client_id: 'cid', oauth_client_secret: 'secret', api_key: 'KEY' }),
 );
 writeFileSync(
   join(dir, 'credentials.json'),
   JSON.stringify({ access_token: 'TOK', refresh_token: 'RT', expiry_date: Date.now() + 3600e3 }),
 );
 
-// `gapi` over the fixture entries (discovery documents from the seeded cache).
-const fx = (argv: string[], io = {}) => gapi(argv, { apisDir, ...io });
+// `gapi` over the shipped entries, and over the fixture entries (discovery documents
+// from the seeded cache).
+const sh = (argv: string[], io = {}) => gapi(argv, { env, ...io });
+const fx = (argv: string[], io = {}) => gapi(argv, { env, apisDir, ...io });
 const dryRun = async (argv: string[], shipped = false) => {
-  const r = await (shipped ? gapi : fx)([...argv, '--dry-run']);
+  const r = await (shipped ? sh : fx)([...argv, '--dry-run']);
   assert.equal(r.stderr, '');
   assert.equal(r.code, 0);
   return JSON.parse(r.stdout);
 };
 
 test('--help prints the usage and every api entry without loading a document', async () => {
-  const r = await gapi(['--help']);
+  const r = await sh(['--help']);
   assert.equal(r.code, 0);
   assert.ok(r.stdout.startsWith('gapi <api> <resource> [<sub-resource>…] <method>'));
   assert.match(r.stdout, /^gapi <api> \+<helper> … /m);
@@ -58,11 +59,11 @@ test('--help prints the usage and every api entry without loading a document', a
 });
 
 test('gapi <api> [<resource>…] lists that level', async () => {
-  const hand = await gapi(['gsc']);
+  const hand = await sh(['gsc']);
   assert.equal(hand.code, 0);
   assert.match(hand.stdout, /^resources:\n(?: {2}\S+\n)* {2}sites\n/m);
   assert.doesNotMatch(hand.stdout, /^helpers:/m);
-  assert.match((await gapi(['ads'])).stdout, /^helpers:\n {2}\+gaql {2}"<query>" --customer <id>/m);
+  assert.match((await sh(['ads'])).stdout, /^helpers:\n {2}\+gaql {2}"<query>" --customer <id>/m);
 
   const r = await fx(['ga4-admin', 'properties']);
   assert.equal(r.code, 0);
@@ -135,6 +136,26 @@ test('hand manifests run through the same path', async () => {
   );
 });
 
+test('credentials: API-key header, entry header flags', async () => {
+  const crux = await dryRun(['crux', 'records', 'queryRecord', '--body', '{}']);
+  assert.deepEqual(crux.headers, {
+    'Content-Type': 'application/json',
+    'X-Goog-Api-Key': '<redacted>',
+  });
+  const psi = ['pagespeed', 'pagespeedapi', 'runpagespeed', '--params', '{"url":"https://a.com"}'];
+  assert.deepEqual((await dryRun(psi)).headers, { 'X-Goog-Api-Key': '<redacted>' });
+
+  const mutate = ['ads', 'campaigns', 'mutate', '--params', '{"customer":"1"}', '--body', '{}'];
+  const ads = await dryRun([...mutate, '--login-customer-id', '9'], true);
+  assert.equal(ads.headers['login-customer-id'], '9');
+
+  const { fetch, calls } = fakeFetch(() => Response.json({}));
+  const gsc = await fx(['gsc', 'sites', 'list', '--login-customer-id', '9'], { fetch });
+  assert.equal(gsc.code, 3);
+  assert.match(gsc.stderr, /^gapi: Unknown option '--login-customer-id'/);
+  assert.equal(calls.length, 0);
+});
+
 test('ads +gaql: --dry-run prints the search request; --stream concatenates every chunk', async () => {
   const query = 'SELECT campaign.id FROM campaign';
   assert.deepEqual(await dryRun(['ads', '+gaql', query, '--customer', '1'], true), {
@@ -146,7 +167,7 @@ test('ads +gaql: --dry-run prints the search request; --stream concatenates ever
 
   const chunks = [{ results: [{ id: 1 }] }, { results: [{ id: 2 }] }];
   const { fetch, calls } = fakeFetch(() => Response.json(chunks));
-  const r = await gapi(['ads', '+gaql', query, '--customer', '1', '--stream'], { fetch });
+  const r = await sh(['ads', '+gaql', query, '--customer', '1', '--stream'], { fetch });
   assert.equal(r.code, 0);
   assert.equal(r.stdout, `${JSON.stringify([{ id: 1 }, { id: 2 }], null, 2)}\n`);
   assert.equal(calls.length, 1);
@@ -230,7 +251,7 @@ test('validation errors exit 3 before any network call', async () => {
   ];
   for (const [argv, stderr, shipped] of rows) {
     const { fetch, calls } = fakeFetch(() => new Response('{}'));
-    const r = await (shipped ? gapi : fx)(argv, { fetch });
+    const r = await (shipped ? sh : fx)(argv, { fetch });
     assert.equal(r.code, 3, argv.join(' '));
     assert.match(r.stderr, stderr);
     assert.equal(calls.length, 0);
@@ -311,7 +332,7 @@ test('discovery refresh refetches and rewrites the cache; discovery path prints 
   ];
   for (const [argv, stderr, shipped] of rows) {
     const none = fakeFetch(() => new Response(text));
-    const bad = await (shipped ? gapi : fx)(argv, { fetch: none.fetch });
+    const bad = await (shipped ? sh : fx)(argv, { fetch: none.fetch });
     assert.equal(bad.code, 3, argv.join(' '));
     assert.equal(bad.stderr, stderr);
     assert.equal(none.calls.length, 0);
@@ -353,6 +374,44 @@ test('send: --page-all follows nextPageToken and prints one NDJSON line per page
   assert.equal(bad.code, 3);
   assert.equal(bad.stderr, 'gapi: --page-all: gsc sites list has no pageToken parameter\n');
   assert.equal(none.calls.length, 0);
+});
+
+test('send: reads only the config dir in io.env, never HOME', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'gapi-home-'));
+  const { fetch, calls } = fakeFetch(() => Response.json({ properties: [] }));
+  const r = await fx(
+    ['ga4-admin', 'properties', 'list', '--params', '{"filter":"parent:accounts/1"}'],
+    {
+      fetch,
+      env: { ...env, HOME: home },
+    },
+  );
+  assert.equal(r.code, 0);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].init?.headers, { Authorization: 'Bearer TOK' });
+});
+
+test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT exits 2 naming the scope', async () => {
+  const error = {
+    code: 403,
+    message: 'Request had insufficient authentication scopes.',
+    status: 'PERMISSION_DENIED',
+    details: [
+      {
+        '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+        reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT',
+      },
+    ],
+  };
+  const { fetch } = fakeFetch(() => Response.json({ error }, { status: 403 }));
+  const r = await fx(['indexing', 'urlNotifications', 'getMetadata'], { fetch });
+  assert.equal(r.code, 2);
+  assert.ok(
+    r.stderr.startsWith(
+      'gapi: missing scope (https://www.googleapis.com/auth/indexing); run gapi auth login\n',
+    ),
+    r.stderr,
+  );
 });
 
 test('send: a Google non-2xx exits 1 with the error body', async () => {

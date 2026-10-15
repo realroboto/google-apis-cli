@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { resolveAdsHeaders } from '../src/config.ts';
 import { loadManifests } from '../src/manifest.ts';
 
 // Coverage-oracle: the T5 Ads subset. Ads has no discovery REST doc (proto-
@@ -41,24 +40,4 @@ test('coverage-oracle: ads manifest covers the T5 subset exactly', async () => {
     [],
     'manifest methods outside the T5 subset',
   );
-});
-
-// --- pure units ---
-test('resolveAdsHeaders precedence: flag > env > config', () => {
-  const K = 'login-customer-id';
-  // flag wins
-  assert.equal(resolveAdsHeaders({ [K]: 'F' }, { [K]: 'C' })[K], 'F');
-  // env over config (no flag)
-  process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID = 'E';
-  try {
-    assert.equal(resolveAdsHeaders({}, { [K]: 'C' })[K], 'E');
-  } finally {
-    delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
-  }
-  // config fallback
-  assert.equal(resolveAdsHeaders({}, { [K]: 'C' })[K], 'C');
-  // absent → omitted (and developer-token is never sent)
-  const h = resolveAdsHeaders({}, {});
-  assert.equal(K in h, false);
-  assert.equal('developer-token' in h, false);
 });

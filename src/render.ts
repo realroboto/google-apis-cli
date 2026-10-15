@@ -7,10 +7,11 @@ export const SCHEMA_USAGE =
 export const DISCOVERY_USAGE = 'gapi discovery refresh [<api>…] | path';
 
 const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>']
-     [--page-all [--page-limit <n>]] [--dry-run] [--project <id>]
+     [--page-all [--page-limit <n>]] [--dry-run] [--project <id>] [--api-key <key>]
+     [<entry header flags, e.g. ads --login-customer-id <id>>]
 gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
-gapi <api> +<helper> … [--dry-run] [--project <id>]
+gapi <api> +<helper> … [--dry-run] [--project <id>] [--api-key <key>] [<entry header flags>]
 ${SCHEMA_USAGE}
 ${DISCOVERY_USAGE}
 gapi auth setup | login [--manual] | status | logout

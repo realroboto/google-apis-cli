@@ -1,16 +1,8 @@
 // Process io is injected so tests drive the whole CLI in-process.
 import { readFile } from 'node:fs/promises';
 import { type ParseArgsConfig, parseArgs } from 'node:util';
-import {
-  configureAuth,
-  loginLoopback,
-  loginManual,
-  logout,
-  makeTokenProvider,
-  status,
-} from './auth.ts';
 import { isApiEntry, openCatalog } from './catalog.ts';
-import { configDir, QUOTA_PROJECT_ENV, resolveAdsHeaders, resolveSetting } from './config.ts';
+import { configDir, openCredentials } from './credentials.ts';
 import { GapiError } from './errors.ts';
 import { plan, resolve } from './plan.ts';
 import {
@@ -22,7 +14,10 @@ import {
   schemaView,
 } from './render.ts';
 import { send } from './transport.ts';
-import type { ApiMethod, ApiModel, Authorize, CallPlan, FetchLike, Settings } from './types.ts';
+import type { ApiEntry, ApiMethod, ApiModel, Authorize, CallPlan, FetchLike } from './types.ts';
+
+type Catalog = Awaited<ReturnType<typeof openCatalog>>;
+type Creds = ReturnType<typeof openCredentials>;
 
 export type Io = {
   env: NodeJS.ProcessEnv;
@@ -40,6 +35,7 @@ const GLOBAL_OPTIONS = {
   'page-all': { type: 'boolean' },
   'page-limit': { type: 'string' },
   project: { type: 'string' },
+  'api-key': { type: 'string' },
   help: { type: 'boolean' },
 } as const;
 
@@ -47,10 +43,15 @@ const GLOBAL_OPTIONS = {
 const HELPER_OPTIONS = {
   'dry-run': GLOBAL_OPTIONS['dry-run'],
   project: GLOBAL_OPTIONS.project,
+  'api-key': GLOBAL_OPTIONS['api-key'],
   help: GLOBAL_OPTIONS.help,
 } as const;
 
 const isHelperName = (word: string): word is `+${string}` => word.startsWith('+');
+
+// D4: an entry header flag is accepted only on the APIs whose entry declares it.
+const headerOptions = (entry: { headers?: ApiEntry['headers'] } | undefined) =>
+  Object.fromEntries((entry?.headers ?? []).map((h) => [h.flag, { type: 'string' as const }]));
 
 export async function run(argv: string[], io: Io): Promise<number> {
   try {
@@ -77,30 +78,42 @@ function parse<T extends ParseArgsConfig['options']>(args: string[], options: T)
 async function runAuth(
   sub: string | undefined,
   values: { manual?: boolean },
-  io: Io,
+  { io, creds, catalog }: { io: Io; creds: Creds; catalog: Catalog },
 ): Promise<void> {
   if (sub === 'login') {
-    const tokens = values.manual ? await loginManual() : await loginLoopback();
+    const consent = await consentScopes(catalog);
+    const tokens = await creds.login({ consent, manual: values.manual === true });
     io.stderr.write(
       `gapi: authorized (${tokens.refresh_token ? 'refresh token stored' : 'no refresh token'})\n`,
     );
     return;
   }
   if (sub === 'setup') {
-    await configureAuth();
-    io.stderr.write('gapi: saved to ~/.config/gapi/config.json\n');
+    io.stderr.write(`gapi: saved to ${await creds.setup()}\n`);
     return;
   }
   if (sub === 'status') {
-    io.stdout.write(`${JSON.stringify(status(), null, 2)}\n`);
+    const consent = await consentScopes(catalog);
+    io.stdout.write(`${JSON.stringify(creds.status(consent), null, 2)}\n`);
     return;
   }
   if (sub === 'logout') {
-    logout();
+    creds.logout();
     io.stderr.write('gapi: credentials removed\n');
     return;
   }
   throw new GapiError(3, `unknown auth command: ${sub}`);
+}
+
+// D8 consent set: every entry's per-method scope plus its entry scopes (identity is added by login).
+async function consentScopes(catalog: Catalog): Promise<string[]> {
+  const models = await Promise.all(Object.keys(catalog.entries).map((api) => catalog.load(api)));
+  const scopes = new Set<string>();
+  for (const model of models) {
+    for (const s of model.scopes) scopes.add(s);
+    for (const m of model.byId.values()) if (m.scope) scopes.add(m.scope);
+  }
+  return [...scopes];
 }
 
 // D9 order: a method path, else a schema name. Only a document-level method can share a
@@ -113,12 +126,10 @@ function schemaTarget(model: ApiModel, path: string): { method: ApiMethod } | { 
 }
 
 async function dispatch(argv: string[], io: Io): Promise<void> {
-  const catalog = await openCatalog({
-    dir: configDir(),
-    fetch: io.fetch,
-    warn: (message) => io.stderr.write(`gapi: warning: ${message}\n`),
-    apisDir: io.apisDir,
-  });
+  const dir = configDir(io.env);
+  const warn = (message: string) => io.stderr.write(`gapi: warning: ${message}\n`);
+  const catalog = await openCatalog({ dir, fetch: io.fetch, warn, apisDir: io.apisDir });
+  const creds = openCredentials({ dir, env: io.env, warn });
 
   if (argv.length === 0 || (argv[0] === '--help' && argv.length === 1)) {
     io.stdout.write(rootHelp(Object.keys(catalog.entries)));
@@ -132,10 +143,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       manual: { type: 'boolean' },
       help: { type: 'boolean' },
     });
-    // Interim until Credentials (#41): auth failures are untyped and exit 1, as before.
-    return runAuth(positionals[0], values, io).catch((e) => {
-      throw e instanceof GapiError ? e : new GapiError(1, e.message);
-    });
+    return runAuth(positionals[0], values, { io, creds, catalog });
   }
 
   if (api === 'schema') {
@@ -178,22 +186,28 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       const valid = Object.keys(helpers).join(', ') || 'none';
       throw new GapiError(3, `unknown helper '${word}' (valid: ${valid})`);
     }
-    const { values, positionals } = parse(helperArgs, { ...HELPER_OPTIONS, ...helper.options });
+    const { values, positionals } = parse(helperArgs, {
+      ...HELPER_OPTIONS,
+      ...headerOptions(catalog.entries[api]),
+      ...helper.options,
+    });
     if (values.help) {
       io.stdout.write(`gapi ${api} ${word} ${helper.summary}\n`);
       return;
     }
+    const model = await catalog.load(api);
     const call = await helper.plan({
-      model: await catalog.load(api),
+      model,
       args: positionals,
       flags: values,
-      settings: interimSettings(api, values),
+      settings: creds.settings(values, model.headers),
       read: (path) => readFile(path, 'utf8'),
     });
-    return perform(call, values['dry-run'] === true, io);
+    return perform(call, values['dry-run'] === true, io, creds.authorize);
   }
 
-  const { values, positionals } = parse(rest, GLOBAL_OPTIONS);
+  const entry = Object.hasOwn(catalog.entries, api) ? catalog.entries[api] : undefined;
+  const { values, positionals } = parse(rest, { ...GLOBAL_OPTIONS, ...headerOptions(entry) });
   const model = await catalog.load(api);
   const target = resolve(model, positionals);
   if (!target.method) {
@@ -217,38 +231,19 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       pageAll: values['page-all'],
       pageLimit: values['page-limit'],
     },
-    interimSettings(api, values),
+    creds.settings(values, model.headers),
   );
-  return perform(call, dryRun, io);
-}
-
-// Interim until Credentials (#41): today's quota-project and Ads-header resolvers.
-function interimSettings(api: string, values: Record<string, unknown>): Settings {
-  return {
-    project: resolveSetting(values, {
-      flag: 'project',
-      env: QUOTA_PROJECT_ENV,
-      key: 'project',
-    }) as string | undefined,
-    headers: api === 'ads' ? resolveAdsHeaders(values) : {},
-  };
+  return perform(call, dryRun, io, creds.authorize);
 }
 
 // Prints the plan's warnings, then the redacted request (--dry-run) or the response.
-async function perform(call: CallPlan, dryRun: boolean, io: Io): Promise<void> {
+async function perform(
+  call: CallPlan,
+  dryRun: boolean,
+  io: Io,
+  authorize: Authorize,
+): Promise<void> {
   for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
-
-  // Interim until Credentials (#41): today's token provider, Bearer for every API.
-  // It opens credentials.json on its first call only, so --dry-run never reads it.
-  const token = makeTokenProvider();
-  const authorize: Authorize = async (_auth, { redact = false } = {}) => {
-    if (redact) return { Authorization: 'Bearer <redacted>' };
-    const value = await token().catch((e: Error) => {
-      throw new GapiError(2, e.message);
-    });
-    return { Authorization: `Bearer ${value}` };
-  };
-
   if (dryRun) {
     const headers = { ...call.headers, ...(await authorize(call.auth, { redact: true })) };
     const request = { method: call.httpMethod, url: call.url, headers, body: call.body };
