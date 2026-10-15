@@ -8,7 +8,7 @@
 - TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (corepack-pinned) for package management.
 - It replaces the 4 fragmented Google MCPs in vmCODE.
 
-Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--dry-run]`. `gapi <api> [<resource>…]` lists a level; `… <method> --help` shows method help.
+Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--page-all [--page-limit <n>]] [--dry-run]`. `gapi <api> [<resource>…]` lists a level; `… <method> --help` shows method help.
 
 ## Install
 
@@ -47,7 +47,7 @@ A call moves through these parts in order (migration in progress, epic #30).
 | **run** | `src/run.ts` | `run(argv, io)`: strict argv parse, routing (`--help`, `auth`, `<api> …`), `GapiError` → exit code. `bin/gapi.ts` passes process io. |
 | **Catalog** | `src/catalog.ts` | API entries (`src/apis/*.ts`, glob, no registry) → `ApiModel`. Discovery entries: document cached 24 h. Hand manifests: `legacyDoc` until migrated. |
 | **Planner** | `src/plan.ts` | `plan(model, words \| methodId, input, settings)` → `CallPlan`. Pure. Every `--params`/`--body` rule; validation fails exit 3 before network. |
-| **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1. `--dry-run` prints the plan instead. |
+| **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1. `--page-all` follows `nextPageToken`: one JSON line per page, max `--page-limit` (default 10). `--dry-run` prints the plan instead. |
 | **Renderers** | `src/render.ts` | Root help, level listing, method help. |
 | **auth** | `src/auth.ts`, `src/config.ts` | `gapi auth login`: one OAuth consent, refresh token in `<config dir>/credentials.json` (mode 600). Interim token provider + settings resolvers until Credentials (#41). |
 
