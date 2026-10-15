@@ -171,11 +171,11 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
 
   const [word, ...helperArgs] = rest;
   if (word !== undefined && isHelperName(word)) {
-    const model = await catalog.load(api);
+    if (!Object.hasOwn(catalog.entries, api)) throw new GapiError(3, `unknown api: ${api}`);
     const helpers = catalog.entries[api].helpers ?? {};
     const helper = Object.hasOwn(helpers, word) ? helpers[word] : undefined;
     if (!helper) {
-      const valid = Object.keys(helpers).join(', ');
+      const valid = Object.keys(helpers).join(', ') || 'none';
       throw new GapiError(3, `unknown helper '${word}' (valid: ${valid})`);
     }
     const { values, positionals } = parse(helperArgs, { ...HELPER_OPTIONS, ...helper.options });
@@ -184,7 +184,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       return;
     }
     const call = await helper.plan({
-      model,
+      model: await catalog.load(api),
       args: positionals,
       flags: values,
       settings: interimSettings(api, values),

@@ -23,7 +23,7 @@ import type { Helper, Manifest } from '../types.ts';
 
 const ADS = ['adwords'];
 const C = '/v25/customers/{customer}';
-const GAQL_USAGE = 'gapi ads +gaql "<query>" --customer <id> [--stream]';
+const GAQL_ARGS = '"<query>" --customer <id> [--stream]';
 
 // searchStream → JSON array of {results, ...} chunks; concat into one list.
 const streamConcat = (data: unknown): unknown =>
@@ -31,10 +31,10 @@ const streamConcat = (data: unknown): unknown =>
 
 // D10: one GAQL query; `--stream` returns every row, without it the first page as returned.
 const gaql: Helper = {
-  summary: '"<query>" --customer <id> [--stream]  run one GAQL query; --stream returns every row',
+  summary: `${GAQL_ARGS}  run one GAQL query; --stream returns every row`,
   options: { customer: { type: 'string' }, stream: { type: 'boolean' } },
   plan: async ({ model, args, flags, settings }) => {
-    if (args.length !== 1) throw new GapiError(3, `usage: ${GAQL_USAGE}`);
+    if (args.length !== 1) throw new GapiError(3, `usage: gapi ads +gaql ${GAQL_ARGS}`);
     if (typeof flags.customer !== 'string') throw new GapiError(3, '--customer is required');
     const stream = flags.stream === true;
     const call = plan(
