@@ -66,8 +66,7 @@ export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
     if (plan.paging === 'query') {
       url.searchParams.set('pageToken', token);
     } else {
-      const body = { ...(isRecord(plan.body) ? plan.body : {}), pageToken: token };
-      pageInit = { ...init, body: JSON.stringify(body) };
+      pageInit = { ...init, body: JSON.stringify({ ...plan.body, pageToken: token }) };
     }
   }
 }

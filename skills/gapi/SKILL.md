@@ -170,4 +170,4 @@ Search paths start with `places.`; `get` paths do not.
 
 ## Discovery cache
 
-Documents cache 24 h under the config dir (`GAPI_CONFIG_DIR` or `~/.config/gapi`). `gapi discovery refresh [<api>…]` refetches now; `gapi discovery path` prints the cache dir. A failed refetch falls back to the stale copy with a stderr warning. A cache file that is not a `discovery#restDescription` JSON document is refetched.
+Documents cache 24 h under the config dir (`GAPI_CONFIG_DIR` or `~/.config/gapi`). `gapi discovery refresh [<api>…]` refetches now; `gapi discovery path` prints the cache dir. A failed refetch (network error, non-2xx, or a download that is not a `discovery#restDescription` document) falls back to a usable cached copy with a stderr warning; with none it exits 4 (`gapi discovery refresh <api>` retries). A cache file that is not a `discovery#restDescription` JSON document is refetched.

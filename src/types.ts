@@ -116,11 +116,12 @@ export type CallPlan = {
   warnings: string[];
 } & SendMode;
 
-// How Transport sends a plan: one request, `pageToken` pages (D6), a media upload, a
-// media download to a file, or batch parts (D7).
+// How Transport sends a plan: one request, `pageToken` pages (D6) in the query or the
+// body object, a media upload, a media download to a file, or batch parts (D7).
 export type SendMode =
   | { send: 'once' }
-  | { send: 'pages'; pageLimit: number; paging: Paging }
+  | { send: 'pages'; pageLimit: number; paging: 'query' }
+  | { send: 'pages'; pageLimit: number; paging: 'body'; body: Record<string, unknown> }
   | { send: 'upload'; upload: Upload }
   | { send: 'download'; output: string }
   | { send: 'batch'; parts: BatchPart[] };
