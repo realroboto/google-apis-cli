@@ -1,10 +1,17 @@
 // Renderers: plain text views over an ApiModel (epic #30 D4, story 8).
 import type { ApiMethod, ApiModel, ApiResource } from './types.ts';
 
+export const SCHEMA_USAGE =
+  'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs]';
+
+export const DISCOVERY_USAGE = 'gapi discovery refresh [<api>…] | path';
+
 const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>']
      [--page-all [--page-limit <n>]] [--dry-run] [--project <id>]
 gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
+${SCHEMA_USAGE}
+${DISCOVERY_USAGE}
 gapi auth setup | login [--manual] | status | logout
 `;
 
@@ -72,4 +79,52 @@ export function methodHelp(model: ApiModel, m: ApiMethod): string {
   if (m.unavailable) lines.push('unavailable: scope not grantable');
   if (model.documentationLink) lines.push(`docs: ${model.documentationLink}`);
   return `${lines.join('\n')}\n`;
+}
+
+// D9: a method's shape (request/response as schema names), or one document schema.
+export function schemaView(
+  model: ApiModel,
+  target: { method: ApiMethod } | { schema: string },
+  { resolveRefs }: { resolveRefs: boolean },
+): string {
+  // A method shape holds schema names, never a $ref, so --resolve-refs leaves it as is.
+  if ('method' in target) {
+    const m = target.method;
+    const shape = {
+      id: m.id,
+      httpMethod: m.httpMethod,
+      path: m.path,
+      description: m.description,
+      parameters: Object.fromEntries(m.parameters),
+      request: m.request,
+      response: m.response,
+      scopes: m.scopes,
+      supportsMediaUpload: m.upload !== undefined,
+      supportsMediaDownload: m.download,
+    };
+    return `${JSON.stringify(shape, null, 2)}\n`;
+  }
+  const schema = model.schemas.get(target.schema);
+  const out = resolveRefs && schema ? expandObject(schema, model.schemas, [target.schema]) : schema;
+  return `${JSON.stringify(out, null, 2)}\n`;
+}
+
+function expandRefs(value: unknown, schemas: ApiModel['schemas'], path: string[]): unknown {
+  if (Array.isArray(value)) return value.map((v) => expandRefs(v, schemas, path));
+  return typeof value === 'object' && value !== null ? expandObject(value, schemas, path) : value;
+}
+
+// Replaces {"$ref": X, …} with schema X expanded, keeping the sibling keys.
+// A name already on the expansion path stays a bare {"$ref": X} (cycle guard).
+function expandObject(obj: object, schemas: ApiModel['schemas'], path: string[]): object {
+  const ref = '$ref' in obj ? obj.$ref : undefined;
+  if (typeof ref === 'string' && path.includes(ref)) return { $ref: ref };
+  const name = typeof ref === 'string' ? ref : undefined;
+  const schema = name && schemas.get(name);
+  const own = Object.fromEntries(
+    Object.entries(obj)
+      .filter(([k]) => !(schema && k === '$ref'))
+      .map(([k, v]) => [k, expandRefs(v, schemas, path)]),
+  );
+  return name && schema ? { ...expandObject(schema, schemas, [...path, name]), ...own } : own;
 }

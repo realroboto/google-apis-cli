@@ -8,13 +8,20 @@ import {
   makeTokenProvider,
   status,
 } from './auth.ts';
-import { openCatalog } from './catalog.ts';
+import { isApiEntry, openCatalog } from './catalog.ts';
 import { configDir, QUOTA_PROJECT_ENV, resolveAdsHeaders, resolveSetting } from './config.ts';
 import { GapiError } from './errors.ts';
 import { plan, resolve } from './plan.ts';
-import { levelText, methodHelp, rootHelp } from './render.ts';
+import {
+  DISCOVERY_USAGE,
+  levelText,
+  methodHelp,
+  rootHelp,
+  SCHEMA_USAGE,
+  schemaView,
+} from './render.ts';
 import { send } from './transport.ts';
-import type { Authorize, FetchLike } from './types.ts';
+import type { ApiMethod, ApiModel, Authorize, FetchLike } from './types.ts';
 
 export type Io = {
   env: NodeJS.ProcessEnv;
@@ -86,6 +93,15 @@ async function runAuth(
   throw new GapiError(3, `unknown auth command: ${sub}`);
 }
 
+// D9 order: a method path, else a schema name. Only a document-level method can share a
+// schema's name, since method paths of nested resources contain a dot.
+function schemaTarget(model: ApiModel, path: string): { method: ApiMethod } | { schema: string } {
+  if (!model.methods.has(path) && model.schemas.has(path)) return { schema: path };
+  const found = resolve(model, path.split('.'));
+  if (!found.method) throw new GapiError(3, `${path} is a resource, not a method or schema`);
+  return { method: found.method };
+}
+
 async function dispatch(argv: string[], io: Io): Promise<void> {
   const catalog = await openCatalog({
     dir: configDir(),
@@ -110,6 +126,37 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
     return runAuth(positionals[0], values, io).catch((e) => {
       throw e instanceof GapiError ? e : new GapiError(1, e.message);
     });
+  }
+
+  if (api === 'schema') {
+    const { values, positionals } = parse(rest, { 'resolve-refs': { type: 'boolean' } });
+    if (positionals.length !== 2) throw new GapiError(3, `usage: ${SCHEMA_USAGE}`);
+    const [name, path] = positionals;
+    const model = await catalog.load(name);
+    const resolveRefs = values['resolve-refs'] === true;
+    io.stdout.write(schemaView(model, schemaTarget(model, path), { resolveRefs }));
+    return;
+  }
+
+  if (api === 'discovery') {
+    const { positionals } = parse(rest, {});
+    const [sub, ...apis] = positionals;
+    if (sub === 'path') {
+      if (apis.length > 0) throw new GapiError(3, `unexpected argument '${apis[0]}'`);
+      io.stdout.write(`${catalog.cacheDir}\n`);
+      return;
+    }
+    if (sub !== 'refresh') throw new GapiError(3, `usage: ${DISCOVERY_USAGE}`);
+    const fetchable = Object.keys(catalog.entries).filter((a) => isApiEntry(catalog.entries[a]));
+    // Validated and deduplicated before any fetch: parallel loads of one api share a temp file.
+    const names = apis.length > 0 ? [...new Set(apis)] : fetchable;
+    for (const a of names) {
+      if (!Object.hasOwn(catalog.entries, a)) throw new GapiError(3, `unknown api: ${a}`);
+      if (!fetchable.includes(a)) throw new GapiError(3, `${a} has no discovery document`);
+    }
+    await Promise.all(names.map((a) => catalog.load(a, { refresh: true })));
+    for (const a of names) io.stdout.write(`refreshed ${a}\n`);
+    return;
   }
 
   const { values, positionals } = parse(rest, GLOBAL_OPTIONS);

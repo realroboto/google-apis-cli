@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -203,6 +203,87 @@ test('validation errors exit 3 before any network call', async () => {
     assert.equal(r.code, 3, argv.join(' '));
     assert.match(r.stderr, stderr);
     assert.equal(calls.length, 0);
+  }
+});
+
+test('schema prints the D9 method shape, or a schema with $ref expanded up to a cycle', async () => {
+  const method = await fx(['schema', 'mini', 'files.get']);
+  assert.equal(method.code, 0);
+  assert.deepEqual(JSON.parse(method.stdout), {
+    id: 'mini.files.get',
+    httpMethod: 'GET',
+    path: 'v1/{+name}',
+    description: 'Gets a file.',
+    parameters: {
+      name: {
+        type: 'string',
+        location: 'path',
+        required: true,
+        pattern: '^files/[^/]+$',
+        description: 'Required. Resource name, files/{file}.',
+      },
+    },
+    response: 'File',
+    scopes: [
+      'https://www.googleapis.com/auth/mini',
+      'https://www.googleapis.com/auth/mini.readonly',
+    ],
+    supportsMediaUpload: false,
+    supportsMediaDownload: false,
+  });
+
+  const node = await fx(['schema', 'mini', 'ListFilesResponse', '--resolve-refs']);
+  assert.equal(node.code, 0);
+  assert.deepEqual(JSON.parse(node.stdout).properties.files.items.properties.name, {
+    type: 'string',
+  });
+  const cycle = JSON.parse((await fx(['schema', 'mini', 'Node', '--resolve-refs'])).stdout);
+  assert.deepEqual(cycle.properties.parent, { $ref: 'Node' });
+  assert.deepEqual(cycle.properties.children.items, { $ref: 'Node' });
+
+  const rows: [string[], string][] = [
+    [['schema', 'mini', 'files'], 'gapi: files is a resource, not a method or schema\n'],
+    [['schema', 'mini'], 'gapi: usage: gapi schema <api> <resource>[.<sub-resource>…].<method>'],
+    [['gsc', 'sites', 'list', '--resolve-refs'], "gapi: Unknown option '--resolve-refs'"],
+  ];
+  for (const [argv, stderr] of rows) {
+    const { fetch, calls } = fakeFetch(() => new Response('{}'));
+    const r = await fx(argv, { fetch });
+    assert.equal(r.code, 3, argv.join(' '));
+    assert.ok(r.stderr.startsWith(stderr), r.stderr);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('discovery refresh refetches and rewrites the cache; discovery path prints it', async () => {
+  const file = join(dir, 'cache', 'mini.json');
+  const text = readFileSync(join(FIXTURES, 'discovery', 'mini.json'), 'utf8');
+  writeFileSync(file, '{}'); // fresh, so only a refresh refetches it
+  const { fetch, calls } = fakeFetch(() => new Response(text));
+  const r = await fx(['discovery', 'refresh', 'mini', 'mini'], { fetch });
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, 'refreshed mini\n');
+  assert.deepEqual(
+    calls.map((c) => c.url),
+    ['https://mini.invalid/$discovery/rest?version=v1'],
+  );
+  assert.equal(readFileSync(file, 'utf8'), text);
+
+  const path = await fx(['discovery', 'path']);
+  assert.equal(path.code, 0);
+  assert.equal(path.stdout, `${join(dir, 'cache')}\n`);
+
+  const rows: [string[], string, boolean?][] = [
+    [['discovery', 'refresh', 'mini', 'nope'], 'gapi: unknown api: nope\n'],
+    [['discovery', 'refresh', 'ads'], 'gapi: ads has no discovery document\n', true],
+    [['discovery', 'bogus'], 'gapi: usage: gapi discovery refresh [<api>…] | path\n'],
+  ];
+  for (const [argv, stderr, shipped] of rows) {
+    const none = fakeFetch(() => new Response(text));
+    const bad = await (shipped ? gapi : fx)(argv, { fetch: none.fetch });
+    assert.equal(bad.code, 3, argv.join(' '));
+    assert.equal(bad.stderr, stderr);
+    assert.equal(none.calls.length, 0);
   }
 });
 
