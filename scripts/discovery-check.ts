@@ -16,8 +16,12 @@ const catalog = await openCatalog({ dir: configDir(), fetch, warn: fail, apisDir
 const apis = Object.values(catalog.entries)
   .filter(isApiEntry)
   .map((e) => e.api);
-for (const api of apis) {
-  await catalog.load(api, { refresh: true }).catch((e: Error) => fail(e.message));
-}
+await Promise.all(
+  apis.map((api) =>
+    catalog
+      .load(api, { refresh: true })
+      .catch((e: unknown) => fail(e instanceof Error ? e.message : String(e))),
+  ),
+);
 console.log(`discovery:check: ${apis.length} discovery entries checked`);
 process.exitCode = failed ? 1 : 0;

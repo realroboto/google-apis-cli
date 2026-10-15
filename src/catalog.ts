@@ -52,7 +52,9 @@ export async function openCatalog({
     if (!refresh && mtime !== undefined && Date.now() - mtime < TTL_MS) {
       doc = await cached();
     } else {
-      const got = await download(entry.discovery).catch((e: Error) => e);
+      const got = await download(entry.discovery).catch((e: unknown) =>
+        e instanceof Error ? e : new Error(String(e)),
+      );
       if (!(got instanceof Error)) {
         await writeAtomic(file, got.text);
         doc = got.doc;

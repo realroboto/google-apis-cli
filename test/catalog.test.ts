@@ -92,9 +92,11 @@ test('a failed fetch with no cache file exits 4, caches nothing, and a later loa
 });
 
 test('refresh ignores the TTL; one parse per api otherwise', async () => {
-  const { dir } = setup({ doc: { name: 'cached' }, ageSec: 60 });
+  const { dir, file } = setup({ doc: { name: 'cached' }, ageSec: 60 });
   const { catalog, calls } = await open(dir, fresh);
   await catalog.load('mini');
+  writeFileSync(file, JSON.stringify({ name: 'edited' }));
+  assert.deepEqual(await catalog.load('mini'), { name: 'cached' }); // parsed once, file not re-read
   assert.deepEqual(await catalog.load('mini', { refresh: true }), { name: 'fresh' });
   assert.deepEqual(await catalog.load('mini'), { name: 'fresh' });
   assert.equal(calls.length, 1);
