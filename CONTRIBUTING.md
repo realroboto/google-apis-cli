@@ -41,7 +41,7 @@ The procedure for every change. Run all steps in order, every session. One path 
 ```
 
 - **type** — one row from the table. Pick the one that matches the change.
-- **scope** — one lowercase noun for the area touched, e.g. `auth`, `rest`, `gsc`, `manifest`, `deps`. Omit the `(...)` if none fits.
+- **scope** — one lowercase noun for the area touched, e.g. `auth`, `catalog`, `plan`, `transport`, `deps`. Omit the `(...)` if none fits.
 - **subject** — imperative ("add", not "added"), lowercase, ≤72 chars, no trailing period.
 - **body** — omit it, unless step "breaking change" below applies.
 - **footer** — always add `Co-Authored-By: <agent> <noreply@…>`. If the change closes an issue, add `Closes #N`.
@@ -65,7 +65,7 @@ The procedure for every change. Run all steps in order, every session. One path 
 ### Examples
 
 ```
-fix(rest): stop crash on empty page response
+fix(transport): stop crash on empty page response
 
 Co-Authored-By: <agent> <noreply@…>
 Closes #128
