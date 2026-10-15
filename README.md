@@ -66,9 +66,9 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 
 ## Add an API or a resource
 
-- New resource = one manifest row.
-- New API = one new `src/apis/<api>.ts` file (default-export `satisfies Manifest`). The glob finds it. No shared file changes.
-- Accept rule — **coverage-oracle**: the self-check fails if the manifest does not cover 100% of the discovery-doc resources.
+- New API = one new `src/apis/<api>.ts` file that default-exports an API entry (`satisfies ApiEntry`): the discovery URL plus overlays (`retired`, `deprecated`, `paid`, `headers`, `helpers`). The discovery document gives every resource and method. The glob finds the file. No shared file changes.
+- Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document.
+- Hand manifests (`satisfies Manifest`) stay only until epic #30 migrates them. Each keeps its frozen coverage array test until then.
 - Test through `run(argv, io)`: fixture entries via `io.apisDir`, cache seeded in a temp `GAPI_CONFIG_DIR`, fake `fetch` (`test/helpers/fetch.ts`). `--dry-run` shows the request. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
 - Fix lint by fixing the code it flags — never `biome --unsafe`, never disable a rule to clear it.
