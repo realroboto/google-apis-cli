@@ -160,7 +160,7 @@ Direct-access accounts need only `--customer`. Confirm what your login can reach
 
 ```
 gapi ads customers list-accessible
-gapi ads gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
+gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
 ```
 
 ---
