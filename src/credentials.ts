@@ -141,13 +141,13 @@ export function openCredentials({
     return tokens;
   };
 
-  // Precedence flag → env → config file.
+  // Precedence flag → env → config file; an empty env var falls through, as in `configDir`.
   const setting = (
     flags: Record<string, unknown>,
     cfg: Record<string, unknown>,
     { flag, env: name, key }: { flag: string; env: string; key: string },
   ): string | undefined => {
-    const v = flags[flag] ?? env[name] ?? cfg[key];
+    const v = flags[flag] ?? (env[name] || cfg[key]);
     return v == null ? undefined : String(v);
   };
 
