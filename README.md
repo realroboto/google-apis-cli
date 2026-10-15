@@ -8,7 +8,7 @@
 - TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (corepack-pinned) for package management.
 - It replaces the 4 fragmented Google MCPs in vmCODE.
 
-Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--page-all [--page-limit <n>]] [--dry-run]`. `gapi <api> [<resource>…]` lists a level (the api level also lists helpers); `… <method> --help` shows method help. `gapi <api> +<helper> … [--dry-run] [--project <id>]` runs a hand command, e.g. `gapi ads +gaql "<query>" --customer <id> [--stream]`. `gapi schema <api> <resource>[.<sub>…].<method> | <SchemaName> [--resolve-refs]` prints a method shape or a schema as JSON. `gapi discovery refresh [<api>…]` refetches discovery documents now; `gapi discovery path` prints the cache dir.
+Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]] [--output <file>] [--page-all [--page-limit <n>]] [--dry-run]`. `gapi <api> [<resource>…]` lists a level (the api level also lists helpers); `… <method> --help` shows method help. `gapi <api> +<helper> … [--dry-run] [--project <id>]` runs a hand command, e.g. `gapi ads +gaql "<query>" --customer <id> [--stream]`. `gapi schema <api> <resource>[.<sub>…].<method> | <SchemaName> [--resolve-refs]` prints a method shape or a schema as JSON. `gapi discovery refresh [<api>…]` refetches discovery documents now; `gapi discovery path` prints the cache dir.
 
 ## Install
 
@@ -47,7 +47,7 @@ A call moves through these parts in order.
 | **run** | `src/run.ts` | `run(argv, io)`: strict argv parse, routing (`--help`, `auth`, `schema`, `discovery`, `<api> …`), `GapiError` → exit code. `bin/gapi.ts` passes process io. |
 | **Catalog** | `src/catalog.ts` | API entries (`src/apis/*.ts`, glob, no registry) → `ApiModel`. Discovery entries: document cached 24 h. |
 | **Planner** | `src/plan.ts` | `plan(model, words \| methodId, input, settings)` → `CallPlan`. Pure. Every `--params`/`--body` rule; validation fails exit 3 before network. |
-| **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1; 403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` → exit 2. `--page-all` follows `nextPageToken`: one JSON line per page, max `--page-limit` (default 10). `--dry-run` prints the plan instead. |
+| **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1; 403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` → exit 2. `--page-all` follows `nextPageToken`: one JSON line per page, max `--page-limit` (default 10). `--upload` streams a file to `rootUrl` + `upload/` (media, multipart, or resumable in 8 MiB chunks); `--output` writes the `alt=media` body to a file. `--dry-run` prints the plan instead. |
 | **Renderers** | `src/render.ts` | Root help, level listing, method help, `schemaView` (`$ref` expansion, cycle guard). |
 | **Credentials** | `src/credentials.ts` | Only reader and writer of `config.json` and `credentials.json` (mode 600) in the config dir (`GAPI_CONFIG_DIR` or `~/.config/gapi`). `settings`: `--project`, `--api-key` and entry header flags, each flag → env → config. `authorize`: OAuth Bearer (refreshed token saved) or `X-Goog-Api-Key`. `login`, `status` (with `missing`), `logout`, `setup`. |
 
