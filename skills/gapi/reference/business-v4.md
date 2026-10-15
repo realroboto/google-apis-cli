@@ -44,7 +44,7 @@ Auth: OAuth. Docs: https://developers.google.com/my-business/
 | `gapi business-v4 accounts locations batchGetReviews` | POST | Returns the paginated list of reviews for all specified locations. | `name` | `BatchGetReviewsRequest` |  |
 | `gapi business-v4 accounts locations clearAssociation` | POST | Clears an association between a location and its place ID. | `name` | `ClearLocationAssociationRequest` |  |
 | `gapi business-v4 accounts locations create` | POST | Creates a new location owned by the specified account, and returns it. | `parent` | `Location` |  |
-| `gapi business-v4 accounts locations delete` | DELETE | Deletes a location. *Note:* If this location cannot be deleted using the API as marked in the LocationState, use the [Business Profile](https://business.google.com/manage/) website. | `name` |  |  |
+| `gapi business-v4 accounts locations delete` | DELETE | Deletes a location. | `name` |  |  |
 | `gapi business-v4 accounts locations fetchVerificationOptions` | POST | Reports all eligible verification options for a location in a specific language. | `name` | `FetchVerificationOptionsRequest` |  |
 | `gapi business-v4 accounts locations findMatches` | POST | Finds all of the possible locations that are a match to the specified location. | `name` | `FindMatchingLocationsRequest` |  |
 | `gapi business-v4 accounts locations get` | GET | Gets the specified location. | `name` |  |  |
@@ -55,7 +55,7 @@ Auth: OAuth. Docs: https://developers.google.com/my-business/
 | `gapi business-v4 accounts locations getServiceList` | GET | Get the specified service list of a location. | `name` |  |  |
 | `gapi business-v4 accounts locations list` | GET | Lists the locations for the specified account. | `parent` |  |  |
 | `gapi business-v4 accounts locations patch` | PATCH | Updates the specified location. | `name` | `Location` |  |
-| `gapi business-v4 accounts locations reportInsights` | POST | Returns a report containing insights on one or more metrics by location. *Note:* Insight reports are limited to a batch size of 10 `location_names` per call. | `name` | `ReportLocationInsightsRequest` | retired: Discontinued 2023-03-30 |
+| `gapi business-v4 accounts locations reportInsights` | POST | Returns a report containing insights on one or more metrics by location. | `name` | `ReportLocationInsightsRequest` | retired: Discontinued 2023-03-30 |
 | `gapi business-v4 accounts locations transfer` | POST | Moves a location from an account that the user owns to another account that the same user administers. | `name` | `TransferLocationRequest` | deprecated |
 | `gapi business-v4 accounts locations updateFoodMenus` | PATCH | Updates the food menus of a specific location. | `name` | `FoodMenus` |  |
 | `gapi business-v4 accounts locations updateHealthProviderAttributes` | PATCH | Updates the Health provider attributes of a specific location. | `name` | `HealthProviderAttributes` | retired: Discontinued 2024-07-01 |

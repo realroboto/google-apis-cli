@@ -241,6 +241,12 @@ Auth: OAuth. Docs: https://developers.google.com/youtube/
 | `gapi youtube watermarks set` | POST | Allows upload of watermark image and setting it for a channel. | `channelId` | `InvideoBranding` |  |
 | `gapi youtube watermarks unset` | POST | Allows removal of channel watermark. | `channelId` |  |  |
 
+## gapi youtube youtube
+
+## gapi youtube youtube v3
+
+## gapi youtube youtube v3 liveChat
+
 ## gapi youtube youtube v3 liveChat messages
 
 | command | HTTP | description | required params | body | marks |

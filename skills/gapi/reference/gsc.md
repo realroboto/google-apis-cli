@@ -28,11 +28,15 @@ Auth: OAuth. Docs: https://developers.google.com/webmaster-tools/about
 | `gapi gsc sites get` | GET | Retrieves information about specific site. | `siteUrl` |  |  |
 | `gapi gsc sites list` | GET | Lists the user's Search Console sites. |  |  |  |
 
+## gapi gsc urlInspection
+
 ## gapi gsc urlInspection index
 
 | command | HTTP | description | required params | body | marks |
 |---|---|---|---|---|---|
 | `gapi gsc urlInspection index inspect` | POST | Index inspection. |  | `InspectUrlIndexRequest` |  |
+
+## gapi gsc urlTestingTools
 
 ## gapi gsc urlTestingTools mobileFriendlyTest
 

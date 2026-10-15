@@ -11,6 +11,10 @@ Auth: OAuth. Docs: https://developers.google.com/my-business/
 | `gapi business-performance locations fetchMultiDailyMetricsTimeSeries` | GET | Returns the values for each date from a given time range that are associated with the specific daily metrics. | `dailyMetrics` (per description), `location` |  |  |
 | `gapi business-performance locations getDailyMetricsTimeSeries` | GET | Returns the values for each date from a given time range that are associated with the specific daily metric. | `dailyMetric` (per description), `name` |  |  |
 
+## gapi business-performance locations searchkeywords
+
+## gapi business-performance locations searchkeywords impressions
+
 ## gapi business-performance locations searchkeywords impressions monthly
 
 | command | HTTP | description | required params | body | marks |

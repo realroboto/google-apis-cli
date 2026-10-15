@@ -10,6 +10,8 @@ Auth: OAuth. Docs: https://cloud.google.com/web-risk/
 |---|---|---|---|---|---|
 | `gapi web-risk hashes search` | GET | Gets the full hashes that match the requested hash prefix. | `threatTypes` (per description) |  | paid: Paid only |
 
+## gapi web-risk projects
+
 ## gapi web-risk projects operations
 
 | command | HTTP | description | required params | body | marks |

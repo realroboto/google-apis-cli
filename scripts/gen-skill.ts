@@ -1,7 +1,4 @@
-// `pnpm gen:skill`: refetch every API entry's discovery document through the
-// Catalog and write the skill reference: index.md plus one <api>.md per entry
-// (epic #30 D12). Any fetch failure, stale-cache fallback included, aborts
-// before a file is written; reference files of removed entries are deleted.
+// `pnpm gen:skill` (epic #30 D12): a stale reference is worse than none, so any fetch failure aborts.
 import { readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { openCatalog } from '../src/catalog.ts';
