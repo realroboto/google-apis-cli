@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import { Readable, Writable } from 'node:stream';
 import { type Io, run } from '../../src/run.ts';
 
 // Runs the CLI in-process with in-memory streams; any network call fails loudly.
@@ -14,11 +14,12 @@ export async function gapi(argv: string[], io: Partial<Io> = {}) {
         stdout += s;
       },
     },
-    stderr: {
-      write: (s: string) => {
-        stderr += s;
+    stderr: new Writable({
+      write(chunk, _enc, cb) {
+        stderr += String(chunk);
+        cb();
       },
-    },
+    }),
     ...io,
   });
   return { code, stdout, stderr };

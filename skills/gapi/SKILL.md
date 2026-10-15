@@ -18,7 +18,7 @@ gapi auth status   # account, refresh token and API key presence, granted scopes
 gapi auth logout   # delete stored credentials (config.json stays)
 ```
 
-Headless box (no browser)? `gapi auth login --manual` prints the URL and reads the pasted code. `gapi auth status` shows `missing` after an upgrade adds an API: run `gapi auth login` again. Console steps (services to enable, API key, Ads access level, Business Profile access, Merchant registration) and their traps: [docs/SETUP.md](https://github.com/realroboto/google-apis-cli/blob/main/docs/SETUP.md). In **Testing** mode the refresh token expires ~7 days.
+Headless box (no browser)? `gapi auth login --manual` prints the URL; after consent, paste the full URL the browser was redirected to (`http://127.0.0.1:4600/?…`, which does not load). `gapi auth status` shows `missing` after an upgrade adds an API: run `gapi auth login` again. Console steps (services to enable, API key, Ads access level, Business Profile access, Merchant registration) and their traps: [docs/SETUP.md](https://github.com/realroboto/google-apis-cli/blob/main/docs/SETUP.md). In **Testing** mode the refresh token expires ~7 days.
 
 ## Grammar
 

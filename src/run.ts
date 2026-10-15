@@ -23,7 +23,7 @@ export type Io = {
   env: NodeJS.ProcessEnv;
   fetch: FetchLike;
   stdout: { write(chunk: string): unknown };
-  stderr: { write(chunk: string): unknown };
+  stderr: NodeJS.WritableStream; // also the prompt output
   stdin: NodeJS.ReadableStream;
   apisDir?: string;
 };
@@ -133,7 +133,13 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   const dir = configDir(io.env);
   const warn = (message: string) => io.stderr.write(`gapi: warning: ${message}\n`);
   const catalog = await openCatalog({ dir, fetch: io.fetch, warn, apisDir: io.apisDir });
-  const creds = openCredentials({ dir, env: io.env, warn });
+  const creds = openCredentials({
+    dir,
+    env: io.env,
+    warn,
+    stdin: io.stdin,
+    stderr: io.stderr,
+  });
 
   if (argv.length === 0 || (argv[0] === '--help' && argv.length === 1)) {
     io.stdout.write(rootHelp(Object.keys(catalog.entries)));

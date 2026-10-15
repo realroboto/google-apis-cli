@@ -1,17 +1,21 @@
 // Credentials: the only reader and writer of config.json and credentials.json (epic #30 D8, D13).
 // Settings precedence, Bearer vs API key, token refresh + persistence, loopback/manual login.
+import { randomBytes } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 import type { Credentials } from 'google-auth-library';
-import { OAuth2Client } from 'google-auth-library';
+import { CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
 import { GapiError } from './errors.ts';
 import type { ApiEntry, Authorize, OAuthClient, Settings } from './types.ts';
 
+const LOOPBACK_HOST = '127.0.0.1';
 const LOOPBACK_PORT = 4600; // fixed port; vmCODE forwards it for headless use
+const REDIRECT_URI = `http://${LOOPBACK_HOST}:${LOOPBACK_PORT}`; // both login flows
 const AUTH_PREFIX = 'https://www.googleapis.com/auth/';
 const IDENTITY_SCOPES = ['openid', 'email'];
 const RELOGIN = 'run gapi auth login';
@@ -30,6 +34,9 @@ type CredentialsOptions = {
   env: NodeJS.ProcessEnv;
   oauth?: OAuthFactory;
   warn?: (message: string) => void;
+  // Prompt input, and output for prompts and login messages.
+  stdin?: NodeJS.ReadableStream;
+  stderr?: NodeJS.WritableStream;
 };
 
 // `||`, not `??`: an empty GAPI_CONFIG_DIR must not resolve secrets into the cwd.
@@ -71,11 +78,14 @@ export function openCredentials({
   env,
   oauth = (opts) => new OAuth2Client(opts),
   warn = () => {},
+  stdin = process.stdin,
+  stderr = process.stderr,
 }: CredentialsOptions) {
   const configFile = join(dir, 'config.json');
   const credentialsFile = join(dir, 'credentials.json');
   let apiKey: string | undefined;
   let tokenClient: OAuthClient | undefined;
+  const ask: Prompt = (q, opts) => defaultPrompt(q, { ...opts, input: stdin, output: stderr });
 
   // Only a missing file reads as {}: anything else stops before `setup` can overwrite it.
   // The parse error is not echoed, since V8 quotes the file text (secrets) in it.
@@ -127,9 +137,13 @@ export function openCredentials({
     return oauth({ clientId, clientSecret, redirectUri });
   };
 
-  // Exchange a consent code for tokens and persist them.
-  const exchange = async (c: OAuthClient, code: string): Promise<Credentials> => {
-    const { tokens } = await c.getToken(code).catch((e: Error) => {
+  // Exchange a consent code (with its PKCE verifier) for tokens and persist them.
+  const exchange = async (
+    c: OAuthClient,
+    code: string,
+    codeVerifier: string,
+  ): Promise<Credentials> => {
+    const { tokens } = await c.getToken({ code, codeVerifier }).catch((e: Error) => {
       throw new GapiError(2, `token exchange failed: ${e.message}`);
     });
     writeSecure(credentialsFile, tokens);
@@ -195,36 +209,57 @@ export function openCredentials({
     return { Authorization: `Bearer ${token}` };
   };
 
+  // Both flows send `state` and a PKCE S256 challenge, and redeem one redirect URL.
   async function login({
     consent,
     manual = false,
-    prompt = defaultPrompt,
+    prompt = ask,
   }: {
     consent: string[];
     manual?: boolean;
     prompt?: Prompt;
   }): Promise<Credentials> {
-    const authOpts = {
+    const c = client(REDIRECT_URI);
+    const state = randomBytes(32).toString('base64url');
+    const { codeVerifier, codeChallenge } = await c.generateCodeVerifierAsync();
+    const url = c.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
       scope: [...consent, ...IDENTITY_SCOPES],
+      state,
+      code_challenge_method: CodeChallengeMethod.S256,
+      code_challenge: codeChallenge,
+    });
+    const redeem = (redirect: URL): Promise<Credentials> => {
+      const query = redirect.searchParams;
+      const error = query.get('error');
+      if (error) throw new GapiError(2, `consent failed: ${error}`);
+      if (query.get('state') !== state) throw new GapiError(2, 'state mismatch');
+      const code = query.get('code');
+      if (!code) throw new GapiError(2, 'no code in redirect');
+      return exchange(c, code, codeVerifier);
     };
+
     if (manual) {
-      const c = client('urn:ietf:wg:oauth:2.0:oob');
-      console.error(
-        `Open this URL, grant access, then paste the code:\n${c.generateAuthUrl(authOpts)}\n`,
+      stderr.write(
+        `Open this URL and grant access:\n${url}\n` +
+          `After consent the browser cannot load ${LOOPBACK_HOST}:${LOOPBACK_PORT}; ` +
+          'paste the full URL from its address bar.\n',
       );
-      return exchange(c, (await prompt('code: ')).trim());
+      const redirect = URL.parse((await prompt('redirected URL: ')).trim());
+      if (!redirect) throw new GapiError(2, 'not a URL; paste the full URL from the address bar');
+      return redeem(redirect);
     }
-    const redirectUri = `http://127.0.0.1:${LOOPBACK_PORT}`;
-    const c = client(redirectUri);
-    const url = c.generateAuthUrl(authOpts);
     return new Promise<Credentials>((resolve, reject) => {
       const server = createServer(async (req, res) => {
+        const redirect = new URL(req.url ?? '/', REDIRECT_URI);
+        if (redirect.pathname !== '/') {
+          res.statusCode = 404; // e.g. /favicon.ico: keep waiting for the redirect
+          res.end();
+          return;
+        }
         try {
-          const code = new URL(req.url ?? '', redirectUri).searchParams.get('code');
-          if (!code) throw new GapiError(2, 'no code in redirect');
-          const tokens = await exchange(c, code);
+          const tokens = await redeem(redirect);
           res.end('gapi: authorized. You can close this tab.');
           resolve(tokens);
         } catch (e) {
@@ -235,8 +270,14 @@ export function openCredentials({
           server.close();
         }
       });
-      server.listen(LOOPBACK_PORT, () => {
-        console.error(`Waiting for consent at ${redirectUri}\nOpen:\n${url}`);
+      server.on('error', (e) =>
+        reject(
+          new GapiError(2, `cannot listen on ${LOOPBACK_HOST}:${LOOPBACK_PORT}: ${e.message}`),
+        ),
+      );
+      server.listen(LOOPBACK_PORT, LOOPBACK_HOST, () => {
+        const { address, port } = server.address() as AddressInfo;
+        stderr.write(`Listening on ${address}:${port}\nOpen this URL and grant access:\n${url}\n`);
       });
     });
   }
@@ -259,7 +300,7 @@ export function openCredentials({
     rmSync(credentialsFile, { force: true });
   }
 
-  async function setup(prompt: Prompt = defaultPrompt): Promise<string> {
+  async function setup(prompt: Prompt = ask): Promise<string> {
     const cfg = readConfig();
     for (const { key, label, required, secret } of SETUP_FIELDS) {
       const cur = cfg[key];
@@ -289,20 +330,20 @@ function accountFromIdToken(idToken: string): string | null {
 // option, so point readline's echo at a sink and print the question ourselves.
 // `terminal: true` is what makes this safe: it puts the tty in raw mode, so the
 // driver stops echoing too and the sink is the only writer left. Streams are
-// injectable so the masking has a test.
+// injected (Credentials passes the ones `run` got), so the masking has a test.
 export async function defaultPrompt(
   q: string,
   {
     secret = false,
-    input = process.stdin,
-    output = process.stderr,
+    input,
+    output,
     terminal,
   }: {
     secret?: boolean;
-    input?: NodeJS.ReadableStream;
-    output?: NodeJS.WritableStream;
+    input: NodeJS.ReadableStream;
+    output: NodeJS.WritableStream;
     terminal?: boolean;
-  } = {},
+  },
 ): Promise<string> {
   if (secret) output.write(q);
   const rl = createInterface({

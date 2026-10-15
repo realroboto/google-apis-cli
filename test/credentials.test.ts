@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { test } from 'node:test';
-import type { Credentials } from 'google-auth-library';
+import type { Credentials, GenerateAuthUrlOpts } from 'google-auth-library';
+import { OAuth2Client } from 'google-auth-library';
 import { defaultPrompt, openCredentials } from '../src/credentials.ts';
 import { GapiError } from '../src/errors.ts';
 import type { OAuthClient } from '../src/types.ts';
@@ -31,28 +33,37 @@ function idTokenFor(email: string): string {
   return `${b({ alg: 'none' })}.${b({ email })}.`;
 }
 
-// Fake OAuth port: records the consent URL options; getAccessToken runs `access`.
+// Fake OAuth port: records the consent URL options and the token-exchange arguments;
+// PKCE pairs come from the real library; getAccessToken runs `access`.
 function fakeOAuth(
   access: (emit: (t: Credentials) => void) => Promise<{ token?: string }> = async () => ({
     token: 'T',
   }),
 ) {
-  const seen: { authOpts?: { access_type: string; prompt: string; scope: string[] } } = {};
+  const seen: {
+    authOpts?: GenerateAuthUrlOpts;
+    exchange?: { code: string; codeVerifier: string };
+  } = {};
   let listener: (t: Credentials) => void = () => {};
+  const pkce = new OAuth2Client();
   const client: OAuthClient = {
     generateAuthUrl: (opts) => {
       seen.authOpts = opts;
       return 'https://accounts.example/consent';
     },
-    getToken: async (code) => ({
-      tokens: {
-        refresh_token: `RT-${code}`,
-        access_token: 'AT',
-        id_token: idTokenFor('op@example.com'),
-        scope: `${A}webmasters openid https://www.googleapis.com/auth/userinfo.email`,
-        expiry_date: 111,
-      },
-    }),
+    generateCodeVerifierAsync: () => pkce.generateCodeVerifierAsync(),
+    getToken: async ({ code, codeVerifier }) => {
+      seen.exchange = { code, codeVerifier };
+      return {
+        tokens: {
+          refresh_token: `RT-${code}`,
+          access_token: 'AT',
+          id_token: idTokenFor('op@example.com'),
+          scope: `${A}webmasters openid https://www.googleapis.com/auth/userinfo.email`,
+          expiry_date: 111,
+        },
+      };
+    },
     setCredentials: () => {},
     on: (_event, l) => {
       listener = l;
@@ -63,23 +74,52 @@ function fakeOAuth(
 }
 
 const tempDir = () => mkdtempSync(join(tmpdir(), 'gapi-creds-'));
+
+// In-memory stderr for login messages.
+function sink() {
+  const out = { text: '' };
+  const stream = new Writable({
+    write(chunk, _enc, cb) {
+      out.text += String(chunk);
+      cb();
+    },
+  });
+  return { out, stream };
+}
+
+// The URL the browser lands on after consent.
+const redirectWith = (query: Record<string, string>) =>
+  `http://127.0.0.1:4600/?${new URLSearchParams(query)}`;
+const s256 = (verifier: string) => createHash('sha256').update(verifier).digest('base64url');
 const ENV = { GAPI_OAUTH_CLIENT_ID: 'cid', GAPI_OAUTH_CLIENT_SECRET: 'secret' };
 
-test('login writes credentials.json mode 600 for the consent plus identity scopes; status lists missing and the API key', async () => {
+test('manual login takes the pasted redirect URL and exchanges its code with the PKCE verifier; credentials.json mode 600; status lists missing and the API key', async () => {
   const dir = tempDir();
   const { oauth, seen } = fakeOAuth();
-  const creds = openCredentials({ dir, env: ENV, oauth });
+  const { out, stream } = sink();
+  const creds = openCredentials({ dir, env: ENV, oauth, stderr: stream });
+  const asked: string[] = [];
   const tokens = await creds.login({
     consent: CONSENT,
     manual: true,
-    prompt: async () => ' abc \n',
+    prompt: async (q) => {
+      asked.push(q);
+      return ` ${redirectWith({ state: String(seen.authOpts?.state), code: 'abc' })} \n`;
+    },
   });
   assert.equal(tokens.refresh_token, 'RT-abc');
-  assert.deepEqual(seen.authOpts, {
+  assert.deepEqual(asked, ['redirected URL: ']);
+  assert.match(out.text, /paste the full URL from its address bar/);
+  const { state, code_challenge, ...authOpts } = seen.authOpts ?? {};
+  assert.deepEqual(authOpts, {
     access_type: 'offline',
     prompt: 'consent',
     scope: [...CONSENT, 'openid', 'email'],
+    code_challenge_method: 'S256',
   });
+  assert.match(String(state), /^[\w-]{43}$/); // 32 random bytes, base64url
+  assert.equal(seen.exchange?.code, 'abc');
+  assert.equal(code_challenge, s256(String(seen.exchange?.codeVerifier)));
   assert.equal(statSync(join(dir, 'credentials.json')).mode & 0o777, 0o600);
 
   assert.deepEqual(creds.status(CONSENT), {
@@ -102,32 +142,53 @@ test('login writes credentials.json mode 600 for the consent plus identity scope
   });
 });
 
-test('login over loopback exchanges the redirect code; a redirect without one exits 2', async () => {
+test('manual login with a wrong state exits 2 and writes nothing', async () => {
+  const dir = tempDir();
+  const creds = openCredentials({ dir, env: ENV, oauth: fakeOAuth().oauth, stderr: sink().stream });
+  await assert.rejects(
+    creds.login({
+      consent: CONSENT,
+      manual: true,
+      prompt: async () => redirectWith({ state: 'forged', code: 'abc' }),
+    }),
+    { exit: 2, message: 'state mismatch' },
+  );
+  assert.equal(existsSync(join(dir, 'credentials.json')), false);
+});
+
+test('loopback login listens on 127.0.0.1:4600 only, 404s other paths and keeps waiting; consent refusal exits 2', async () => {
   // One fresh connection per visit, retried until login's server listens.
-  const visit = (query: string): Promise<number | undefined> =>
+  const visit = (url: string): Promise<number | undefined> =>
     new Promise((resolve, reject) => {
-      get(`http://127.0.0.1:4600/${query}`, { agent: false }, (res) => {
+      get(url, { agent: false }, (res) => {
         res.resume();
         resolve(res.statusCode);
       }).on('error', (e: NodeJS.ErrnoException) =>
         e.code === 'ECONNREFUSED'
-          ? setTimeout(() => visit(query).then(resolve, reject), 10)
+          ? setTimeout(() => visit(url).then(resolve, reject), 10)
           : reject(e),
       );
     });
   const dir = tempDir();
-  const creds = openCredentials({ dir, env: ENV, oauth: fakeOAuth().oauth });
+  const { oauth, seen } = fakeOAuth();
+  const { out, stream } = sink();
+  const creds = openCredentials({ dir, env: ENV, oauth, stderr: stream });
 
   const granted = creds.login({ consent: CONSENT });
-  assert.equal(await visit('?code=xyz'), 200);
+  assert.equal(await visit('http://127.0.0.1:4600/favicon.ico'), 404);
+  assert.match(out.text, /Listening on 127\.0\.0\.1:4600\n/);
+  assert.equal(
+    await visit(redirectWith({ state: String(seen.authOpts?.state), code: 'xyz' })),
+    200,
+  );
   assert.equal((await granted).refresh_token, 'RT-xyz');
   assert.equal(statSync(join(dir, 'credentials.json')).mode & 0o777, 0o600);
 
   const denied = assert.rejects(creds.login({ consent: CONSENT }), {
     exit: 2,
-    message: 'no code in redirect',
+    message: 'consent failed: access_denied',
   });
-  assert.equal(await visit('?error=access_denied'), 400);
+  assert.equal(await visit(redirectWith({ error: 'access_denied' })), 400);
   await denied;
 });
 
