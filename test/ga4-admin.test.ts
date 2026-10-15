@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findRow, loadManifests } from '../src/manifest.ts';
-import { execute } from '../src/rest.ts';
-import type { FetchLike, FetchResponse, ResolvedRow } from '../src/types.ts';
+import { loadManifests } from '../src/manifest.ts';
 
 // Coverage-oracle fixture: every method of the GA4 Admin v1beta discovery doc,
 // as `${httpMethod} ${path}` with path params collapsed to `{}` (naming-agnostic).
@@ -85,107 +83,4 @@ test('coverage-oracle: manifest covers 100% of v1beta discovery, nothing extra',
   const extra = [...manifest].filter((x) => !discovery.has(x));
   assert.deepEqual(missing, [], 'discovery methods missing from manifest');
   assert.deepEqual(extra, [], 'manifest methods not in discovery');
-});
-
-// --- executor-seam demos (fake fetch; no real network) ---
-const token = async () => 'TOK';
-type Rec = {
-  url: string;
-  init: { method?: string; headers: Record<string, string>; body?: string };
-};
-function fakeFetch(bodies: unknown[]): FetchLike & { calls: Rec[] } {
-  const calls: Rec[] = [];
-  const queue = [...bodies];
-  return Object.assign(
-    async (url: string, init?: RequestInit): Promise<FetchResponse> => {
-      calls.push({ url, init: init as unknown as Rec['init'] });
-      const body = queue.shift();
-      return { ok: true, status: 200, text: async () => JSON.stringify(body) };
-    },
-    { calls },
-  );
-}
-const row = async (resource: string, verb: string): Promise<ResolvedRow> => {
-  const r = findRow(await loadManifests(), 'ga4-admin', resource, verb);
-  assert.ok(r, `${resource} ${verb} row`);
-  return r;
-};
-
-test('account-summaries list: GET, merges listKey across pages', async () => {
-  const fetch = fakeFetch([
-    { accountSummaries: [{ a: 1 }], nextPageToken: 'p2' },
-    { accountSummaries: [{ a: 2 }] },
-  ]);
-  const { json } = await execute(
-    await row('account-summaries', 'list'),
-    {},
-    { tokenProvider: token, fetch },
-  );
-  assert.deepEqual(json, { accountSummaries: [{ a: 1 }, { a: 2 }] });
-  assert.equal(new URL(fetch.calls[0].url).pathname, '/v1beta/accountSummaries');
-});
-
-test('properties list: GET, merges listKey (acceptance demo)', async () => {
-  const fetch = fakeFetch([{ properties: [{ name: 'properties/1' }] }]);
-  const { json } = await execute(
-    await row('properties', 'list'),
-    {},
-    { tokenProvider: token, fetch },
-  );
-  assert.deepEqual(json, { properties: [{ name: 'properties/1' }] });
-  assert.equal(new URL(fetch.calls[0].url).pathname, '/v1beta/properties');
-});
-
-test('properties patch: PATCH with body + updateMask query (write demo)', async () => {
-  const fetch = fakeFetch([{ name: 'properties/123', displayName: 'New' }]);
-  await execute(
-    await row('properties', 'patch'),
-    { property: '123', updateMask: 'displayName', body: { displayName: 'New' } },
-    { tokenProvider: token, fetch },
-  );
-  const c = fetch.calls[0];
-  assert.equal(c.init.method, 'PATCH');
-  assert.equal(new URL(c.url).pathname, '/v1beta/properties/123');
-  // updateMask is a required query param on GA4 PATCH — must reach the URL.
-  assert.equal(new URL(c.url).searchParams.get('updateMask'), 'displayName');
-  assert.equal(c.init.body, JSON.stringify({ displayName: 'New' }));
-});
-
-test('measurement-protocol-secrets create: nested path params both fill', async () => {
-  const fetch = fakeFetch([{ name: 'x' }]);
-  await execute(
-    await row('measurement-protocol-secrets', 'create'),
-    { property: '123', dataStream: '456', body: { displayName: 's' } },
-    { tokenProvider: token, fetch },
-  );
-  assert.equal(
-    new URL(fetch.calls[0].url).pathname,
-    '/v1beta/properties/123/dataStreams/456/measurementProtocolSecrets',
-  );
-  assert.equal(fetch.calls[0].init.method, 'POST');
-});
-
-test('measurement-protocol-secrets list: GET, nested path + listKey (acceptance demo)', async () => {
-  const fetch = fakeFetch([{ measurementProtocolSecrets: [{ name: 's1' }] }]);
-  const { json } = await execute(
-    await row('measurement-protocol-secrets', 'list'),
-    { property: '123', dataStream: '456' },
-    { tokenProvider: token, fetch },
-  );
-  assert.deepEqual(json, { measurementProtocolSecrets: [{ name: 's1' }] });
-  assert.equal(
-    new URL(fetch.calls[0].url).pathname,
-    '/v1beta/properties/123/dataStreams/456/measurementProtocolSecrets',
-  );
-});
-
-test('search-change-history-events: POST, no auto-paging (raw page returned)', async () => {
-  const fetch = fakeFetch([{ changeHistoryEvents: [1], nextPageToken: 'p2' }]);
-  const { json } = await execute(
-    await row('accounts', 'search-change-history-events'),
-    { account: '9', body: {} },
-    { tokenProvider: token, fetch },
-  );
-  assert.equal(fetch.calls.length, 1, 'single request, no auto-page loop');
-  assert.deepEqual(json, { changeHistoryEvents: [1], nextPageToken: 'p2' });
 });

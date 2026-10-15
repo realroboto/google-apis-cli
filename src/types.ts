@@ -86,6 +86,7 @@ export type ApiModel = ApiResource & {
   version: string;
   title?: string;
   description?: string;
+  documentationLink?: string;
   rootUrl: string;
   servicePath: string;
   auth: 'oauth' | 'apiKey';
@@ -97,43 +98,35 @@ export type ApiModel = ApiResource & {
   problems: string[]; // overlay ids absent from the document
 };
 
-// A manifest row flattened with its manifest's baseUrl (what the executor gets).
-export type ResolvedRow = ManifestRow & { baseUrl: string };
-
-export type Params = Record<string, unknown>;
-
-export type TokenProvider = () => Promise<string>;
-
-// The subset of a fetch Response the executor reads. Both global fetch and the
-// test fakes are assignable to this.
-export type FetchResponse = {
-  ok: boolean;
-  status: number;
-  text(): Promise<string>;
+// One request, fully built and validated by the Planner (epic #30 D13). `headers`
+// holds no secret: `authorize(auth)` adds the credential at send time.
+export type CallPlan = {
+  methodId: string;
+  httpMethod: HttpMethod;
+  url: string;
+  headers: Record<string, string>;
+  body?: unknown;
+  auth: { kind: ApiModel['auth']; scopes: string[] };
+  send: 'once';
+  warnings: string[];
 };
+
+// Non-secret values the Planner reads: quota project and entry header values.
+export type Settings = { project?: string; headers?: Record<string, string> };
+
+export type Authorize = (
+  auth: CallPlan['auth'],
+  opts?: { redact?: boolean },
+) => Promise<Record<string, string>>;
+
+// The subset of a fetch Response gapi reads. Both global fetch and the test
+// fakes are assignable to this.
+export type FetchResponse = Pick<Response, 'ok' | 'status' | 'headers' | 'text' | 'body'>;
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<FetchResponse>;
-
-export type ExecuteOpts = {
-  tokenProvider: TokenProvider;
-  fetch: FetchLike;
-  quotaProject?: string;
-  extraHeaders?: Record<string, string>;
-};
 
 // The minimal token client makeTokenProvider needs; lets tests inject a fake
 // without constructing a real OAuth2Client.
 export type AccessTokenClient = {
   getAccessToken(): Promise<{ token?: string | null }>;
 };
-
-// Carries the Google REST error status + body up to the CLI's catch.
-export class RestError extends Error {
-  status: number;
-  body: unknown;
-  constructor(message: string, status: number, body: unknown) {
-    super(message);
-    this.status = status;
-    this.body = body;
-  }
-}
