@@ -251,7 +251,9 @@ test('authorize: Bearer from the stored token; refreshed tokens persisted; inval
   await assert.rejects(none.authorize(auth), GapiError);
 });
 
-test('authorize exits 2 when the refreshed token cannot be saved', async () => {
+// Root ignores file modes, so the read-only file cannot make the write fail there.
+const asRoot = process.getuid?.() === 0;
+test('authorize exits 2 when the refreshed token cannot be saved', { skip: asRoot }, async () => {
   const dir = tempDir();
   const file = join(dir, 'credentials.json');
   writeFileSync(file, JSON.stringify({ refresh_token: 'RT', access_token: 'OLD' }));

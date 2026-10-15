@@ -978,13 +978,15 @@ test('send: +publishBatch prints every part result and exits 1 when one part fai
 
 test('send: a batch or resumable reply gapi cannot read exits 1 with the body', async () => {
   const upload = ['mini', 'files', 'upload', '--upload', TXT, '--upload-protocol', 'resumable'];
-  const rows: [string[], Response, string][] = [
+  const rows: [typeof sh, string[], Response, string][] = [
     [
+      sh,
       ['indexing', '+publishBatch', URLS],
       new Response('<html>oops</html>', { headers: { 'Content-Type': 'text/html' } }),
       'gapi: batch: the response has no multipart boundary\n"<html>oops</html>"\n',
     ],
     [
+      sh,
       ['indexing', '+publishBatch', URLS],
       new Response('--batch_x\r\nContent-Type: application/http\r\n\r\nno status\r\n--batch_x--', {
         headers: { 'Content-Type': 'multipart/mixed; boundary=batch_x' },
@@ -993,15 +995,16 @@ test('send: a batch or resumable reply gapi cannot read exits 1 with the body', 
         '"--batch_x\\r\\nContent-Type: application/http\\r\\n\\r\\nno status\\r\\n--batch_x--"\n',
     ],
     [
+      fx,
       upload,
       Response.json({ kind: 'session' }),
       'gapi: resumable upload: the session response has no Location header\n' +
         `${JSON.stringify({ kind: 'session' }, null, 2)}\n`,
     ],
   ];
-  for (const [argv, reply, stderr] of rows) {
+  for (const [gapiRun, argv, reply, stderr] of rows) {
     const { fetch, calls } = fakeFetch(() => reply);
-    const r = await (argv[0] === 'mini' ? fx : sh)(argv, { fetch });
+    const r = await gapiRun(argv, { fetch });
     assert.deepEqual([r.code, r.stderr, r.stdout, calls.length], [1, stderr, '', 1]);
   }
 });
