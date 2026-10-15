@@ -230,6 +230,36 @@ the consent scopes the stored grant lacks. A non-empty `missing` means run `gapi
 
 ---
 
+## 8. Merchant API registration (Merchant callers only)
+
+Until you register the Cloud project with a Merchant Center account, Merchant API answers every
+call with 401 `GCP_NOT_REGISTERED`. Register once, after step 7
+([guide](https://developers.google.com/merchant/api/guides/quickstart/direct-api-calls#step_1_register_as_a_developer)):
+
+```
+gapi merchant-accounts accounts developerRegistration registerGcp \
+  --params '{"name":"accounts/<merchant-id>/developerRegistration"}' \
+  --body '{"developerEmail":"<email>"}'
+```
+
+- `<merchant-id>`: the Merchant Center account that lists your login as a direct user. It must
+  be a production account with a verified website.
+- `<email>`: a Google Account (not a service account). Google gives it the API developer role and
+  API notification emails. Google invites an address that is not yet a user.
+
+One registration covers every Merchant Center account the project calls.
+
+> **Trap — test accounts and subaccounts.** Google rejects a test account. It also rejects a
+> subaccount when your login has access only through the parent or advanced account.
+
+> **Trap — the first call fails.** Registration takes up to 5 minutes. A call before then still
+> returns `GCP_NOT_REGISTERED`.
+
+**Done when** `gapi merchant-accounts accounts developerRegistration getDeveloperRegistration --params '{"name":"accounts/<merchant-id>/developerRegistration"}'`
+lists your project number in `gcpIds`.
+
+---
+
 ## Google Ads customer IDs
 
 Both are 10 digits with the hyphens removed (`123-456-7890` → `1234567890`).
@@ -295,5 +325,6 @@ key (exit 2 without it). PageSpeed sends the key only when one is set. `project`
 | `EADDRINUSE :::4600` | an earlier login still holds the port | `lsof -tiTCP:4600 \| xargs kill` |
 | `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | Ads level is Test | step 2 |
 | `403 SERVICE_DISABLED` | API not enabled on the project | step 1; Business Profile: step 3 |
+| `401 GCP_NOT_REGISTERED` on a `merchant-*` call | project not registered with a Merchant Center account | step 8 |
 | `unavailable: scope not grantable` (exit 2) | one of the 6 `dv360 users` methods; its only scope is never granted to this app | none; `--dry-run` still prints the request |
 | `401` on every call, fresh login | wrong Cloud project owns the client | check which project holds the client in use |
