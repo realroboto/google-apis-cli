@@ -15,6 +15,7 @@
     "lint": "biome check",
     "format": "biome check --write",
     "discovery:check": "node scripts/discovery-check.ts",
+    "gen:skill": "node scripts/gen-skill.ts",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
