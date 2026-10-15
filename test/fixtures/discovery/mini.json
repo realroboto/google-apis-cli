@@ -132,6 +132,30 @@
             "https://www.googleapis.com/auth/mini",
             "https://www.googleapis.com/auth/mini.readonly"
           ]
+        },
+        "attach": {
+          "id": "mini.files.attach",
+          "httpMethod": "POST",
+          "path": "v1/{+name}:attach",
+          "description": "Attaches bytes to a file; simple upload only, no request body.",
+          "parameterOrder": ["name"],
+          "parameters": {
+            "name": {
+              "type": "string",
+              "location": "path",
+              "required": true,
+              "pattern": "^files/[^/]+$"
+            }
+          },
+          "response": { "$ref": "File" },
+          "supportsMediaUpload": true,
+          "mediaUpload": {
+            "accept": ["*/*"],
+            "protocols": {
+              "simple": { "multipart": true, "path": "/upload/v1/{+name}:attach" }
+            }
+          },
+          "scopes": ["https://www.googleapis.com/auth/mini"]
         }
       }
     },

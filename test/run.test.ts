@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -253,6 +254,15 @@ test('an unavailable method exits 2 without a fetch; --dry-run still prints it',
   );
 });
 
+// Upload sources in the temp dir: text (accepted by `mini files upload`) and raw bytes.
+const TXT = join(dir, 'note.txt');
+writeFileSync(TXT, 'hello');
+const BIN = join(dir, 'raw.bin');
+writeFileSync(BIN, Buffer.from([0xff, 0xfe, 0x00, 0x01]));
+const attach = ['mini', 'files', 'attach', '--params', '{"name":"files/a"}'];
+const bytes = async (body: RequestInit['body']) =>
+  Buffer.from(await new Response(body).arrayBuffer());
+
 test('validation errors exit 3 before any network call', async () => {
   const get = ['ga4-admin', 'properties', 'dataStreams', 'get'];
   const rows: [string[], RegExp, boolean?][] = [
@@ -283,6 +293,39 @@ test('validation errors exit 3 before any network call', async () => {
       /^gapi: --page-limit must be a positive integer\n$/,
     ],
     [['mini', 'files', 'list', '--page-limit', '2'], /^gapi: --page-limit needs --page-all\n$/],
+    [
+      ['mini', 'files', 'list', '--upload', TXT],
+      /^gapi: --upload: mini files list takes no media upload\n$/,
+    ],
+    [
+      [...attach, '--upload', BIN, '--upload-protocol', 'resumable'],
+      /^gapi: --upload-protocol resumable: mini files attach has no resumable upload\n$/,
+    ],
+    [
+      ['mini', 'files', 'upload', '--upload', TXT, '--upload-content-type', 'video/mp4'],
+      /^gapi: --upload-content-type video\/mp4: mini files upload accepts image\/\*, text\/plain\n$/,
+    ],
+    [
+      ['mini', 'files', 'list', '--upload-protocol', 'media'],
+      /^gapi: --upload-protocol needs --upload\n$/,
+    ],
+    [
+      ['mini', 'files', 'upload', '--upload', TXT, '--upload-protocol', 'multipart'],
+      /^gapi: --upload-protocol multipart needs --body\n$/,
+    ],
+    [
+      ['mini', 'files', 'list', '--page-all', '--output', TXT],
+      /^gapi: --page-all and --output cannot be combined\n$/,
+    ],
+    [
+      [...attach, '--upload', join(dir, 'missing.bin')],
+      /^gapi: --upload: cannot read .*missing\.bin: ENOENT\n$/,
+    ],
+    [[...attach, '--upload', dir], /^gapi: --upload: .* is not a file\n$/],
+    [
+      ['mini', 'files', 'get', '--params', '{"name":"files/a"}', '--output', TXT],
+      /^gapi: --output: mini files get has no media download\n$/,
+    ],
     [
       ['gsc', 'urlTestingTools', 'mobileFriendlyTest', 'run', '--body', '{}'],
       /^gapi: retired: Retired by Google in December 2023 \(https:\/\/developers\.google\.com\//,
@@ -476,4 +519,152 @@ test('send: a Google non-2xx exits 1 with the error body', async () => {
   assert.equal(r.code, 1);
   assert.equal(r.stdout, '');
   assert.equal(r.stderr, `gapi: ${error.message}\n${JSON.stringify(error, null, 2)}\n`);
+});
+
+test('media --dry-run prints the upload session request and the alt=media request', async () => {
+  assert.deepEqual(
+    await dryRun(['mini', 'files', 'upload', '--upload', TXT, '--upload-protocol', 'resumable']),
+    {
+      method: 'POST',
+      url: 'https://mini.googleapis.com/upload/v1/files?uploadType=resumable',
+      headers: { 'X-Upload-Content-Type': 'text/plain', Authorization: 'Bearer <redacted>' },
+      upload: { path: TXT, contentType: 'text/plain', protocol: 'resumable' },
+    },
+  );
+  const out = join(dir, 'never-written.bin');
+  const download = ['mini', 'files', 'download', '--params', '{"name":"files/a"}'];
+  assert.deepEqual(await dryRun([...download, '--output', out]), {
+    method: 'GET',
+    url: 'https://mini.googleapis.com/v1/files/a:download?alt=media',
+    headers: { Authorization: 'Bearer <redacted>' },
+    output: out,
+  });
+  assert.equal(existsSync(out), false);
+});
+
+test('send: media and multipart uploads send the file in one request', async () => {
+  const media = fakeFetch(() => Response.json({ name: 'files/a' }));
+  const r = await fx([...attach, '--upload', BIN], { fetch: media.fetch });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.stdout, `${JSON.stringify({ name: 'files/a' }, null, 2)}\n`);
+  assert.equal(media.calls.length, 1);
+  const [call] = media.calls;
+  assert.equal(call.url, 'https://mini.googleapis.com/upload/v1/files/a:attach?uploadType=media');
+  assert.equal(call.init?.method, 'POST');
+  assert.deepEqual(call.init?.headers, {
+    'Content-Type': 'application/octet-stream',
+    Authorization: 'Bearer TOK',
+  });
+  assert.deepEqual(await bytes(call.init?.body), readFileSync(BIN));
+
+  const multi = fakeFetch(() => Response.json({ name: 'files/b' }));
+  const m = await fx(['mini', 'files', 'upload', '--upload', TXT, '--body', '{"name":"b"}'], {
+    fetch: multi.fetch,
+  });
+  assert.equal(m.code, 0, m.stderr);
+  assert.equal(multi.calls.length, 1);
+  const [part] = multi.calls;
+  assert.equal(part.url, 'https://mini.googleapis.com/upload/v1/files?uploadType=multipart');
+  const headers = part.init?.headers as Record<string, string>;
+  const boundary = /^multipart\/related; boundary=(.+)$/.exec(headers['Content-Type'])?.[1];
+  assert.ok(boundary, headers['Content-Type']);
+  assert.equal(
+    (await bytes(part.init?.body)).toString(),
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{"name":"b"}` +
+      `\r\n--${boundary}\r\nContent-Type: text/plain\r\n\r\nhello\r\n--${boundary}--`,
+  );
+});
+
+test('send: a resumable upload opens a session, then PUTs 8 MiB chunks until a 2xx', async () => {
+  const chunk = 8 * 1024 * 1024;
+  const big = join(dir, 'big.txt');
+  writeFileSync(big, Buffer.alloc(chunk + 3, 'a'));
+  const session = 'https://mini.googleapis.com/upload/v1/files?upload_id=s1';
+  const opened = () => new Response(null, { headers: { Location: session } });
+  const replies = [
+    opened,
+    () => new Response(null, { status: 308, headers: { Range: `bytes=0-${chunk - 1}` } }),
+    () => Response.json({ name: 'files/big' }),
+  ];
+  const { fetch, calls } = fakeFetch(() => replies[calls.length - 1]());
+  const r = await fx(
+    ['mini', 'files', 'upload', '--upload', big, '--upload-protocol', 'resumable'],
+    {
+      fetch,
+    },
+  );
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.stdout, `${JSON.stringify({ name: 'files/big' }, null, 2)}\n`);
+  assert.deepEqual(
+    calls.map((c) => [c.init?.method, c.url, c.init?.headers]),
+    [
+      [
+        'POST',
+        'https://mini.googleapis.com/upload/v1/files?uploadType=resumable',
+        {
+          'X-Upload-Content-Type': 'text/plain',
+          'X-Upload-Content-Length': String(chunk + 3),
+          Authorization: 'Bearer TOK',
+        },
+      ],
+      [
+        'PUT',
+        session,
+        { 'Content-Range': `bytes 0-${chunk - 1}/${chunk + 3}`, Authorization: 'Bearer TOK' },
+      ],
+      [
+        'PUT',
+        session,
+        {
+          'Content-Range': `bytes ${chunk}-${chunk + 2}/${chunk + 3}`,
+          Authorization: 'Bearer TOK',
+        },
+      ],
+    ],
+  );
+  assert.deepEqual(
+    await Promise.all(calls.slice(1).map(async (c) => (await bytes(c.init?.body)).length)),
+    [chunk, 3],
+  );
+
+  // A 308 without Range means Google kept nothing: the same bytes go again.
+  const retry = [opened, () => new Response(null, { status: 308 }), () => Response.json({})];
+  const again = fakeFetch(() => retry[again.calls.length - 1]());
+  const argv = ['mini', 'files', 'upload', '--upload', TXT, '--upload-protocol', 'resumable'];
+  assert.equal((await fx(argv, { fetch: again.fetch })).code, 0);
+  assert.deepEqual(
+    again.calls.slice(1).map((c) => new Headers(c.init?.headers).get('Content-Range')),
+    ['bytes 0-4/5', 'bytes 0-4/5'],
+  );
+
+  // A session that never moves past byte 0 stops after a bounded number of PUTs.
+  const stuck = fakeFetch(() =>
+    stuck.calls.length === 1 ? opened() : new Response(null, { status: 308 }),
+  );
+  const s = await fx(argv, { fetch: stuck.fetch });
+  assert.equal(s.code, 5);
+  assert.match(s.stderr, /^gapi: Error: resumable upload: 308 at byte 0 of 5, no progress\n$/);
+  assert.equal(stuck.calls.length, 4);
+});
+
+test('send: --output streams the body to the file and prints its path and size', async () => {
+  const body = Buffer.from([0xff, 0xfe, 0x00, 0x80, 0x0a]);
+  const out = join(dir, 'download.bin');
+  const download = ['mini', 'files', 'download', '--params', '{"name":"files/a"}', '--output', out];
+  const { fetch, calls } = fakeFetch(() => new Response(body));
+  const r = await fx(download, { fetch });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.stdout, `${JSON.stringify({ path: out, bytes: body.length }, null, 2)}\n`);
+  assert.deepEqual(readFileSync(out), body);
+  assert.equal(calls[0].url, 'https://mini.googleapis.com/v1/files/a:download?alt=media');
+
+  const empty = fakeFetch(() => new Response(null));
+  assert.equal((await fx(download, { fetch: empty.fetch })).code, 0);
+  assert.equal(readFileSync(out).length, 0);
+
+  const gone = join(dir, 'not-found.bin');
+  const missing = fakeFetch(() => Response.json({ error: { message: 'nope' } }, { status: 404 }));
+  const e = await fx([...download.slice(0, -1), gone], { fetch: missing.fetch });
+  assert.equal(e.code, 1);
+  assert.equal(existsSync(gone), false);
 });

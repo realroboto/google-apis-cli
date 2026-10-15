@@ -34,6 +34,10 @@ const GLOBAL_OPTIONS = {
   'dry-run': { type: 'boolean' },
   'page-all': { type: 'boolean' },
   'page-limit': { type: 'string' },
+  upload: { type: 'string' },
+  'upload-content-type': { type: 'string' },
+  'upload-protocol': { type: 'string' },
+  output: { type: 'string' },
   project: { type: 'string' },
   'api-key': { type: 'string' },
   help: { type: 'boolean' },
@@ -228,6 +232,10 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       dryRun,
       pageAll: values['page-all'],
       pageLimit: values['page-limit'],
+      upload: values.upload,
+      uploadContentType: values['upload-content-type'],
+      uploadProtocol: values['upload-protocol'],
+      output: values.output,
     },
     creds.settings(values, model.headers),
   );
@@ -244,7 +252,14 @@ async function perform(
   for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
   if (dryRun) {
     const headers = { ...call.headers, ...(await authorize(call.auth, { redact: true })) };
-    const request = { method: call.httpMethod, url: call.url, headers, body: call.body };
+    const request = {
+      method: call.httpMethod,
+      url: call.url,
+      headers,
+      body: call.body,
+      upload: call.send === 'upload' ? call.upload : undefined,
+      output: call.send === 'download' ? call.output : undefined,
+    };
     io.stdout.write(`${JSON.stringify(request, null, 2)}\n`);
     return;
   }

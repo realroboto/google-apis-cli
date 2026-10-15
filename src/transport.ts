@@ -1,7 +1,9 @@
 // Transport: sends a CallPlan and prints the response (epic #30 D13).
 // `authorize` adds the credential before every request; a non-2xx exits 1, a missing scope 2.
 import { GapiError } from './errors.ts';
-import type { Authorize, CallPlan, FetchLike } from './types.ts';
+import { download } from './transport/download.ts';
+import { upload } from './transport/upload.ts';
+import type { Authorize, CallPlan, FetchLike, FetchResponse } from './types.ts';
 
 export type SendDeps = {
   fetch: FetchLike;
@@ -9,46 +11,68 @@ export type SendDeps = {
   out: { write(chunk: string): unknown };
 };
 
+// One authorized request. A non-2xx throws the classified error, except the `allowed` status.
+export type Call = (
+  url: string,
+  init: RequestInit & { headers: Record<string, string> },
+  allowed?: number,
+) => Promise<FetchResponse>;
+
 export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
+  const call = caller(plan, deps);
+  const print = (data: unknown) => deps.out.write(`${JSON.stringify(data, null, 2)}\n`);
+  if (plan.send === 'upload') {
+    print(await json(await upload(plan, call)));
+    return;
+  }
+  if (plan.send === 'download') {
+    print(await download(plan, call));
+    return;
+  }
+  const init = {
+    method: plan.httpMethod,
+    headers: plan.headers,
+    body: plan.body === undefined ? undefined : JSON.stringify(plan.body),
+  };
   if (plan.send === 'once') {
-    const data = await request(plan, plan.url, deps);
-    deps.out.write(`${JSON.stringify(plan.decode ? plan.decode(data) : data, null, 2)}\n`);
+    const data = await json(await call(plan.url, init));
+    print(plan.decode ? plan.decode(data) : data);
     return;
   }
   // D6: one compact JSON line per page, until no nextPageToken or pageLimit pages.
   const url = new URL(plan.url);
   for (let page = 1; page <= plan.pageLimit; page++) {
-    const data = (await request(plan, url.href, deps)) as { nextPageToken?: unknown };
+    const data = (await json(await call(url.href, init))) as { nextPageToken?: unknown };
     deps.out.write(`${JSON.stringify(data)}\n`);
     if (typeof data?.nextPageToken !== 'string' || !data.nextPageToken) return;
     url.searchParams.set('pageToken', data.nextPageToken);
   }
 }
 
-async function request(
-  plan: CallPlan,
-  url: string,
-  { fetch, authorize }: SendDeps,
-): Promise<unknown> {
-  const res = await fetch(url, {
-    method: plan.httpMethod,
-    headers: { ...plan.headers, ...(await authorize(plan.auth)) },
-    body: plan.body === undefined ? undefined : JSON.stringify(plan.body),
-  });
+function caller(plan: CallPlan, { fetch, authorize }: SendDeps): Call {
+  return async (url, init, allowed) => {
+    const headers = { ...init.headers, ...(await authorize(plan.auth)) };
+    const res = await fetch(url, { ...init, headers });
+    if (!res.ok && res.status !== allowed) throw failure(plan, res.status, await res.text());
+    return res;
+  };
+}
+
+async function json(res: FetchResponse): Promise<unknown> {
   const text = await res.text();
-  if (!res.ok) {
-    // A front-end error page can be HTML; keep it as text rather than fail on parse.
-    const body = parseOrText(text);
-    const error = (body as { error?: { message?: string; details?: { reason?: string }[] } })
-      ?.error;
-    // D8: the stored grant lacks this method's scope; a new consent fixes it.
-    if (error?.details?.some((d) => d?.reason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')) {
-      const scopes = plan.auth.scopes.join(', ');
-      throw new GapiError(2, `missing scope (${scopes}); run gapi auth login`, body);
-    }
-    throw new GapiError(1, error?.message ?? `HTTP ${res.status}`, body || undefined);
-  }
   return text ? JSON.parse(text) : {};
+}
+
+function failure(plan: CallPlan, status: number, text: string): GapiError {
+  // A front-end error page can be HTML; keep it as text rather than fail on parse.
+  const body = parseOrText(text);
+  const error = (body as { error?: { message?: string; details?: { reason?: string }[] } })?.error;
+  // D8: the stored grant lacks this method's scope; a new consent fixes it.
+  if (error?.details?.some((d) => d?.reason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')) {
+    const scopes = plan.auth.scopes.join(', ');
+    return new GapiError(2, `missing scope (${scopes}); run gapi auth login`, body);
+  }
+  return new GapiError(1, error?.message ?? `HTTP ${status}`, body || undefined);
 }
 
 function parseOrText(text: string): unknown {
