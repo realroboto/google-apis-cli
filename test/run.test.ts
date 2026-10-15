@@ -28,6 +28,54 @@ const DOCS = {
 for (const [api, doc] of Object.entries(DOCS)) {
   copyFileSync(join(FIXTURES, 'discovery', `${doc}.json`), join(dir, 'cache', `${api}.json`));
 }
+// The shipped ads entry: googleads v26 (revision 20261014) pruned to the two GAQL methods
+// and one method of the resource named `v26`; schemas dropped, the Planner reads only the
+// request $ref.
+const ADWORDS = 'https://www.googleapis.com/auth/adwords';
+const gaqlMethod = (verb: string, request: string) => ({
+  id: `googleads.customers.googleAds.${verb}`,
+  path: `v26/customers/{+customerId}/googleAds:${verb}`,
+  httpMethod: 'POST',
+  parameters: {
+    customerId: { type: 'string', location: 'path', required: true, pattern: '^[^/]+$' },
+  },
+  request: { $ref: `GoogleAdsGoogleadsV26Services__${request}` },
+  scopes: [ADWORDS],
+});
+writeFileSync(
+  join(dir, 'cache', 'ads.json'),
+  JSON.stringify({
+    name: 'googleads',
+    version: 'v26',
+    rootUrl: 'https://googleads.googleapis.com/',
+    servicePath: '',
+    auth: { oauth2: { scopes: { [ADWORDS]: {} } } },
+    resources: {
+      v26: {
+        methods: {
+          listPlannableLocations: {
+            id: 'googleads.listPlannableLocations',
+            path: 'v26:listPlannableLocations',
+            httpMethod: 'POST',
+            parameters: {},
+            request: { $ref: 'GoogleAdsGoogleadsV26Services__ListPlannableLocationsRequest' },
+            scopes: [ADWORDS],
+          },
+        },
+      },
+      customers: {
+        resources: {
+          googleAds: {
+            methods: {
+              search: gaqlMethod('search', 'SearchGoogleAdsRequest'),
+              searchStream: gaqlMethod('searchStream', 'SearchGoogleAdsStreamRequest'),
+            },
+          },
+        },
+      },
+    },
+  }),
+);
 writeFileSync(
   join(dir, 'config.json'),
   JSON.stringify({ oauth_client_id: 'cid', oauth_client_secret: 'secret', api_key: 'KEY' }),
@@ -120,21 +168,6 @@ test('D5 examples: --dry-run prints the exact request', async () => {
   );
 });
 
-test('hand manifests run through the same path', async () => {
-  assert.deepEqual(
-    await dryRun(
-      ['ads', 'campaigns', 'mutate', '--params', '{"customer":"1"}', '--body', '{}'],
-      true,
-    ),
-    {
-      method: 'POST',
-      url: 'https://googleads.googleapis.com/v25/customers/1/campaigns:mutate',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer <redacted>' },
-      body: {},
-    },
-  );
-});
-
 test('credentials: API-key header, entry header flags', async () => {
   const crux = await dryRun(['crux', 'records', 'queryRecord', '--body', '{}']);
   assert.deepEqual(crux.headers, {
@@ -144,8 +177,8 @@ test('credentials: API-key header, entry header flags', async () => {
   const psi = ['pagespeed', 'pagespeedapi', 'runpagespeed', '--params', '{"url":"https://a.com"}'];
   assert.deepEqual((await dryRun(psi)).headers, { 'X-Goog-Api-Key': '<redacted>' });
 
-  const mutate = ['ads', 'campaigns', 'mutate', '--params', '{"customer":"1"}', '--body', '{}'];
-  const ads = await dryRun([...mutate, '--login-customer-id', '9'], true);
+  const search = ['ads', 'customers', 'googleAds', 'search', '--params', '{"customerId":"1"}'];
+  const ads = await dryRun([...search, '--body', '{}', '--login-customer-id', '9'], true);
   assert.equal(ads.headers['login-customer-id'], '9');
 
   const { fetch, calls } = fakeFetch(() => Response.json({}));
@@ -155,11 +188,19 @@ test('credentials: API-key header, entry header flags', async () => {
   assert.equal(calls.length, 0);
 });
 
+test('ads: the resource named v26 is a tree path, not the method id', async () => {
+  assert.deepEqual(await dryRun(['ads', 'v26', 'listPlannableLocations'], true), {
+    method: 'POST',
+    url: 'https://googleads.googleapis.com/v26:listPlannableLocations',
+    headers: { Authorization: 'Bearer <redacted>' },
+  });
+});
+
 test('ads +gaql: --dry-run prints the search request; --stream concatenates every chunk', async () => {
   const query = 'SELECT campaign.id FROM campaign';
   assert.deepEqual(await dryRun(['ads', '+gaql', query, '--customer', '1'], true), {
     method: 'POST',
-    url: 'https://googleads.googleapis.com/v25/customers/1/googleAds:search',
+    url: 'https://googleads.googleapis.com/v26/customers/1/googleAds:search',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer <redacted>' },
     body: { query },
   });
@@ -172,7 +213,7 @@ test('ads +gaql: --dry-run prints the search request; --stream concatenates ever
   assert.equal(calls.length, 1);
   assert.equal(
     calls[0].url,
-    'https://googleads.googleapis.com/v25/customers/1/googleAds:searchStream',
+    'https://googleads.googleapis.com/v26/customers/1/googleAds:searchStream',
   );
   assert.equal(calls[0].init?.body, JSON.stringify({ query }));
 });
@@ -327,7 +368,6 @@ test('discovery refresh refetches and rewrites the cache; discovery path prints 
 
   const rows: [string[], string, boolean?][] = [
     [['discovery', 'refresh', 'mini', 'nope'], 'gapi: unknown api: nope\n'],
-    [['discovery', 'refresh', 'ads'], 'gapi: ads has no discovery document\n', true],
     [['discovery', 'bogus'], 'gapi: usage: gapi discovery refresh [<api>…] | path\n'],
   ];
   for (const [argv, stderr, shipped] of rows) {
