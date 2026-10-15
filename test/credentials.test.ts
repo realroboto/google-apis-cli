@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import type { Credentials, GenerateAuthUrlOpts } from 'google-auth-library';
 import { OAuth2Client } from 'google-auth-library';
 import { defaultPrompt, openCredentials } from '../src/credentials.ts';
@@ -78,7 +78,10 @@ function fakeOAuth(
   return { oauth: () => client, seen };
 }
 
-const tempDir = () => mkdtempSync(join(tmpdir(), 'gapi-creds-'));
+// Every config dir lives under one root, removed after the file's tests.
+const root = mkdtempSync(join(tmpdir(), 'gapi-creds-'));
+after(() => rmSync(root, { recursive: true, force: true }));
+const tempDir = () => mkdtempSync(join(root, 'dir-'));
 
 // In-memory stderr for login messages.
 function sink() {

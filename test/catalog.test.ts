@@ -7,13 +7,14 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { openCatalog } from '../src/catalog.ts';
 import { GapiError } from '../src/errors.ts';
 import { fakeFetch } from './helpers/fetch.ts';
@@ -22,9 +23,13 @@ const apisDir = join(import.meta.dirname, 'fixtures', 'apis');
 const DAY = 24 * 60 * 60;
 const KIND = 'discovery#restDescription';
 
+// Every temp dir lives under one root, removed after the file's tests.
+const root = mkdtempSync(join(tmpdir(), 'gapi-catalog-'));
+after(() => rmSync(root, { recursive: true, force: true }));
+
 // A temp config dir, optionally holding a cached `mini` document aged `ageSec`.
 function setup(cached?: { doc: unknown; ageSec: number }) {
-  const dir = mkdtempSync(join(tmpdir(), 'gapi-catalog-'));
+  const dir = mkdtempSync(join(root, 'dir-'));
   const file = join(dir, 'cache', 'mini.json');
   if (cached) {
     mkdirSync(join(dir, 'cache'));
@@ -174,7 +179,7 @@ test('an entry whose api differs from its file name is rejected', async () => {
 
 test('entries load from a directory whose path holds a #', async () => {
   const { dir } = setup();
-  const apis = mkdtempSync(join(tmpdir(), 'gapi-#-'));
+  const apis = mkdtempSync(join(root, '#-'));
   cpSync(apisDir, apis, { recursive: true });
   const { fetch } = fakeFetch(fresh);
   const catalog = await openCatalog({ dir, fetch, warn: () => {}, apisDir: apis });

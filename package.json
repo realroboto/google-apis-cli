@@ -17,7 +17,7 @@
     "discovery:check": "node scripts/discovery-check.ts",
     "gen:skill": "node scripts/gen-skill.ts",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm test && pnpm discovery:check && pnpm build"
   },
   "files": [
     "dist/"
