@@ -19,7 +19,15 @@
    Do instead: give the operator absolute paths (`node /home/r2/google-apis-cli/bin/gapi.ts …`, `/tmp/gapi-pack/*.tgz`)
    [google-apis-cli]
 
-4. **[2026-10-15] Harness runs max 6 subagents at once; extra launches in one message fail**
+4. **[2026-10-15] `npm publish` from the VM fails: no npm login, and `!` cannot finish 2FA (security key, EOTP)**
+   Do instead: operator publishes from the Mac clone: `git pull`, `corepack enable`, `pnpm install --frozen-lockfile`, `npm publish`, ENTER + key
+   [google-apis-cli]
+
+5. **[2026-10-15] Fresh npm version: `npm i`/`npm view` on the VM read ETARGET or the old version from the local cache**
+   Do instead: add `--prefer-online`; or query `https://registry.npmjs.org/google-apis-cli` with curl
+   [google-apis-cli]
+
+6. **[2026-10-15] Harness runs max 6 subagents at once; extra launches in one message fail**
    Do instead: launch parallel review areas in batches of 6; start the next area on each completion notice
    [google-apis-cli]
 
