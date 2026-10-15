@@ -3,20 +3,14 @@ import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
-import { before, test } from 'node:test';
+import { test } from 'node:test';
 import { OAuth2Client } from 'google-auth-library';
+import * as auth from '../src/auth.ts';
+import * as config from '../src/config.ts';
 
-// Point HOME at a temp dir before importing config/auth (paths resolve at import).
-process.env.HOME = mkdtempSync(join(tmpdir(), 'gapi-test-'));
+process.env.GAPI_CONFIG_DIR = mkdtempSync(join(tmpdir(), 'gapi-test-'));
 process.env.GAPI_OAUTH_CLIENT_ID = 'cid';
 process.env.GAPI_OAUTH_CLIENT_SECRET = 'secret';
-
-let auth: typeof import('../src/auth.ts');
-let config: typeof import('../src/config.ts');
-before(async () => {
-  auth = await import('../src/auth.ts');
-  config = await import('../src/config.ts');
-});
 
 // A minimal unsigned JWT with an email claim (display-only; never verified).
 function idTokenFor(email: string): string {
@@ -41,8 +35,8 @@ function fakeClient(): OAuth2Client {
 test('handleRedirect extracts code, exchanges, and persists 600', async () => {
   const tokens = await auth.handleRedirect(fakeClient(), '/?code=abc123', 'http://127.0.0.1:4600');
   assert.equal(tokens.refresh_token, 'RT-abc123');
-  assert.ok(existsSync(config.CREDENTIALS_PATH));
-  const mode = statSync(config.CREDENTIALS_PATH).mode & 0o777;
+  assert.ok(existsSync(config.credentialsPath()));
+  const mode = statSync(config.credentialsPath()).mode & 0o777;
   assert.equal(mode, 0o600);
 });
 
@@ -87,7 +81,7 @@ test('makeTokenProvider refreshes an expired access token via the client', async
 
 test('logout removes the credentials file', () => {
   auth.logout();
-  assert.equal(existsSync(config.CREDENTIALS_PATH), false);
+  assert.equal(existsSync(config.credentialsPath()), false);
 });
 
 // Masking runs through readline's own terminal echo, so drive a terminal-mode

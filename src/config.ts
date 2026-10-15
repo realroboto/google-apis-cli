@@ -13,8 +13,8 @@ import { join } from 'node:path';
 const EMBEDDED_CLIENT_ID = '';
 const EMBEDDED_CLIENT_SECRET = '';
 
-// Resolved lazily (not at import) so it reads the config file after CONFIG_PATH
-// is initialized, and picks up a fresh `gapi auth setup` in the same process.
+// Resolved lazily (not at import) so it picks up a fresh `gapi auth setup` in
+// the same process.
 export function getOAuthClient(): { clientId: string; clientSecret: string } {
   const cfg = readConfigFile();
   return {
@@ -54,24 +54,26 @@ export const ALL_SCOPE_URLS = Object.values(SCOPES);
 export const IDENTITY_SCOPES = ['openid', 'email'];
 export const CONSENT_SCOPES = [...ALL_SCOPE_URLS, ...IDENTITY_SCOPES];
 
-export const CONFIG_DIR = join(homedir(), '.config', 'gapi');
-export const CREDENTIALS_PATH = join(CONFIG_DIR, 'credentials.json');
-export const CONFIG_PATH = join(CONFIG_DIR, 'config.json');
+// `||`, not `??`: an empty GAPI_CONFIG_DIR must not resolve secrets into the cwd.
+export const configDir = (): string =>
+  process.env.GAPI_CONFIG_DIR || join(homedir(), '.config', 'gapi');
+export const credentialsPath = (): string => join(configDir(), 'credentials.json');
+export const configPath = (): string => join(configDir(), 'config.json');
 
-// Read ~/.config/gapi/config.json (OAuth client id/secret, Ads login-customer-id,
+// Read <configDir>/config.json (OAuth client id/secret, Ads login-customer-id,
 // quota project).
 export function readConfigFile(): Record<string, unknown> {
   try {
-    return JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+    return JSON.parse(readFileSync(configPath(), 'utf8'));
   } catch {
     return {};
   }
 }
 
-// Write JSON under CONFIG_DIR readable only by the owner (dir 700, file 600).
+// Write JSON under configDir readable only by the owner (dir 700, file 600).
 // Shared by the two things we persist: the config file and the credentials.
 export function writeSecureJson(path: string, data: unknown): void {
-  mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
+  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
   writeFileSync(path, JSON.stringify(data, null, 2), { mode: 0o600 });
 }
 
