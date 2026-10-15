@@ -203,7 +203,10 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       args: positionals,
       flags: values,
       settings: creds.settings(values, model.headers),
-      read: (path) => readFile(path, 'utf8'),
+      read: (path) =>
+        readFile(path, 'utf8').catch((e: NodeJS.ErrnoException) => {
+          throw new GapiError(3, `cannot read ${path}: ${e.code}`);
+        }),
     });
     return perform(call, values['dry-run'] === true, io, creds.authorize);
   }
@@ -259,6 +262,15 @@ async function perform(
       body: call.body,
       upload: call.send === 'upload' ? call.upload : undefined,
       output: call.send === 'download' ? call.output : undefined,
+      parts:
+        call.send === 'batch'
+          ? call.parts.map((p) => ({
+              method: p.httpMethod,
+              url: p.url,
+              headers: p.headers,
+              body: p.body,
+            }))
+          : undefined,
     };
     io.stdout.write(`${JSON.stringify(request, null, 2)}\n`);
     return;

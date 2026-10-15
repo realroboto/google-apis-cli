@@ -263,6 +263,28 @@ const attach = ['mini', 'files', 'attach', '--params', '{"name":"files/a"}'];
 const bytes = async (body: RequestInit['body']) =>
   Buffer.from(await new Response(body).arrayBuffer());
 
+// Indexing batch files (one notification per line), and Google's multipart/mixed answer:
+// one `application/http` part per [request Content-ID, status, body].
+const URLS = join(dir, 'urls.txt');
+writeFileSync(
+  URLS,
+  '# sitemap delta\n\nURL_UPDATED https://a.com/1\n  URL_DELETED https://a.com/2  \n',
+);
+const BAD_URLS = join(dir, 'bad-urls.txt');
+writeFileSync(BAD_URLS, 'URL_UPDATED https://a.com/1\nURL_UPSERTED https://a.com/2\n');
+const batchAnswer = (parts: [id: number, status: number, body: unknown][]) =>
+  new Response(
+    `${parts
+      .map(
+        ([id, status, body]) =>
+          `--batch_x\r\nContent-Type: application/http\r\nContent-ID: <response-${id}>\r\n\r\n` +
+          `HTTP/1.1 ${status} X\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+          `${JSON.stringify(body)}\r\n`,
+      )
+      .join('')}--batch_x--\r\n`,
+    { headers: { 'Content-Type': 'multipart/mixed; boundary=batch_x' } },
+  );
+
 test('validation errors exit 3 before any network call', async () => {
   const get = ['ga4-admin', 'properties', 'dataStreams', 'get'];
   const rows: [string[], RegExp, boolean?][] = [
@@ -337,6 +359,16 @@ test('validation errors exit 3 before any network call', async () => {
       true,
     ],
     [['ads', '+nope'], /^gapi: unknown helper '\+nope' \(valid: \+gaql\)\n$/, true],
+    [
+      ['indexing', '+publishBatch', BAD_URLS],
+      /^gapi: .*bad-urls\.txt:2: expected URL_UPDATED <url> or URL_DELETED <url>\n$/,
+      true,
+    ],
+    [
+      ['indexing', '+publishBatch', join(dir, 'missing.txt')],
+      /^gapi: cannot read .*missing\.txt: ENOENT\n$/,
+      true,
+    ],
     // #28: the value repeats the literal segment before a simple {x} placeholder.
     [
       ['gsc', 'sites', 'get', '--params', '{"siteUrl":"sites/x"}'],
@@ -667,4 +699,90 @@ test('send: --output streams the body to the file and prints its path and size',
   const e = await fx([...download.slice(0, -1), gone], { fetch: missing.fetch });
   assert.equal(e.code, 1);
   assert.equal(existsSync(gone), false);
+});
+
+const publish = (url: string, type: string) => ({
+  method: 'POST',
+  url: 'https://indexing.googleapis.com/v3/urlNotifications:publish',
+  headers: { 'Content-Type': 'application/json' },
+  body: { url, type },
+});
+
+test('indexing +publishBatch --dry-run prints every part', async () => {
+  assert.deepEqual(await dryRun(['indexing', '+publishBatch', URLS], true), {
+    method: 'POST',
+    url: 'https://indexing.googleapis.com/batch',
+    headers: { Authorization: 'Bearer <redacted>' },
+    parts: [publish('https://a.com/1', 'URL_UPDATED'), publish('https://a.com/2', 'URL_DELETED')],
+  });
+});
+
+test('send: +publishBatch sends at most 100 parts per call, results in input order', async () => {
+  const many = join(dir, 'many.txt');
+  const urls = Array.from({ length: 101 }, (_, i) => `https://a.com/${i}`);
+  writeFileSync(many, urls.map((u) => `URL_UPDATED ${u}\n`).join(''));
+  const ids = async (body: RequestInit['body']) =>
+    [...(await new Response(body).text()).matchAll(/^Content-ID: <(\d+)>\r$/gm)].map((m) =>
+      Number(m[1]),
+    );
+  const { fetch, calls } = fakeFetch(async (_url, init) =>
+    batchAnswer((await ids(init?.body)).map((id) => [id, 200, { part: id }])),
+  );
+  const r = await sh(['indexing', '+publishBatch', many], { fetch });
+  assert.equal(r.code, 0, r.stderr);
+  assert.deepEqual(
+    calls.map((c) => c.url),
+    ['https://indexing.googleapis.com/batch', 'https://indexing.googleapis.com/batch'],
+  );
+  assert.deepEqual(
+    await Promise.all(calls.map(async (c) => (await ids(c.init?.body)).length)),
+    [100, 1],
+  );
+  const results = urls.map((url, i) => ({
+    url,
+    type: 'URL_UPDATED',
+    status: 200,
+    body: { part: (i % 100) + 1 },
+  }));
+  assert.equal(r.stdout, `${JSON.stringify(results, null, 2)}\n`);
+});
+
+test('send: +publishBatch prints every part result and exits 1 when one part fails', async () => {
+  const error = { error: { code: 400, message: 'bad url', status: 'INVALID_ARGUMENT' } };
+  // Google may answer the parts in any order; Content-ID maps them back.
+  const { fetch, calls } = fakeFetch(() =>
+    batchAnswer([
+      [2, 400, error],
+      [1, 200, { urlNotificationMetadata: {} }],
+    ]),
+  );
+  const r = await sh(['indexing', '+publishBatch', URLS], { fetch });
+  assert.equal(r.code, 1);
+  assert.equal(r.stderr, 'gapi: 1 of 2 batch parts failed\n');
+  const results = [
+    {
+      url: 'https://a.com/1',
+      type: 'URL_UPDATED',
+      status: 200,
+      body: { urlNotificationMetadata: {} },
+    },
+    { url: 'https://a.com/2', type: 'URL_DELETED', status: 400, body: error },
+  ];
+  assert.equal(r.stdout, `${JSON.stringify(results, null, 2)}\n`);
+
+  assert.equal(calls.length, 1);
+  const headers = calls[0].init?.headers as Record<string, string>;
+  assert.equal(headers.Authorization, 'Bearer TOK');
+  const boundary = /^multipart\/mixed; boundary=(.+)$/.exec(headers['Content-Type'])?.[1];
+  assert.ok(boundary, headers['Content-Type']);
+  const part = (id: number, body: object) =>
+    `--${boundary}\r\nContent-Type: application/http\r\nContent-Transfer-Encoding: binary\r\n` +
+    `Content-ID: <${id}>\r\n\r\nPOST /v3/urlNotifications:publish\r\n` +
+    `Content-Type: application/json\r\n\r\n${JSON.stringify(body)}\r\n`;
+  assert.equal(
+    await new Response(calls[0].init?.body).text(),
+    part(1, { url: 'https://a.com/1', type: 'URL_UPDATED' }) +
+      part(2, { url: 'https://a.com/2', type: 'URL_DELETED' }) +
+      `--${boundary}--`,
+  );
 });
