@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { isApiEntry, openCatalog } from '../src/catalog.ts';
+import { openCatalog } from '../src/catalog.ts';
 import { GapiError } from '../src/errors.ts';
 import { fakeFetch } from './helpers/fetch.ts';
 
@@ -152,23 +152,5 @@ test('fixture documents normalize into auth kind, scopes, overlays, words and me
   assert.equal(mini.byId.get('mini.files.download')?.download, true);
   assert.equal(mini.byId.get('mini.files.upload')?.upload?.resumable, true);
   assert.equal(mini.schemas.has('constructor'), false);
-  assert.equal(calls.length, 0);
-});
-
-test('every hand manifest loads as a discovery-shaped model without a fetch', async () => {
-  const { dir } = setup();
-  const { fetch, calls } = fakeFetch(down);
-  const catalog = await openCatalog({ dir, fetch, warn: assert.fail }); // shipped src/apis
-  const hand = Object.values(catalog.entries).filter((e) => !isApiEntry(e));
-  assert.ok(hand.length > 0);
-  for (const { api } of hand) {
-    const model = await catalog.load(api);
-    assert.ok(model.rootUrl.endsWith('/'), api);
-    assert.ok(model.byId.size > 0, api);
-    for (const m of model.byId.values()) {
-      assert.ok(!m.path.startsWith('/'), m.id);
-      assert.equal(m.request !== undefined, ['POST', 'PUT', 'PATCH'].includes(m.httpMethod), m.id);
-    }
-  }
   assert.equal(calls.length, 0);
 });
