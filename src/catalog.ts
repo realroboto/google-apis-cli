@@ -123,11 +123,12 @@ const isNever = (scope: string): boolean => {
 };
 
 function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
+  const scopes = (entry.scopes ?? []).map((s) => AUTH_PREFIX + s);
   const byId = new Map<string, ApiMethod>();
   const build = (node: DiscoveryResource, words: string[]): ApiResource => ({
     methods: new Map(
       Object.entries(node.methods ?? {}).map(([key, m]) => {
-        const method = toMethod(m, [...words, key]);
+        const method = toMethod(m, [...words, key], scopes);
         byId.set(method.id, method);
         return [key, method];
       }),
@@ -139,7 +140,6 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
   const root = build(doc, []);
 
   // Auth kind first (D8): no grantable scope anywhere and no entry scopes → API key.
-  const scopes = (entry.scopes ?? []).map((s) => AUTH_PREFIX + s);
   const listed = [
     ...Object.keys(doc.auth?.oauth2?.scopes ?? {}),
     ...[...byId.values()].flatMap((m) => m.scopes),
@@ -191,8 +191,9 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
   };
 }
 
-function toMethod(m: DiscoveryMethod, words: string[]): ApiMethod {
-  const scopes = m.scopes ?? [];
+// A method whose document lists no scopes takes the entry scopes (D8: `business-*`).
+function toMethod(m: DiscoveryMethod, words: string[], entryScopes: string[]): ApiMethod {
+  const scopes = m.scopes?.length ? m.scopes : entryScopes;
   const parameters = new Map(Object.entries(m.parameters ?? {}));
   return {
     id: m.id,

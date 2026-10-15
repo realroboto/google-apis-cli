@@ -1,0 +1,32 @@
+{
+  "kind": "discovery#restDescription",
+  "discoveryVersion": "v1",
+  "id": "business:v1",
+  "name": "business",
+  "version": "v1",
+  "title": "Business API",
+  "description": "Hand-made fixture: no auth section and a method without scopes, as in the mybusiness* documents.",
+  "rootUrl": "https://business.googleapis.com/",
+  "servicePath": "",
+  "protocol": "rest",
+  "resources": {
+    "locations": {
+      "methods": {
+        "get": {
+          "id": "business.locations.get",
+          "path": "v1/{+name}",
+          "httpMethod": "GET",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "location": "path",
+              "required": true,
+              "pattern": "^locations/[^/]+$"
+            }
+          },
+          "parameterOrder": ["name"]
+        }
+      }
+    }
+  }
+}
