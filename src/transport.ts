@@ -11,7 +11,8 @@ export type SendDeps = {
 
 export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
   if (plan.send === 'once') {
-    deps.out.write(`${JSON.stringify(await request(plan, plan.url, deps), null, 2)}\n`);
+    const data = await request(plan, plan.url, deps);
+    deps.out.write(`${JSON.stringify(plan.decode ? plan.decode(data) : data, null, 2)}\n`);
     return;
   }
   // D6: one compact JSON line per page, until no nextPageToken or pageLimit pages.

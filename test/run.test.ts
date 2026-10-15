@@ -132,6 +132,28 @@ test('hand manifests run through the same path', async () => {
   );
 });
 
+test('ads +gaql: --dry-run prints the search request; --stream concatenates every chunk', async () => {
+  const query = 'SELECT campaign.id FROM campaign';
+  assert.deepEqual(await dryRun(['ads', '+gaql', query, '--customer', '1'], true), {
+    method: 'POST',
+    url: 'https://googleads.googleapis.com/v25/customers/1/googleAds:search',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer <redacted>' },
+    body: { query },
+  });
+
+  const chunks = [{ results: [{ id: 1 }] }, { results: [{ id: 2 }] }];
+  const { fetch, calls } = fakeFetch(() => Response.json(chunks));
+  const r = await gapi(['ads', '+gaql', query, '--customer', '1', '--stream'], { fetch });
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, `${JSON.stringify([{ id: 1 }, { id: 2 }], null, 2)}\n`);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    'https://googleads.googleapis.com/v25/customers/1/googleAds:searchStream',
+  );
+  assert.equal(calls[0].init?.body, JSON.stringify({ query }));
+});
+
 test('path and query encoding: {+x} per segment, repeated params, scalars', async () => {
   assert.equal(
     (await dryRun(['mini', 'files', 'get', '--params', '{"name":"files/a b"}'])).url,
@@ -190,6 +212,12 @@ test('validation errors exit 3 before any network call', async () => {
       ['gsc', 'urlTestingTools', 'mobileFriendlyTest', 'run', '--body', '{}'],
       /^gapi: retired: Retired by Google in December 2023 \(https:\/\/developers\.google\.com\//,
     ],
+    [
+      ['ads', '+gaql', 'SELECT campaign.id FROM campaign'],
+      /^gapi: --customer is required\n$/,
+      true,
+    ],
+    [['ads', '+nope'], /^gapi: unknown helper '\+nope' \(valid: \+gaql\)\n$/, true],
     // #28: the value repeats the literal segment before a simple {x} placeholder.
     [
       ['ga4-admin', 'properties', 'get', '--params', '{"property":"properties/1"}'],

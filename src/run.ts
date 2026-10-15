@@ -1,4 +1,5 @@
 // Process io is injected so tests drive the whole CLI in-process.
+import { readFile } from 'node:fs/promises';
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import {
   configureAuth,
@@ -21,7 +22,7 @@ import {
   schemaView,
 } from './render.ts';
 import { send } from './transport.ts';
-import type { ApiMethod, ApiModel, Authorize, FetchLike } from './types.ts';
+import type { ApiMethod, ApiModel, Authorize, CallPlan, FetchLike, Settings } from './types.ts';
 
 export type Io = {
   env: NodeJS.ProcessEnv;
@@ -41,6 +42,15 @@ const GLOBAL_OPTIONS = {
   project: { type: 'string' },
   help: { type: 'boolean' },
 } as const;
+
+// D10: a helper takes the global flags that do not shape the request, plus its own options.
+const HELPER_OPTIONS = {
+  'dry-run': GLOBAL_OPTIONS['dry-run'],
+  project: GLOBAL_OPTIONS.project,
+  help: GLOBAL_OPTIONS.help,
+} as const;
+
+const isHelperName = (word: string): word is `+${string}` => word.startsWith('+');
 
 export async function run(argv: string[], io: Io): Promise<number> {
   try {
@@ -159,11 +169,36 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
     return;
   }
 
+  const [word, ...helperArgs] = rest;
+  if (word !== undefined && isHelperName(word)) {
+    const model = await catalog.load(api);
+    const helpers = catalog.entries[api].helpers ?? {};
+    const helper = Object.hasOwn(helpers, word) ? helpers[word] : undefined;
+    if (!helper) {
+      const valid = Object.keys(helpers).join(', ');
+      throw new GapiError(3, `unknown helper '${word}' (valid: ${valid})`);
+    }
+    const { values, positionals } = parse(helperArgs, { ...HELPER_OPTIONS, ...helper.options });
+    if (values.help) {
+      io.stdout.write(`gapi ${api} ${word} ${helper.summary}\n`);
+      return;
+    }
+    const call = await helper.plan({
+      model,
+      args: positionals,
+      flags: values,
+      settings: interimSettings(api, values),
+      read: (path) => readFile(path, 'utf8'),
+    });
+    return perform(call, values['dry-run'] === true, io);
+  }
+
   const { values, positionals } = parse(rest, GLOBAL_OPTIONS);
   const model = await catalog.load(api);
   const target = resolve(model, positionals);
   if (!target.method) {
-    io.stdout.write(levelText(model, positionals, target.node));
+    const helpers = positionals.length === 0 ? catalog.entries[api].helpers : undefined;
+    io.stdout.write(levelText(model, positionals, target.node, helpers));
     return;
   }
   if (values.help) {
@@ -172,15 +207,6 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   }
 
   const dryRun = values['dry-run'] === true;
-  // Interim until Credentials (#41): today's quota-project and Ads-header resolvers.
-  const settings = {
-    project: resolveSetting(values, {
-      flag: 'project',
-      env: QUOTA_PROJECT_ENV,
-      key: 'project',
-    }) as string | undefined,
-    headers: api === 'ads' ? resolveAdsHeaders(values) : {},
-  };
   const call = plan(
     model,
     target.method.id,
@@ -191,8 +217,25 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       pageAll: values['page-all'],
       pageLimit: values['page-limit'],
     },
-    settings,
+    interimSettings(api, values),
   );
+  return perform(call, dryRun, io);
+}
+
+// Interim until Credentials (#41): today's quota-project and Ads-header resolvers.
+function interimSettings(api: string, values: Record<string, unknown>): Settings {
+  return {
+    project: resolveSetting(values, {
+      flag: 'project',
+      env: QUOTA_PROJECT_ENV,
+      key: 'project',
+    }) as string | undefined,
+    headers: api === 'ads' ? resolveAdsHeaders(values) : {},
+  };
+}
+
+// Prints the plan's warnings, then the redacted request (--dry-run) or the response.
+async function perform(call: CallPlan, dryRun: boolean, io: Io): Promise<void> {
   for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
 
   // Interim until Credentials (#41): today's token provider, Bearer for every API.
