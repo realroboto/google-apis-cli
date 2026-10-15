@@ -167,7 +167,7 @@ gapi ads gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
 
 ## Config file
 
-`~/.config/gapi/config.json`, mode 600:
+`~/.config/gapi/config.json`, mode 600. Set `GAPI_CONFIG_DIR` to move the whole directory (config, credentials, discovery cache).
 
 ```json
 {
