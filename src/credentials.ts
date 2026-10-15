@@ -298,7 +298,20 @@ export function openCredentials({
     };
   }
 
+  // Revoke, then delete (the `gcloud auth revoke` pattern, #151). Revoking the refresh
+  // token ends the whole grant. Google answers 400 for a token already invalid or revoked.
+  // Any other failure keeps credentials.json, so the logout can be retried.
+  // No stored token (missing or unreadable file) leaves nothing to revoke.
   async function logout(): Promise<void> {
+    const token = (await readCredentials().catch(() => undefined))?.refresh_token;
+    if (token) {
+      const c = await client();
+      await c.revokeToken(token).catch((e: unknown) => {
+        if (!isRecord(e) || e.status !== 400)
+          throw new GapiError(1, `token revoke failed, credentials kept: ${messageOf(e)}`);
+        warn('refresh token already invalid or revoked');
+      });
+    }
     await rm(credentialsFile, { force: true });
   }
 

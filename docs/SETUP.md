@@ -338,8 +338,10 @@ API-key APIs (CrUX, PageSpeed) send `X-Goog-Api-Key`, never the OAuth token. CrU
 key (exit 2 without it). PageSpeed sends the key only when one is set. `project` (the
 `x-goog-user-project` header) is sent only with OAuth.
 
-`gapi auth logout` deletes `credentials.json` and leaves `config.json` — a later
-`gapi auth login` reuses the same client.
+`gapi auth logout` revokes the refresh token at Google (the whole grant ends), then deletes
+`credentials.json` and leaves `config.json` — a later `gapi auth login` reuses the same client.
+A token Google already treats as invalid or revoked is deleted with a warning. A network error
+or any other failure keeps `credentials.json` and exits 1: run `gapi auth logout` again.
 
 ---
 
