@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
@@ -94,6 +95,35 @@ test('login writes credentials.json mode 600 for the consent plus identity scope
     exit: 2,
     message: 'not logged in; run gapi auth login',
   });
+});
+
+test('login over loopback exchanges the redirect code; a redirect without one exits 2', async () => {
+  // One fresh connection per visit, retried until login's server listens.
+  const visit = (query: string): Promise<number | undefined> =>
+    new Promise((resolve, reject) => {
+      get(`http://127.0.0.1:4600/${query}`, { agent: false }, (res) => {
+        res.resume();
+        resolve(res.statusCode);
+      }).on('error', (e: NodeJS.ErrnoException) =>
+        e.code === 'ECONNREFUSED'
+          ? setTimeout(() => visit(query).then(resolve, reject), 10)
+          : reject(e),
+      );
+    });
+  const dir = tempDir();
+  const creds = openCredentials({ dir, env: ENV, oauth: fakeOAuth().oauth });
+
+  const granted = creds.login({ consent: CONSENT });
+  assert.equal(await visit('?code=xyz'), 200);
+  assert.equal((await granted).refresh_token, 'RT-xyz');
+  assert.equal(statSync(join(dir, 'credentials.json')).mode & 0o777, 0o600);
+
+  const denied = assert.rejects(creds.login({ consent: CONSENT }), {
+    exit: 2,
+    message: 'no code in redirect',
+  });
+  assert.equal(await visit('?error=access_denied'), 400);
+  await denied;
 });
 
 test('authorize: Bearer from the stored token; refreshed tokens persisted; invalid_grant exits 2', async () => {

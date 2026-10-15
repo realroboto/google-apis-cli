@@ -1,6 +1,6 @@
 // Credentials: the only reader and writer of config.json and credentials.json (epic #30 D8, D13).
 // Settings precedence, Bearer vs API key, token refresh + persistence, loopback/manual login.
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -17,15 +17,15 @@ const IDENTITY_SCOPES = ['openid', 'email'];
 const RELOGIN = 'run gapi auth login';
 const NO_KEY = 'API key required; pass --api-key, set GAPI_API_KEY or run gapi auth setup';
 
-export type HeaderSpec = NonNullable<ApiEntry['headers']>[number];
-export type Prompt = (question: string, opts?: { secret?: boolean }) => Promise<string>;
-export type OAuthFactory = (opts: {
+type HeaderSpec = NonNullable<ApiEntry['headers']>[number];
+type Prompt = (question: string, opts?: { secret?: boolean }) => Promise<string>;
+type OAuthFactory = (opts: {
   clientId: string;
   clientSecret: string;
   redirectUri?: string;
 }) => OAuthClient;
 
-export type CredentialsOptions = {
+type CredentialsOptions = {
   dir: string;
   env: NodeJS.ProcessEnv;
   oauth?: OAuthFactory;
@@ -77,10 +77,12 @@ export function openCredentials({
     }
   };
 
-  // Owner-only: dir 700, file 600.
+  // Owner-only: dir 700, file 600. `mode` applies only on create, so a file that
+  // already exists with looser bits is narrowed too.
   const writeSecure = (file: string, data: unknown): void => {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     writeFileSync(file, JSON.stringify(data, null, 2), { mode: 0o600 });
+    chmodSync(file, 0o600);
   };
 
   const readCredentials = (): Credentials => {
@@ -162,7 +164,8 @@ export function openCredentials({
       const reason = (e as { response?: { data?: { error?: unknown } } }).response?.data?.error;
       if (reason === 'invalid_grant')
         throw new GapiError(2, `token expired or revoked; ${RELOGIN}`);
-      throw new GapiError(2, `token refresh failed: ${(e as Error).message}; ${RELOGIN}`);
+      const message = e instanceof Error ? e.message : String(e);
+      throw new GapiError(2, `token refresh failed: ${message}; ${RELOGIN}`);
     });
     if (!token) throw new GapiError(2, `no access token; ${RELOGIN}`);
     return { Authorization: `Bearer ${token}` };
