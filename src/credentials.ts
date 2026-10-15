@@ -36,6 +36,8 @@ type CredentialsOptions = {
 export const configDir = (env: NodeJS.ProcessEnv): string =>
   env.GAPI_CONFIG_DIR || join(homedir(), '.config', 'gapi');
 
+const API_KEY_SETTING = { flag: 'api-key', env: 'GAPI_API_KEY', key: 'api_key' };
+
 // `gapi auth setup` asks these in order; a blank answer keeps the stored value.
 const SETUP_FIELDS = [
   { key: 'oauth_client_id', label: 'OAuth client id', required: true, secret: false },
@@ -124,7 +126,7 @@ export function openCredentials({
 
   function settings(flags: Record<string, unknown>, headerSpecs: HeaderSpec[] = []): Settings {
     const cfg = readConfig();
-    apiKey = setting(flags, cfg, { flag: 'api-key', env: 'GAPI_API_KEY', key: 'api_key' });
+    apiKey = setting(flags, cfg, API_KEY_SETTING);
     const headers: Record<string, string> = {};
     for (const { name, flag, env: envName, configKey } of headerSpecs) {
       const v = setting(flags, cfg, { flag, env: envName, key: configKey });
@@ -223,6 +225,7 @@ export function openCredentials({
     return {
       account: creds.id_token ? accountFromIdToken(creds.id_token) : null,
       hasRefreshToken: Boolean(creds.refresh_token),
+      hasApiKey: setting({}, readConfig(), API_KEY_SETTING) !== undefined,
       expiryDate: creds.expiry_date ? new Date(creds.expiry_date).toISOString() : null,
       scopes: [...granted].map(short),
       missing: consent.filter((s) => !granted.has(s)).map(short),
