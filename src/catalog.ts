@@ -2,6 +2,7 @@
 // 24 h disk cache, and the one normalized ApiModel per API (epic #30 D2, D8, D13).
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { GapiError } from './errors.ts';
 import type {
   ApiEntry,
@@ -226,7 +227,7 @@ async function loadEntries(dir: string): Promise<Record<string, ApiEntry>> {
   );
   const entries: Record<string, ApiEntry> = {};
   for (const f of files) {
-    const e = (await import(join(dir, f))).default as ApiEntry;
+    const e = (await import(pathToFileURL(join(dir, f)).href)).default as ApiEntry;
     const name = basename(f, extname(f));
     if (e.api !== name) throw new Error(`${join(dir, f)}: api '${e.api}' must equal '${name}'`);
     entries[e.api] = e;
