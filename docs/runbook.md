@@ -28,3 +28,8 @@
 2. **[2026-10-15] `cmd | head` hides the gapi exit code**
    Do instead: redirect to a file (`> /tmp/x.out; echo $?`), then inspect the file
    [google-apis-cli]
+
+## User Directives
+1. **[2026-10-15] Repo is public: live-check comments must not expose real account ids, names or domains**
+   Do instead: replace with placeholders (`<customer-id>`, `<account-id>`, `<property-id>`, `<domain>`); scan with `rg` before `gh issue comment`
+   [google-apis-cli]
