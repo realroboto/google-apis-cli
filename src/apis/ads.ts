@@ -24,7 +24,7 @@ const ADS = ['adwords'];
 const C = '/v25/customers/{customer}';
 
 // Build the search-request body from a bare GAQL string (story 31). Trivial by
-// design — kept a named pure function so bin/gapi.ts's `gapi ads gaql "<q>"`
+// design — kept a named pure function so src/run.ts's `gapi ads gaql "<q>"`
 // sugar has one tested seam.
 export const gaqlBody = (query: string): { query: string } => ({ query });
 
