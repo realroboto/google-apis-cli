@@ -114,8 +114,19 @@ export type CallPlan = {
   warnings: string[];
 } & SendMode;
 
-// How Transport sends a plan: one request, or `pageToken` pages (D6).
-export type SendMode = { send: 'once' } | { send: 'pages'; pageLimit: number };
+// How Transport sends a plan: one request, `pageToken` pages (D6), a media upload or a
+// media download to a file (D7).
+export type SendMode =
+  | { send: 'once' }
+  | { send: 'pages'; pageLimit: number }
+  | { send: 'upload'; upload: Upload }
+  | { send: 'download'; output: string };
+
+export type Upload = {
+  path: string;
+  contentType: string;
+  protocol: 'media' | 'multipart' | 'resumable';
+};
 
 // Non-secret values the Planner reads: quota project and entry header values.
 export type Settings = { project?: string; headers?: Record<string, string> };

@@ -1,5 +1,6 @@
 // Planner: command words + --params/--body text → one validated CallPlan (epic #30 D4, D5).
 // Pure: no I/O; every rejection is a GapiError thrown before any network call.
+import { extname } from 'node:path';
 import { GapiError } from './errors.ts';
 import type {
   ApiMethod,
@@ -9,6 +10,7 @@ import type {
   DiscoveryParam,
   SendMode,
   Settings,
+  Upload,
 } from './types.ts';
 
 // Document-level parameters gapi sets itself (D5).
@@ -32,7 +34,30 @@ export type PlanInput = {
   dryRun?: boolean;
   pageAll?: boolean;
   pageLimit?: string;
+  upload?: string;
+  uploadContentType?: string;
+  uploadProtocol?: string;
+  output?: string;
 };
+
+const PROTOCOLS = ['media', 'multipart', 'resumable'] as const;
+
+// --upload-content-type default by file extension (D7); anything else is octet-stream.
+const CONTENT_TYPES = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.gif', 'image/gif'],
+  ['.webp', 'image/webp'],
+  ['.mp4', 'video/mp4'],
+  ['.mov', 'video/quicktime'],
+  ['.webm', 'video/webm'],
+  ['.csv', 'text/csv'],
+  ['.txt', 'text/plain'],
+  ['.json', 'application/json'],
+  ['.pdf', 'application/pdf'],
+  ['.zip', 'application/zip'],
+]);
 
 const invalid = (message: string): GapiError => new GapiError(3, message);
 
@@ -84,14 +109,15 @@ export function plan(
     : [];
 
   const values = paramValues(model, method, parseJson('--params', input.params) ?? {});
-  const url = buildUrl(model, method, values);
 
   const body = parseJson('--body', input.body);
   if (body !== undefined && !method.request)
     throw invalid(`--body: ${command} takes no request body`);
 
-  const headers: Record<string, string> = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const mode = sendMode(method, command, input, body !== undefined);
+  const url = buildUrl(model, method, values, mode);
+
+  const headers = contentHeaders(mode, body !== undefined);
   if (model.auth === 'oauth' && settings.project) headers['x-goog-user-project'] = settings.project;
   Object.assign(headers, settings.headers);
 
@@ -103,20 +129,97 @@ export function plan(
     body,
     auth: { kind: model.auth, scopes: method.scopes },
     warnings,
-    ...sendMode(method, command, input),
+    ...mode,
   };
 }
 
-// --page-all [--page-limit <n>] (D6): only where the method takes a `pageToken`.
-function sendMode(method: ApiMethod, command: string, input: PlanInput): SendMode {
-  if (!input.pageAll) {
-    if (input.pageLimit !== undefined) throw invalid('--page-limit needs --page-all');
-    return { send: 'once' };
+// JSON for a body, the file type for a media upload; Transport adds the multipart boundary.
+function contentHeaders(mode: SendMode, hasBody: boolean): Record<string, string> {
+  const json: Record<string, string> = hasBody ? { 'Content-Type': 'application/json' } : {};
+  if (mode.send !== 'upload') return json;
+  const { protocol, contentType } = mode.upload;
+  if (protocol === 'media') return { 'Content-Type': contentType };
+  if (protocol === 'multipart') return {};
+  return { ...json, 'X-Upload-Content-Type': contentType };
+}
+
+// D6 paging, D7 media: at most one of --page-all, --upload, --output, each only where the
+// method supports it.
+function sendMode(
+  method: ApiMethod,
+  command: string,
+  input: PlanInput,
+  hasBody: boolean,
+): SendMode {
+  const chosen = [
+    input.pageAll && '--page-all',
+    input.upload !== undefined && '--upload',
+    input.output !== undefined && '--output',
+  ].filter((flag) => typeof flag === 'string');
+  if (chosen.length > 1) throw invalid(`${chosen[0]} and ${chosen[1]} cannot be combined`);
+  if (input.pageLimit !== undefined && !input.pageAll) {
+    throw invalid('--page-limit needs --page-all');
   }
+  if (input.upload !== undefined) {
+    return { send: 'upload', upload: upload(method, command, input.upload, input, hasBody) };
+  }
+  for (const [flag, value] of [
+    ['--upload-content-type', input.uploadContentType],
+    ['--upload-protocol', input.uploadProtocol],
+  ]) {
+    if (value !== undefined) throw invalid(`${flag} needs --upload`);
+  }
+  if (input.output !== undefined) {
+    if (!method.download) throw invalid(`--output: ${command} has no media download`);
+    return { send: 'download', output: input.output };
+  }
+  if (!input.pageAll) return { send: 'once' };
   if (!method.pageable) throw invalid(`--page-all: ${command} has no pageToken parameter`);
   const limit = input.pageLimit ?? '10';
   if (!/^[1-9]\d*$/.test(limit)) throw invalid('--page-limit must be a positive integer');
   return { send: 'pages', pageLimit: Number(limit) };
+}
+
+// D7: protocol defaults to multipart with --body, else media; the type must fit `accept`.
+function upload(
+  method: ApiMethod,
+  command: string,
+  path: string,
+  input: PlanInput,
+  hasBody: boolean,
+): Upload {
+  if (!method.upload) throw invalid(`--upload: ${command} takes no media upload`);
+  const protocol = input.uploadProtocol ?? (hasBody ? 'multipart' : 'media');
+  if (!isProtocol(protocol)) {
+    throw invalid(`--upload-protocol must be one of: ${PROTOCOLS.join(', ')}`);
+  }
+  if (protocol === 'resumable' && !method.upload.resumable) {
+    throw invalid(`--upload-protocol resumable: ${command} has no resumable upload`);
+  }
+  // An explicit protocol that would drop or lack the --body metadata.
+  if (protocol === 'multipart' && !hasBody) {
+    throw invalid('--upload-protocol multipart needs --body');
+  }
+  if (protocol === 'media' && hasBody) throw invalid('--upload-protocol media takes no --body');
+  const contentType =
+    input.uploadContentType ??
+    CONTENT_TYPES.get(extname(path).toLowerCase()) ??
+    'application/octet-stream';
+  const { accept } = method.upload;
+  if (accept.length > 0 && !accept.some((pattern) => accepts(pattern, contentType))) {
+    throw invalid(`--upload-content-type ${contentType}: ${command} accepts ${accept.join(', ')}`);
+  }
+  return { path, contentType, protocol };
+}
+
+const isProtocol = (p: string): p is Upload['protocol'] =>
+  (PROTOCOLS as readonly string[]).includes(p);
+
+// A discovery `accept` pattern: `*/*`, `<type>/*` or an exact type; MIME types ignore case.
+function accepts(pattern: string, contentType: string): boolean {
+  const p = pattern.toLowerCase();
+  const t = contentType.split(';')[0].trim().toLowerCase();
+  return p === '*/*' || p === t || (p.endsWith('/*') && t.startsWith(p.slice(0, -1)));
 }
 
 function parseJson(flag: string, text: string | undefined): unknown {
@@ -169,10 +272,12 @@ function paramValues(
 }
 
 // rootUrl + servicePath + the discovery `path` with {x}/{+x} expanded, then the query string.
+// D7: an upload goes to rootUrl + `upload/` + …, a download adds alt=media.
 function buildUrl(
   model: ApiModel,
   method: ApiMethod,
   params: Map<string, { spec: DiscoveryParam; values: string[] }>,
+  mode: SendMode,
 ): string {
   const path = method.path.replace(
     /\{(\+?)([^}]+)\}/g,
@@ -198,6 +303,9 @@ function buildUrl(
   for (const [name, { spec, values }] of params) {
     if (spec.location !== 'path') for (const v of values) query.append(name, v);
   }
+  if (mode.send === 'upload') query.append('uploadType', mode.upload.protocol);
+  if (mode.send === 'download') query.append('alt', 'media');
   const qs = query.toString();
-  return `${model.rootUrl}${model.servicePath}${path}${qs ? `?${qs}` : ''}`;
+  const root = mode.send === 'upload' ? `${model.rootUrl}upload/` : model.rootUrl;
+  return `${root}${model.servicePath}${path}${qs ? `?${qs}` : ''}`;
 }
