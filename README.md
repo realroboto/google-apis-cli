@@ -1,8 +1,17 @@
 # google-apis-cli (`gapi`)
 
-`gapi` is one CLI for Google Ads, GTM, GA4 (Admin + Data), Search Console, and Indexing.
+`gapi` is one CLI for 47 Google API entries, built from Google's discovery documents at runtime:
 
-- One login. One refresh token. All scopes. Read and write.
+- Google Ads v26, GA4 Admin (v1beta, v1alpha), GA4 Data (v1beta, v1alpha), Search Console, Tag Manager, Indexing
+- Merchant API (13 v1 sub-APIs + Reviews v1beta), Business Profile (7 v1 APIs + v4)
+- Search Ads 360 (Reporting v0, legacy v2), Campaign Manager 360 v5, Display & Video 360 v4, Bid Manager v2
+- YouTube Data v3, YouTube Analytics v2, YouTube Reporting v1
+- PageSpeed Insights v5, CrUX v1 (API key)
+- BigQuery Data Transfer v1, Data Manager v1, Gmail Postmaster Tools v2, Site Verification v1, Sheets v4, Places (New) v1, Web Risk v1
+
+`gapi --help` lists the entry names; [skills/gapi/reference/index.md](skills/gapi/reference/index.md) gives title, version, method count and auth per entry.
+
+- One login. One refresh token. Every scope the entries use (computed from the documents). Read and write.
 - One runtime dependency: `google-auth-library` (Google). Nothing third-party.
 - All network calls use native `fetch`.
 - TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (corepack-pinned) for package management.
@@ -16,7 +25,7 @@ Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<
 npm i -g google-apis-cli    # installs the `gapi` bin
 ```
 
-Needs **Node ≥ 24** — `gapi` ships as TypeScript and runs on Node's native type-stripping, so there is no build step and no bundle.
+Needs **Node ≥ 24**. The package ships `dist/` (plain `tsc` output, built at publish, no bundle); in the repo, Node runs the `.ts` sources directly.
 
 ## Start here
 
@@ -26,12 +35,12 @@ gapi auth login   # one consent for every scope the API entries use
 gapi auth status  # account, refresh token, granted and missing scopes
 ```
 
-First run, or a console step fails? **[docs/SETUP.md](docs/SETUP.md)** walks the five steps and
-the traps in each. `gapi` is multi-tenant: every operator brings their own Cloud project.
+First run, or a console step fails? **[docs/SETUP.md](docs/SETUP.md)** walks the steps (services,
+API key, Business Profile access, consent) and the traps in each. `gapi` is multi-tenant: every operator brings their own Cloud project.
 
 ## OAuth App Verification
 
-`gapi` asks for sensitive scopes (`analytics.manage.users`, `tagmanager.manage.*`, `adwords`, `webmasters`).
+`gapi` asks for sensitive scopes (e.g. `analytics.manage.users`, `tagmanager.manage.*`, `adwords`, `webmasters`). `gapi auth status` shows the granted and the missing scopes. Never requested: `drive`/`drive.*` (restricted) and `display-video-user-management` (Google rejects it for this app).
 
 - **Testing mode** (default) works for all commands, but the refresh token expires every ~7 days — re-run `gapi auth login` when it does.
 - **Production** removes that expiry, but Google requires **OAuth App Verification** first: a privacy-policy URL, a homepage, and a reviewed consent screen. Review timeline is not guaranteed.
@@ -57,7 +66,8 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 
 | For | Read |
 |---|---|
-| Onboarding a Google account: consent, Ads access level, customer IDs, runtime errors | **[docs/SETUP.md](docs/SETUP.md)** |
+| Onboarding a Google account: services to enable, Ads access level, Business Profile access, API key, consent, customer IDs, runtime errors | **[docs/SETUP.md](docs/SETUP.md)** |
+| Using the CLI as an agent: grammar, `--params`, `schema`, `--dry-run`, paging, media, helpers, exit codes, marks | [skills/gapi/SKILL.md](skills/gapi/SKILL.md) + generated [reference](skills/gapi/reference/index.md) |
 | What the CLI does, decisions, scopes, endpoints, risks | **[docs/SPEC.md](docs/SPEC.md)** — behavior source of truth |
 | How work is tracked (issues, blocking edges) | [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) |
 | Triage labels | [docs/agents/triage-labels.md](docs/agents/triage-labels.md) |

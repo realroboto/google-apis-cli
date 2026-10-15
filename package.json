@@ -1,7 +1,7 @@
 {
   "name": "google-apis-cli",
   "version": "0.1.0",
-  "description": "One CLI (gapi) for Google Ads, GTM, GA4 (Admin+Data), Search Console, and Indexing. One login, all scopes, read+write.",
+  "description": "One discovery-driven CLI (gapi) for 47 Google marketing and data APIs: Ads, GA4, Search Console, Tag Manager, Indexing, Merchant, Business Profile, SA360, CM360, DV360, YouTube, PageSpeed, CrUX, Sheets, Places and more. One login, read+write.",
   "type": "module",
   "bin": {
     "gapi": "dist/bin/gapi.js"
@@ -31,6 +31,19 @@
     "analytics",
     "search-console",
     "indexing",
+    "merchant-api",
+    "business-profile",
+    "search-ads-360",
+    "campaign-manager-360",
+    "display-video-360",
+    "youtube",
+    "pagespeed",
+    "crux",
+    "bigquery-data-transfer",
+    "sheets",
+    "places",
+    "web-risk",
+    "discovery",
     "cli"
   ],
   "homepage": "https://github.com/realroboto/google-apis-cli#readme",

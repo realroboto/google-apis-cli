@@ -4,7 +4,8 @@ Onboarding for one operator: register an OAuth client, store it, grant consent.
 `gapi` is multi-tenant — every operator brings their own Google account and Cloud project,
 and nothing in the CLI is pinned to one of them.
 
-Work through steps 1–5 in order. Each ends on a **Done when** you can check before moving on.
+Work through the steps in order; skip the ones marked for callers you are not. Each ends on a
+**Done when** you can check before moving on.
 **Traps** sit next to the step they bite in; runtime errors are indexed at the end.
 
 ---
@@ -12,18 +13,50 @@ Work through steps 1–5 in order. Each ends on a **Done when** you can check be
 ## 1. Cloud project and APIs
 
 Pick or create a project at [console.cloud.google.com](https://console.cloud.google.com/).
-That project owns the OAuth client and, for Ads, the access level that decides what you may call.
+That project owns the OAuth client, the API key and, for Ads, the access level that decides what you may call.
 
-Enable each API you plan to use, from **APIs & Services → Library**:
+Enable each API you plan to use, from **APIs & Services → Library**. The service name is the
+host of the entry's discovery URL (`src/apis/<api>.ts`); `business-v4` declares its own.
 
-| API | Service name |
+| gapi entries | Service name |
 |---|---|
-| Google Ads | `googleads.googleapis.com` |
-| GA4 Admin | `analyticsadmin.googleapis.com` |
-| GA4 Data | `analyticsdata.googleapis.com` |
-| Search Console | `searchconsole.googleapis.com` |
-| Indexing | `indexing.googleapis.com` |
-| Tag Manager | `tagmanager.googleapis.com` |
+| `ads` | `googleads.googleapis.com` |
+| `ga4-admin`, `ga4-admin-alpha` | `analyticsadmin.googleapis.com` |
+| `ga4-data`, `ga4-data-alpha` | `analyticsdata.googleapis.com` |
+| `gsc` | `searchconsole.googleapis.com` |
+| `gtm` | `tagmanager.googleapis.com` |
+| `indexing` | `indexing.googleapis.com` |
+| `merchant-*` (all 14) | `merchantapi.googleapis.com` |
+| `sa360` | `searchads360.googleapis.com` |
+| `sa360-legacy` | `doubleclicksearch.googleapis.com` |
+| `cm360` | `dfareporting.googleapis.com` |
+| `dv360` | `displayvideo.googleapis.com` |
+| `bid-manager` | `doubleclickbidmanager.googleapis.com` |
+| `youtube` | `youtube.googleapis.com` |
+| `youtube-analytics` | `youtubeanalytics.googleapis.com` |
+| `youtube-reporting` | `youtubereporting.googleapis.com` |
+| `pagespeed` | `pagespeedonline.googleapis.com` |
+| `crux` | `chromeuxreport.googleapis.com` |
+| `bigquery-dts` | `bigquerydatatransfer.googleapis.com` |
+| `data-manager` | `datamanager.googleapis.com` |
+| `postmaster` | `gmailpostmastertools.googleapis.com` |
+| `site-verification` | `siteverification.googleapis.com` (never `www.googleapis.com`, its `rootUrl`) |
+| `sheets` | `sheets.googleapis.com` |
+| `places` | `places.googleapis.com` |
+| `web-risk` | `webrisk.googleapis.com` |
+| `business-v4` | `mybusiness.googleapis.com` — **after approval**, step 3 |
+| `business-account-management` | `mybusinessaccountmanagement.googleapis.com` — **after approval** |
+| `business-information` | `mybusinessbusinessinformation.googleapis.com` — **after approval** |
+| `business-lodging` | `mybusinesslodging.googleapis.com` — **after approval** |
+| `business-notifications` | `mybusinessnotifications.googleapis.com` — **after approval** |
+| `business-place-actions` | `mybusinessplaceactions.googleapis.com` — **after approval** |
+| `business-verifications` | `mybusinessverifications.googleapis.com` — **after approval** |
+| `business-performance` | `businessprofileperformance.googleapis.com` — **after approval** |
+
+With `gcloud`, one call per batch of names: `gcloud services enable <service> … --project <id>`.
+
+> **Trap — Places and Web Risk bill.** Places (New): free monthly caps, then billed to the
+> project; project needs billing enabled. Web Risk `hashes.search`: paid only.
 
 > **Trap — the Ads API Center is dead.** Ads onboarding moved out of the Google Ads UI into
 > Cloud Console. Applications started from `ads.google.com/aw/apicenter` are **not processed**.
@@ -34,7 +67,8 @@ Enable each API you plan to use, from **APIs & Services → Library**:
 > API and `gapi` never sends it. Your Cloud project carries the access level now. Guides that
 > tell you to fetch a 22-character token are stale.
 
-**Done when** every API you plan to call shows **API Enabled** on its Library page.
+**Done when** every API you plan to call, except the Business Profile ones, shows **API Enabled**
+on its Library page.
 
 ---
 
@@ -65,7 +99,33 @@ manager account created from a Google account unconnected to your production man
 
 ---
 
-## 3. Consent screen and publishing status
+## 3. Business Profile access (Business Profile callers only)
+
+Google gates the 8 Business Profile services (`business-*` entries). Requirements
+([prerequisites](https://developers.google.com/my-business/content/prereqs)):
+
+- you manage a Google Business Profile **verified and active for 60+ days**;
+- the business has a **website** listed on that profile;
+- you apply from an address that is an owner or manager of that profile.
+
+Order — approval → enable → login:
+
+1. Read your **Project Number** on the Cloud project Dashboard (Project info card).
+2. Submit the [GBP API contact form](https://support.google.com/business/contact/api_default),
+   option **Application for Basic API Access**, with that project number. Wait for the reply email.
+3. After approval, enable the 8 services from the table in step 1.
+4. Run `gapi auth login` (step 7) after the services are enabled, so `business.manage` is in the
+   grant. Approval arrives after your first login? Run it again.
+
+> **Trap — quota 0 means not approved.** Before approval the services do not show in the
+> Library, and calls return `SERVICE_DISABLED` or access denied (exit 1). The Business Profile
+> quota page in Cloud Console reads **0 QPM** until approval and **300 QPM** after.
+
+**Done when** the Business Profile quota reads 300 QPM and the 8 services show **API Enabled**.
+
+---
+
+## 4. Consent screen and publishing status
 
 **Google Auth Platform → Branding.** Fill app name, user support email, developer contact email.
 
@@ -92,7 +152,7 @@ In Testing, add your own address under **Test users** first.
 
 ---
 
-## 4. OAuth client
+## 5. OAuth client
 
 **Google Auth Platform → Clients → Create client.**
 
@@ -121,14 +181,36 @@ environment wins over the config file.
 
 ---
 
-## 5. Consent
+## 6. API key (CrUX, PageSpeed callers only)
+
+`crux` and `pagespeed` take an API key, not the OAuth token. CrUX needs it; PageSpeed sends it
+when one is set. Create it in the same Cloud project
+([API keys](https://docs.cloud.google.com/docs/authentication/api-keys)):
+
+1. **APIs & Services → Credentials → Create credentials → API key.**
+2. On the key, **API restrictions → Restrict key**: select only the Chrome UX Report API
+   (`chromeuxreport.googleapis.com`) and the PageSpeed Insights API (`pagespeedonline.googleapis.com`). Save.
+3. Store it: `gapi auth setup` (the API-key prompt), or pass `--api-key` / set `GAPI_API_KEY` per call.
+
+> **Trap — an unrestricted key is a bearer secret for every key-enabled API on the project.**
+> Restrict it, and keep it out of shell history, commits and chat.
+
+**Done when** `gapi crux records queryRecord --body '{"origin":"https://example.com"}' --dry-run`
+prints no `API key required` warning on stderr (the header shows `<redacted>` either way).
+
+---
+
+## 7. Consent
 
 ```
 gapi auth login            # loopback on 127.0.0.1:4600
 gapi auth login --manual   # headless: prints the URL, takes the pasted code
 ```
 
-One consent grants every scope the API entries use, plus `openid` and `email`. Sign in with the address you listed as a test user.
+One consent grants every scope the API entries use, plus `openid` and `email`. The set is computed
+from the discovery documents (first scope of each method; never `drive`/`drive.*` or
+`display-video-user-management`), so `login` fetches every document first. Desktop apps get no
+incremental authorization: after an upgrade adds an API, run `login` again. Sign in with the address you listed as a test user.
 An unverified app shows a warning screen — continue through **Advanced** to reach the
 scope list, then accept.
 
@@ -144,8 +226,7 @@ the consent scopes the stored grant lacks. A non-empty `missing` means run `gapi
 > **Trap — port 4600 lingers.** A login you interrupted keeps the listener, and the next one
 > dies on `EADDRINUSE`. Clear it: `lsof -tiTCP:4600 | xargs kill`.
 
-**Done when** `gapi auth status` shows your account, `"hasRefreshToken": true`, and the scopes
-for the APIs you enabled.
+**Done when** `gapi auth status` shows your account, `"hasRefreshToken": true`, and `"missing": []`.
 
 ---
 
@@ -206,12 +287,13 @@ key (exit 2 without it). PageSpeed sends the key only when one is set. `project`
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `OAuth client not configured` | no client ID or secret resolved | step 4 |
-| `Error 403: access_denied` at consent | Testing, and the address is not a test user | step 3 |
+| `OAuth client not configured` | no client ID or secret resolved | step 5 |
+| `Error 403: access_denied` at consent | Testing, and the address is not a test user | step 4 |
 | `token expired or revoked` (exit 2) after about a week | Testing refresh token expired (`invalid_grant`) | `gapi auth login`, or publish |
 | `missing scope (…); run gapi auth login` (exit 2) | the stored grant predates a scope a new API needs | `gapi auth login` |
-| `API key required` (exit 2) | CrUX call with no key | `--api-key`, `GAPI_API_KEY`, or `gapi auth setup` |
+| `API key required` (exit 2) | CrUX call with no key | step 6 |
 | `EADDRINUSE :::4600` | an earlier login still holds the port | `lsof -tiTCP:4600 \| xargs kill` |
 | `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | Ads level is Test | step 2 |
-| `403 SERVICE_DISABLED` | API not enabled on the project | step 1 |
+| `403 SERVICE_DISABLED` | API not enabled on the project | step 1; Business Profile: step 3 |
+| `unavailable: scope not grantable` (exit 2) | one of the 6 `dv360 users` methods; its only scope is never granted to this app | none; `--dry-run` still prints the request |
 | `401` on every call, fresh login | wrong Cloud project owns the client | check which project holds the client in use |
