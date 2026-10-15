@@ -1,7 +1,7 @@
 // Credentials: the only reader and writer of config.json and credentials.json (epic #30 D8, D13).
 // Settings precedence, Bearer vs API key, token refresh + persistence, loopback/manual login.
 import { randomBytes } from 'node:crypto';
-import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
@@ -10,14 +10,14 @@ import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 import type { Credentials } from 'google-auth-library';
 import { CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
-import { GapiError } from './errors.ts';
+import { shortScope } from './catalog.ts';
+import { codeOf, GapiError, messageOf } from './errors.ts';
 import { isRecord } from './json.ts';
 import type { ApiEntry, Authorize, OAuthClient, Settings } from './types.ts';
 
 const LOOPBACK_HOST = '127.0.0.1';
 const LOOPBACK_PORT = 4600; // fixed port; vmCODE forwards it for headless use
 const REDIRECT_URI = `http://${LOOPBACK_HOST}:${LOOPBACK_PORT}`; // both login flows
-const AUTH_PREFIX = 'https://www.googleapis.com/auth/';
 const IDENTITY_SCOPES = ['openid', 'email'];
 const RELOGIN = 'run gapi auth login';
 const NO_KEY = 'API key required; pass --api-key, set GAPI_API_KEY or run gapi auth setup';
@@ -46,30 +46,22 @@ export const configDir = (env: NodeJS.ProcessEnv): string =>
 
 const API_KEY_SETTING = { flag: 'api-key', env: 'GAPI_API_KEY', key: 'api_key' };
 
-// `gapi auth setup` asks these in order; a blank answer keeps the stored value.
-const SETUP_FIELDS = [
+type SetupField = { key: string; label: string; required: boolean; secret: boolean };
+
+// `gapi auth setup` asks the OAuth client, then each entry header, then the API key.
+const CLIENT_FIELDS: SetupField[] = [
   { key: 'oauth_client_id', label: 'OAuth client id', required: true, secret: false },
   { key: 'oauth_client_secret', label: 'OAuth client secret', required: true, secret: true },
-  {
-    key: 'login-customer-id',
-    label: 'Ads login-customer-id (optional, MCC)',
-    required: false,
-    secret: false,
-  },
-  {
-    key: 'sa360-login-customer-id',
-    label: 'SA360 login-customer-id (optional, manager)',
-    required: false,
-    secret: false,
-  },
-  { key: 'api_key', label: 'API key (optional, CrUX/PageSpeed)', required: false, secret: true },
-] as const;
+];
+const API_KEY_FIELD: SetupField = {
+  key: 'api_key',
+  label: 'API key (optional, CrUX/PageSpeed)',
+  required: false,
+  secret: true,
+};
 
 const isCredentials = (v: unknown): v is Credentials =>
   isRecord(v) && typeof v.refresh_token === 'string';
-
-const short = (scope: string): string =>
-  scope.startsWith(AUTH_PREFIX) ? scope.slice(AUTH_PREFIX.length) : scope;
 
 export function openCredentials({
   dir,
@@ -83,17 +75,18 @@ export function openCredentials({
   const credentialsFile = join(dir, 'credentials.json');
   let apiKey: string | undefined;
   let tokenClient: OAuthClient | undefined;
+  let saving: Promise<void> | undefined; // the refreshed-token write the 'tokens' event starts
   const ask: Prompt = (q, opts) => defaultPrompt(q, { ...opts, input: stdin, output: stderr });
 
   // Only a missing file reads as {}: anything else stops before `setup` can overwrite it.
   // The parse error is not echoed, since V8 quotes the file text (secrets) in it.
-  const readConfig = (): Record<string, unknown> => {
+  const readConfig = async (): Promise<Record<string, unknown>> => {
     let text: string;
     try {
-      text = readFileSync(configFile, 'utf8');
+      text = await readFile(configFile, 'utf8');
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return {};
-      throw new GapiError(2, `cannot read ${configFile}: ${(e as Error).message}`);
+      if (codeOf(e) === 'ENOENT') return {};
+      throw new GapiError(2, `cannot read ${configFile}: ${messageOf(e)}`);
     }
     let cfg: unknown;
     try {
@@ -108,16 +101,16 @@ export function openCredentials({
 
   // Owner-only: dir 700, file 600. `mode` applies only on create, so a file that
   // already exists with looser bits is narrowed too.
-  const writeSecure = (file: string, data: unknown): void => {
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-    writeFileSync(file, JSON.stringify(data, null, 2), { mode: 0o600 });
-    chmodSync(file, 0o600);
+  const writeSecure = async (file: string, data: unknown): Promise<void> => {
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    await writeFile(file, JSON.stringify(data, null, 2), { mode: 0o600 });
+    await chmod(file, 0o600);
   };
 
-  const readCredentials = (): Credentials => {
+  const readCredentials = async (): Promise<Credentials> => {
     let creds: unknown;
     try {
-      creds = JSON.parse(readFileSync(credentialsFile, 'utf8'));
+      creds = JSON.parse(await readFile(credentialsFile, 'utf8'));
     } catch {
       // missing or unreadable reads as logged out, same as a bad shape below
     }
@@ -125,8 +118,8 @@ export function openCredentials({
     return creds;
   };
 
-  const client = (redirectUri?: string): OAuthClient => {
-    const cfg = readConfig();
+  const client = async (redirectUri?: string): Promise<OAuthClient> => {
+    const cfg = await readConfig();
     const clientId = env.GAPI_OAUTH_CLIENT_ID || String(cfg.oauth_client_id ?? '');
     const clientSecret = env.GAPI_OAUTH_CLIENT_SECRET || String(cfg.oauth_client_secret ?? '');
     if (!clientId || !clientSecret) {
@@ -141,10 +134,10 @@ export function openCredentials({
     code: string,
     codeVerifier: string,
   ): Promise<Credentials> => {
-    const { tokens } = await c.getToken({ code, codeVerifier }).catch((e: Error) => {
-      throw new GapiError(2, `token exchange failed: ${e.message}`);
+    const { tokens } = await c.getToken({ code, codeVerifier }).catch((e: unknown) => {
+      throw new GapiError(2, `token exchange failed: ${messageOf(e)}`);
     });
-    writeSecure(credentialsFile, tokens);
+    await writeSecure(credentialsFile, tokens);
     return tokens;
   };
 
@@ -158,8 +151,11 @@ export function openCredentials({
     return v == null ? undefined : String(v);
   };
 
-  function settings(flags: Record<string, unknown>, headerSpecs: HeaderSpec[] = []): Settings {
-    const cfg = readConfig();
+  async function settings(
+    flags: Record<string, unknown>,
+    headerSpecs: HeaderSpec[] = [],
+  ): Promise<Settings> {
+    const cfg = await readConfig();
     apiKey = setting(flags, cfg, API_KEY_SETTING);
     const headers: Record<string, string> = {};
     for (const { name, flag, env: envName, configKey } of headerSpecs) {
@@ -189,11 +185,14 @@ export function openCredentials({
     }
     if (redact) return { Authorization: 'Bearer <redacted>' };
     if (!tokenClient) {
-      const c = client();
-      c.setCredentials(readCredentials());
-      c.on('tokens', (t: Credentials) =>
-        writeSecure(credentialsFile, { ...readCredentials(), ...t }),
-      );
+      const c = await client();
+      c.setCredentials(await readCredentials());
+      // An event listener is not awaited: keep the write so the refresh below can await it.
+      c.on('tokens', (t: Credentials) => {
+        saving = readCredentials().then((stored) =>
+          writeSecure(credentialsFile, { ...stored, ...t }),
+        );
+      });
       tokenClient = c;
     }
     const { token } = await tokenClient.getAccessToken().catch((e: unknown) => {
@@ -201,8 +200,12 @@ export function openCredentials({
       const reason = isRecord(data) ? data.error : undefined;
       if (reason === 'invalid_grant')
         throw new GapiError(2, `token expired or revoked; ${RELOGIN}`);
-      const message = e instanceof Error ? e.message : String(e);
-      throw new GapiError(2, `token refresh failed: ${message}; ${RELOGIN}`);
+      throw new GapiError(2, `token refresh failed: ${messageOf(e)}; ${RELOGIN}`);
+    });
+    const saved = saving;
+    saving = undefined;
+    await saved?.catch((e: unknown) => {
+      throw new GapiError(2, `cannot save the refreshed token: ${messageOf(e)}`);
     });
     if (!token) throw new GapiError(2, `no access token; ${RELOGIN}`);
     return { Authorization: `Bearer ${token}` };
@@ -218,7 +221,7 @@ export function openCredentials({
     manual?: boolean;
     prompt?: Prompt;
   }): Promise<Credentials> {
-    const c = client(REDIRECT_URI);
+    const c = await client(REDIRECT_URI);
     const state = randomBytes(32).toString('base64url');
     const { codeVerifier, codeChallenge } = await c.generateCodeVerifierAsync();
     const url = c.generateAuthUrl({
@@ -263,7 +266,7 @@ export function openCredentials({
           resolve(tokens);
         } catch (e) {
           res.statusCode = 400;
-          res.end(`gapi: ${(e as Error).message}`);
+          res.end(`gapi: ${messageOf(e)}`);
           reject(e);
         } finally {
           server.close();
@@ -281,34 +284,48 @@ export function openCredentials({
     });
   }
 
-  function status(consent: string[]) {
-    const cfg = readConfig();
-    const creds = readCredentials();
+  async function status(consent: string[]) {
+    const cfg = await readConfig();
+    const creds = await readCredentials();
     const granted = new Set((creds.scope ?? '').split(' ').filter(Boolean));
     return {
       account: creds.id_token ? accountFromIdToken(creds.id_token) : null,
       hasRefreshToken: Boolean(creds.refresh_token),
       hasApiKey: setting({}, cfg, API_KEY_SETTING) !== undefined,
       expiryDate: creds.expiry_date ? new Date(creds.expiry_date).toISOString() : null,
-      scopes: [...granted].map(short),
-      missing: consent.filter((s) => !granted.has(s)).map(short),
+      scopes: [...granted].map(shortScope),
+      missing: consent.filter((s) => !granted.has(s)).map(shortScope),
     };
   }
 
-  function logout(): void {
-    rmSync(credentialsFile, { force: true });
+  async function logout(): Promise<void> {
+    await rm(credentialsFile, { force: true });
   }
 
-  async function setup(prompt: Prompt = ask): Promise<string> {
-    const cfg = readConfig();
-    for (const { key, label, required, secret } of SETUP_FIELDS) {
+  // `headers`: every entry's header specs, tagged with the entry's api.
+  async function setup(
+    headers: (HeaderSpec & { api: string })[],
+    prompt: Prompt = ask,
+  ): Promise<string> {
+    const cfg = await readConfig();
+    const fields: SetupField[] = [
+      ...CLIENT_FIELDS,
+      ...headers.map((h) => ({
+        key: h.configKey,
+        label: `${h.api} ${h.configKey} (optional)`,
+        required: false,
+        secret: false,
+      })),
+      API_KEY_FIELD,
+    ];
+    for (const { key, label, required, secret } of fields) {
       const cur = cfg[key];
       const hint = cur != null ? ' [keep current]' : required ? '' : ' (blank to skip)';
       const v = (await prompt(`${label}${hint}: `, { secret })).trim();
       if (v) cfg[key] = v;
       else if (required && cur == null) throw new GapiError(3, `${label} is required`);
     }
-    writeSecure(configFile, cfg);
+    await writeSecure(configFile, cfg);
     return configFile;
   }
 

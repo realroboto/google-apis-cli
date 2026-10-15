@@ -11,3 +11,10 @@ export class GapiError extends Error {
     this.body = body;
   }
 }
+
+// A caught value's message: an Error's own text (no `Error: ` prefix), anything else as a string.
+export const messageOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+// A Node system error's `code` (`ENOENT`, `EACCES`, …); undefined for anything else.
+export const codeOf = (e: unknown): unknown =>
+  e instanceof Error && 'code' in e ? e.code : undefined;

@@ -60,7 +60,7 @@ type DiscoveryDoc = DiscoveryResource & {
 const isRestDescription = (v: unknown): v is DiscoveryDoc =>
   isRecord(v) && v.kind === 'discovery#restDescription';
 
-export type CatalogOptions = {
+type CatalogOptions = {
   dir: string; // config dir; the cache lives in <dir>/cache
   fetch: FetchLike;
   warn: (message: string) => void;
@@ -134,8 +134,12 @@ export async function openCatalog({
   return { entries, load, cacheDir };
 }
 
+// `https://www.googleapis.com/auth/x` → `x`; any other scope URL stays as is.
+export const shortScope = (scope: string): string =>
+  scope.startsWith(AUTH_PREFIX) ? scope.slice(AUTH_PREFIX.length) : scope;
+
 const isNever = (scope: string): boolean => {
-  const short = scope.startsWith(AUTH_PREFIX) ? scope.slice(AUTH_PREFIX.length) : scope;
+  const short = shortScope(scope);
   return NEVER.has(short) || short.startsWith('drive.');
 };
 
@@ -253,6 +257,10 @@ function toMethod(
   };
 }
 
+// The two fields every API entry sets; `satisfies ApiEntry` in the file checks the rest.
+const isApiEntry = (v: unknown): v is ApiEntry =>
+  isRecord(v) && typeof v.api === 'string' && typeof v.discovery === 'string';
+
 // Dev (.ts) and published (.js) entries, keyed by `api`; D1 ties `api` to the file name.
 async function loadEntries(dir: string): Promise<Record<string, ApiEntry>> {
   const files = (await readdir(dir)).filter(
@@ -260,9 +268,11 @@ async function loadEntries(dir: string): Promise<Record<string, ApiEntry>> {
   );
   const entries: Record<string, ApiEntry> = {};
   for (const f of files) {
-    const e = (await import(pathToFileURL(join(dir, f)).href)).default as ApiEntry;
+    const file = join(dir, f);
+    const e: unknown = (await import(pathToFileURL(file).href)).default;
+    if (!isApiEntry(e)) throw new Error(`${file}: default export is not an API entry`);
     const name = basename(f, extname(f));
-    if (e.api !== name) throw new Error(`${join(dir, f)}: api '${e.api}' must equal '${name}'`);
+    if (e.api !== name) throw new Error(`${file}: api '${e.api}' must equal '${name}'`);
     entries[e.api] = e;
   }
   return entries;

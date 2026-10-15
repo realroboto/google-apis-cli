@@ -1,6 +1,6 @@
 // Indexing API v3: the discovery entry plus the `+publishBatch` helper (epic #30 D7, D10).
 import { GapiError } from '../errors.ts';
-import { plan } from '../plan.ts';
+import { batchPlan, plan } from '../plan.ts';
 import type { ApiEntry, Helper } from '../types.ts';
 
 const PUBLISH = 'indexing.urlNotifications.publish';
@@ -26,19 +26,9 @@ const publishBatch: Helper = {
     }
     if (notes.length === 0) throw new GapiError(3, `${file}: no notifications`);
     const dryRun = flags['dry-run'] === true;
-    const parts = notes.map((n) =>
-      plan(model, PUBLISH, { body: JSON.stringify(n), dryRun }, settings),
-    );
+    const parts = notes.map((n) => plan(model, PUBLISH, { body: n, dryRun }, settings));
     return {
-      methodId: PUBLISH,
-      httpMethod: 'POST',
-      // The documented batch endpoint; each part carries its own headers.
-      url: `${model.rootUrl}batch`,
-      headers: {},
-      auth: parts[0].auth,
-      warnings: parts[0].warnings,
-      send: 'batch',
-      parts,
+      ...batchPlan(model, parts),
       decode: (results) =>
         Array.isArray(results) ? results.map((r, i) => ({ ...notes[i], ...r })) : results,
     };

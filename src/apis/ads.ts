@@ -42,8 +42,8 @@ const gaql: Helper = {
       model,
       `googleads.customers.googleAds.${stream ? 'searchStream' : 'search'}`,
       {
-        params: JSON.stringify({ customerId: flags.customer }),
-        body: JSON.stringify({ query: args[0] }),
+        params: { customerId: flags.customer },
+        body: { query: args[0] },
         dryRun: flags['dry-run'] === true,
       },
       settings,

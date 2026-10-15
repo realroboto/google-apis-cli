@@ -26,6 +26,11 @@ const SA360 = {
   env: 'SA360_LOGIN_CUSTOMER_ID',
   configKey: 'sa360-login-customer-id',
 };
+// What `run` passes to setup: every entry's header specs, in api order.
+const HEADERS = [
+  { ...ADS, api: 'ads' },
+  { ...SA360, api: 'sa360' },
+];
 
 // A minimal unsigned JWT with an email claim (display-only; never verified).
 function idTokenFor(email: string): string {
@@ -122,7 +127,7 @@ test('manual login takes the pasted redirect URL and exchanges its code with the
   assert.equal(code_challenge, s256(String(seen.exchange?.codeVerifier)));
   assert.equal(statSync(join(dir, 'credentials.json')).mode & 0o777, 0o600);
 
-  assert.deepEqual(creds.status(CONSENT), {
+  assert.deepEqual(await creds.status(CONSENT), {
     account: 'op@example.com',
     hasRefreshToken: true,
     hasApiKey: false,
@@ -131,12 +136,12 @@ test('manual login takes the pasted redirect URL and exchanges its code with the
     missing: ['adwords'],
   });
   const keyed = openCredentials({ dir, env: { ...ENV, GAPI_API_KEY: 'k' }, oauth });
-  assert.equal(keyed.status(CONSENT).hasApiKey, true);
+  assert.equal((await keyed.status(CONSENT)).hasApiKey, true);
   writeFileSync(join(dir, 'config.json'), JSON.stringify({ api_key: 'k' }));
-  assert.equal(creds.status(CONSENT).hasApiKey, true);
+  assert.equal((await creds.status(CONSENT)).hasApiKey, true);
 
-  creds.logout();
-  assert.throws(() => creds.status(CONSENT), {
+  await creds.logout();
+  await assert.rejects(creds.status(CONSENT), {
     exit: 2,
     message: 'not logged in; run gapi auth login',
   });
@@ -235,7 +240,7 @@ test('authorize: API key from flag, env or config; required only where the metho
   const crux = { kind: 'apiKey' as const, scopes: [] };
   const pagespeed = { kind: 'apiKey' as const, scopes: ['openid'] };
 
-  creds.settings({});
+  await creds.settings({});
   await assert.rejects(creds.authorize(crux), { exit: 2, message: /^API key required/ });
   assert.deepEqual(await creds.authorize(crux, { redact: true }), {
     'X-Goog-Api-Key': '<redacted>',
@@ -243,14 +248,14 @@ test('authorize: API key from flag, env or config; required only where the metho
   assert.equal(warnings.length, 1);
   assert.deepEqual(await creds.authorize(pagespeed), {});
 
-  creds.settings({ 'api-key': 'K' });
+  await creds.settings({ 'api-key': 'K' });
   assert.deepEqual(await creds.authorize(crux), { 'X-Goog-Api-Key': 'K' });
   assert.deepEqual(await creds.authorize(pagespeed, { redact: true }), {
     'X-Goog-Api-Key': '<redacted>',
   });
 });
 
-test('settings precedence: flag → env → config for project and entry headers', () => {
+test('settings precedence: flag → env → config for project and entry headers', async () => {
   const dir = tempDir();
   writeFileSync(
     join(dir, 'config.json'),
@@ -270,13 +275,13 @@ test('settings precedence: flag → env → config for project and entry headers
   for (const [e, f, want] of cases) {
     const creds = openCredentials({ dir, env: e });
     for (const spec of [ADS, SA360]) {
-      assert.deepEqual(creds.settings(f, [spec]), {
+      assert.deepEqual(await creds.settings(f, [spec]), {
         project: want,
         headers: { 'login-customer-id': want },
       });
     }
   }
-  assert.deepEqual(openCredentials({ dir: tempDir(), env: {} }).settings({}, [ADS]), {
+  assert.deepEqual(await openCredentials({ dir: tempDir(), env: {} }).settings({}, [ADS]), {
     project: undefined,
     headers: {},
   });
@@ -287,7 +292,7 @@ test('setup prompts every field, writes config.json mode 600, blank keeps curren
   const creds = openCredentials({ dir, env: {} });
   const asked: [string, boolean | undefined][] = [];
   const answers = ['CID', 'SECRET', '111', '222', 'KEY'];
-  const file = await creds.setup(async (q, opts) => {
+  const file = await creds.setup(HEADERS, async (q, opts) => {
     asked.push([q, opts?.secret]);
     return answers[asked.length - 1];
   });
@@ -306,10 +311,10 @@ test('setup prompts every field, writes config.json mode 600, blank keeps curren
   };
   assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), want);
 
-  await creds.setup(async () => '');
+  await creds.setup(HEADERS, async () => '');
   assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), want);
   await assert.rejects(
-    openCredentials({ dir: tempDir(), env: {} }).setup(async () => ''),
+    openCredentials({ dir: tempDir(), env: {} }).setup(HEADERS, async () => ''),
     { exit: 3 },
   );
 });
@@ -320,11 +325,11 @@ test('invalid config.json exits 2 naming the file, before any prompt or write', 
   writeFileSync(file, '{');
   const creds = openCredentials({ dir, env: {} });
   const fails = { exit: 2, message: /config\.json/ };
-  assert.throws(() => creds.settings({}), fails);
-  assert.throws(() => creds.status(CONSENT), fails);
+  await assert.rejects(creds.settings({}), fails);
+  await assert.rejects(creds.status(CONSENT), fails);
   let prompted = false;
   await assert.rejects(
-    creds.setup(async () => {
+    creds.setup(HEADERS, async () => {
       prompted = true;
       return 'x';
     }),
@@ -334,12 +339,12 @@ test('invalid config.json exits 2 naming the file, before any prompt or write', 
   assert.equal(readFileSync(file, 'utf8'), '{');
 });
 
-test('credentials.json without a string refresh_token reads as not logged in', () => {
+test('credentials.json without a string refresh_token reads as not logged in', async () => {
   const dir = tempDir();
   const creds = openCredentials({ dir, env: {} });
   for (const stored of ['[]', '{}']) {
     writeFileSync(join(dir, 'credentials.json'), stored);
-    assert.throws(() => creds.status(CONSENT), {
+    await assert.rejects(creds.status(CONSENT), {
       exit: 2,
       message: 'not logged in; run gapi auth login',
     });

@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { openAsBlob } from 'node:fs';
 import { open } from 'node:fs/promises';
-import { GapiError } from '../errors.ts';
+import { codeOf, GapiError, messageOf } from '../errors.ts';
 import { parseOrText } from '../json.ts';
 import type { Call } from '../transport.ts';
 import type { CallPlan, FetchResponse } from '../types.ts';
@@ -38,8 +38,8 @@ export async function upload(plan: UploadPlan, call: Call): Promise<FetchRespons
 // Checked before any request: the Blob reads lazily, so a missing, unreadable or non-regular
 // file would otherwise fail mid-upload.
 async function readable(path: string): Promise<Blob> {
-  const handle = await open(path, 'r').catch((e: NodeJS.ErrnoException) => {
-    throw new GapiError(3, `--upload: cannot read ${path}: ${e.code}`);
+  const handle = await open(path, 'r').catch((e: unknown) => {
+    throw new GapiError(3, `--upload: cannot read ${path}: ${codeOf(e) ?? messageOf(e)}`);
   });
   try {
     if (!(await handle.stat()).isFile()) throw new GapiError(3, `--upload: ${path} is not a file`);

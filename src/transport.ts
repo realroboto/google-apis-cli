@@ -7,7 +7,7 @@ import { download } from './transport/download.ts';
 import { upload } from './transport/upload.ts';
 import type { Authorize, CallPlan, FetchLike, FetchResponse } from './types.ts';
 
-export type SendDeps = {
+type SendDeps = {
   fetch: FetchLike;
   authorize: Authorize;
   out: { write(chunk: string): unknown };

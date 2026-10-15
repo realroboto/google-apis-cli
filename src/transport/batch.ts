@@ -11,7 +11,7 @@ const MAX_PARTS = 100;
 
 type BatchPlan = Extract<CallPlan, { send: 'batch' }>;
 // Transport decodes `text`, as it decodes every other response body.
-export type PartResult = { status: number; text: string };
+type PartResult = { status: number; text: string };
 
 // A failed call stops the run but keeps the results of the calls before it: Google has
 // already acted on those parts, so the caller must still see them.

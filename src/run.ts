@@ -3,9 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import { openCatalog } from './catalog.ts';
 import { configDir, openCredentials } from './credentials.ts';
-import { GapiError } from './errors.ts';
+import { codeOf, GapiError, messageOf } from './errors.ts';
 import { isRecord } from './json.ts';
-import { plan, resolve } from './plan.ts';
+import { parseJson, plan, resolve } from './plan.ts';
 import {
   AUTH_USAGE,
   DISCOVERY_USAGE,
@@ -64,7 +64,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
     await dispatch(argv, io);
     return 0;
   } catch (e) {
-    const err = e instanceof GapiError ? e : new GapiError(5, String(e));
+    const err = e instanceof GapiError ? e : new GapiError(5, messageOf(e));
     const { body } = err;
     const shown = isRecord(body) ? (body.error ?? body) : body;
     const detail = body ? `\n${JSON.stringify(shown, null, 2)}` : '';
@@ -78,7 +78,7 @@ function parse<T extends ParseArgsConfig['options']>(args: string[], options: T)
   try {
     return parseArgs({ args, options, allowPositionals: true, strict: true });
   } catch (e) {
-    throw new GapiError(3, (e as Error).message);
+    throw new GapiError(3, messageOf(e));
   }
 }
 
@@ -101,16 +101,20 @@ async function runAuth(
     return;
   }
   if (sub === 'setup') {
-    io.stderr.write(`gapi: saved to ${await creds.setup()}\n`);
+    // Header prompts come from the entries' `headers` overlays, in api order.
+    const headers = Object.values(catalog.entries)
+      .toSorted((a, b) => a.api.localeCompare(b.api))
+      .flatMap((e) => (e.headers ?? []).map((h) => ({ ...h, api: e.api })));
+    io.stderr.write(`gapi: saved to ${await creds.setup(headers)}\n`);
     return;
   }
   if (sub === 'status') {
     const consent = await consentScopes(catalog);
-    io.stdout.write(`${JSON.stringify(creds.status(consent), null, 2)}\n`);
+    io.stdout.write(`${JSON.stringify(await creds.status(consent), null, 2)}\n`);
     return;
   }
   if (sub === 'logout') {
-    creds.logout();
+    await creds.logout();
     io.stderr.write('gapi: credentials removed\n');
     return;
   }
@@ -227,10 +231,10 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       model,
       args: positionals,
       flags: values,
-      settings: creds.settings(values, model.headers),
+      settings: await creds.settings(values, model.headers),
       read: (path) =>
-        readFile(path, 'utf8').catch((e: NodeJS.ErrnoException) => {
-          throw new GapiError(3, `cannot read ${path}: ${e.code}`);
+        readFile(path, 'utf8').catch((e: unknown) => {
+          throw new GapiError(3, `cannot read ${path}: ${codeOf(e) ?? messageOf(e)}`);
         }),
     });
     return perform(call, values['dry-run'] === true, io, creds.authorize);
@@ -255,8 +259,8 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
     model,
     target.method.id,
     {
-      params: values.params,
-      body: values.body,
+      params: parseJson('--params', values.params),
+      body: parseJson('--body', values.body),
       dryRun,
       pageAll: values['page-all'],
       pageLimit: values['page-limit'],
@@ -265,7 +269,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       uploadProtocol: values['upload-protocol'],
       output: values.output,
     },
-    creds.settings(values, model.headers),
+    await creds.settings(values, model.headers),
   );
   return perform(call, dryRun, io, creds.authorize);
 }
