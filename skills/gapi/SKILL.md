@@ -1,6 +1,6 @@
 ---
 name: gapi
-description: 47 Google marketing and data APIs through one gapi CLI — Ads, GA4 Admin+Data, Search Console, Tag Manager, Indexing, Merchant, Business Profile, Search Ads 360, Campaign Manager 360, Display & Video 360, Bid Manager, YouTube (Data, Analytics, Reporting), PageSpeed, CrUX, BigQuery Data Transfer, Data Manager, Postmaster, Site Verification, Sheets, Places, Web Risk. Commands come from Google's discovery documents; one OAuth login, read+write. Use for GAQL reports, GA4 reporting/admin, GSC analytics, URL inspection, GTM publish, uploads, and any method in those APIs.
+description: Call Google marketing and data APIs through the gapi CLI. Use for GAQL reports, GA4 reporting/admin, Search Console analytics and URL inspection, GTM publish, Indexing, Merchant, Business Profile, SA360, CM360, DV360, YouTube uploads/analytics, PageSpeed/CrUX, BigQuery Data Transfer, Sheets, Places, Web Risk — any method of the 47 discovery-driven entries. One OAuth login, read+write.
 ---
 
 # gapi (`gapi`)

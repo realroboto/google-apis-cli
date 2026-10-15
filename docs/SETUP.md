@@ -55,8 +55,8 @@ host of the entry's discovery URL (`src/apis/<api>.ts`); `business-v4` declares 
 
 With `gcloud`, one call per batch of names: `gcloud services enable <service> … --project <id>`.
 
-> **Trap — Places and Web Risk bill.** Places (New) methods have free monthly caps, then bill the
-> project; billing must be enabled on it. Web Risk `hashes.search` is paid only.
+> **Trap — Places and Web Risk bill.** Places (New): free monthly caps, then billed to the
+> project; project needs billing enabled. Web Risk `hashes.search`: paid only.
 
 > **Trap — the Ads API Center is dead.** Ads onboarding moved out of the Google Ads UI into
 > Cloud Console. Applications started from `ads.google.com/aw/apicenter` are **not processed**.
@@ -114,7 +114,8 @@ Order — approval → enable → login:
 2. Submit the [GBP API contact form](https://support.google.com/business/contact/api_default),
    option **Application for Basic API Access**, with that project number. Wait for the reply email.
 3. After approval, enable the 8 services from the table in step 1.
-4. Run `gapi auth login` again (step 7), so `business.manage` is in the grant.
+4. Run `gapi auth login` (step 7) after the services are enabled, so `business.manage` is in the
+   grant. Approval arrives after your first login? Run it again.
 
 > **Trap — quota 0 means not approved.** Before approval the services do not show in the
 > Library, and calls return `SERVICE_DISABLED` or access denied (exit 1). The Business Profile
@@ -195,7 +196,7 @@ when one is set. Create it in the same Cloud project
 > Restrict it, and keep it out of shell history, commits and chat.
 
 **Done when** `gapi crux records queryRecord --body '{"origin":"https://example.com"}' --dry-run`
-prints `X-Goog-Api-Key: <redacted>` and no `API key required` warning.
+prints no `API key required` warning on stderr (the header shows `<redacted>` either way).
 
 ---
 
