@@ -107,9 +107,11 @@ export type CallPlan = {
   headers: Record<string, string>;
   body?: unknown;
   auth: { kind: ApiModel['auth']; scopes: string[] };
-  send: 'once';
   warnings: string[];
-};
+} & SendMode;
+
+// How Transport sends a plan: one request, or `pageToken` pages (D6).
+export type SendMode = { send: 'once' } | { send: 'pages'; pageLimit: number };
 
 // Non-secret values the Planner reads: quota project and entry header values.
 export type Settings = { project?: string; headers?: Record<string, string> };
