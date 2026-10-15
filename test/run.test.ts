@@ -51,6 +51,7 @@ test('--help prints the usage and every api entry without loading a document', a
   const r = await gapi(['--help']);
   assert.equal(r.code, 0);
   assert.ok(r.stdout.startsWith('gapi <api> <resource> [<sub-resource>…] <method>'));
+  assert.match(r.stdout, /^gapi <api> \+<helper> … /m);
   assert.match(r.stdout, /^apis:\n {2}ads\n/m);
   assert.match(r.stdout, /^ {2}gsc$/m);
   assert.equal(r.stderr, '');
@@ -60,6 +61,8 @@ test('gapi <api> [<resource>…] lists that level', async () => {
   const hand = await gapi(['gsc']);
   assert.equal(hand.code, 0);
   assert.match(hand.stdout, /^resources:\n(?: {2}\S+\n)* {2}sites\n/m);
+  assert.doesNotMatch(hand.stdout, /^helpers:/m);
+  assert.match((await gapi(['ads'])).stdout, /^helpers:\n {2}\+gaql {2}"<query>" --customer <id>/m);
 
   const r = await fx(['ga4-admin', 'properties']);
   assert.equal(r.code, 0);
