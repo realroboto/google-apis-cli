@@ -30,7 +30,7 @@ não expira. A CLI absorve as funções de `google-relogin.sh` (auth) e
 — seguindo o mesmo padrão MCP→CLI já aplicado a context7 (`ctx7`), firecrawl
 (`firecrawl`) e Bing (`bwt`).
 
-**Desde o epic #30 (a publicar como 0.2.0):** a CLI é discovery-driven. Os comandos vêm dos documentos discovery do Google em runtime (cache 24 h), com os nomes do Google (`gapi <api> <recurso>… <método>`); cada API é um arquivo de entrada de ~5 linhas. Cobertura: 47 entradas (lista em `README.md` e `skills/gapi/reference/index.md`), incluindo Merchant, Business Profile, SA360, CM360, DV360, YouTube, PageSpeed, CrUX e as APIs extras de #58.
+**Desde o epic #30 (publicado como 0.2.0):** a CLI é discovery-driven. Os comandos vêm dos documentos discovery do Google em runtime (cache 24 h), com os nomes do Google (`gapi <api> <recurso>… <método>`); cada API é um arquivo de entrada de ~5 linhas. Cobertura: 47 entradas (lista em `README.md` e `skills/gapi/reference/index.md`), incluindo Merchant, Business Profile, SA360, CM360, DV360, YouTube, PageSpeed, CrUX e as APIs extras de #58.
 
 Restrição de design do operador: **zero dependências de terceiros — apenas
 Google-nativo**. Consequência: `google-auth-library` (oficial Google) como única

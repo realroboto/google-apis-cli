@@ -1,6 +1,6 @@
 {
   "name": "google-apis-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "One discovery-driven CLI (gapi) for 47 Google marketing and data APIs: Ads, GA4, Search Console, Tag Manager, Indexing, Merchant, Business Profile, SA360, CM360, DV360, YouTube, PageSpeed, CrUX, Sheets, Places and more. One login, read+write.",
   "type": "module",
   "bin": {
