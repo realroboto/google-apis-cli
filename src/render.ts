@@ -6,6 +6,8 @@ export const SCHEMA_USAGE =
 
 export const DISCOVERY_USAGE = 'gapi discovery refresh [<api>…] | path';
 
+export const AUTH_USAGE = 'gapi auth setup | login [--manual] | status | logout';
+
 const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>']
      [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]]
      [--output <file>] [--page-all [--page-limit <n>]] [--dry-run] [--project <id>] [--api-key <key>]
@@ -15,12 +17,12 @@ gapi <api> <resource>… <method> --help    method help
 gapi <api> +<helper> … [--dry-run] [--project <id>] [--api-key <key>] [<entry header flags>]
 ${SCHEMA_USAGE}
 ${DISCOVERY_USAGE}
-gapi auth setup | login [--manual] | status | logout
+${AUTH_USAGE}
 `;
 
 export function rootHelp(apis: string[]): string {
   return `${USAGE}\napis:\n${apis
-    .sort()
+    .toSorted()
     .map((api) => `  ${api}\n`)
     .join('')}`;
 }
@@ -204,11 +206,10 @@ function expandRefs(value: unknown, schemas: ApiModel['schemas'], path: string[]
 }
 
 // Replaces {"$ref": X, …} with schema X expanded, keeping the sibling keys.
-// A name already on the expansion path stays a bare {"$ref": X} (cycle guard).
+// A name already on the expansion path stays a {"$ref": X} with its siblings (cycle guard).
 function expandObject(obj: object, schemas: ApiModel['schemas'], path: string[]): object {
   const ref = '$ref' in obj ? obj.$ref : undefined;
-  if (typeof ref === 'string' && path.includes(ref)) return { $ref: ref };
-  const name = typeof ref === 'string' ? ref : undefined;
+  const name = typeof ref === 'string' && !path.includes(ref) ? ref : undefined;
   const schema = name && schemas.get(name);
   const own = Object.fromEntries(
     Object.entries(obj)

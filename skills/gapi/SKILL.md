@@ -29,7 +29,7 @@ gapi <api> <resource>… <method> --help       # method help: HTTP method, URL, 
 ```
 
 - Words after `<api>` are the discovery `resources` path, then the method key, verbatim casing: `analyticsadmin.properties.dataStreams.list` → `gapi ga4-admin properties dataStreams list`.
-- Unknown word → exit 3 with the valid words. `gapi --help` lists every API.
+- Unknown word → exit 3 with the valid words. `gapi --help` lists every API. `gapi schema --help`, `gapi discovery --help`, `gapi auth [<sub>] --help` print that command's usage (exit 0) and run nothing.
 
 ```sh
 gapi ga4-admin properties dataStreams list --params '{"parent":"properties/123"}'
@@ -59,7 +59,9 @@ gapi schema ga4-admin properties.dataStreams.get              # method: params, 
 gapi schema ga4-admin GoogleAnalyticsAdminV1betaDataStream --resolve-refs   # one schema, every $ref expanded
 ```
 
-A `$ref` already on the expansion path stays `{"$ref":"<name>"}` (cycle guard).
+A `$ref` already on the expansion path stays `{"$ref":"<name>"}`, sibling keys such as `description` kept (cycle guard).
+
+`--resolve-refs` re-expands every shared schema at each use: on large Ads schemas the output explodes (`GoogleAdsGoogleadsV26Services__GoogleAdsRow` ≈ 18 MB, vs ≈ 34 KB unresolved). Read the unresolved view, then `gapi schema <api> <Name>` for the one `$ref` you need.
 
 ## `--dry-run`
 

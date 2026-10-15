@@ -7,6 +7,7 @@ import { GapiError } from './errors.ts';
 import { isRecord } from './json.ts';
 import { plan, resolve } from './plan.ts';
 import {
+  AUTH_USAGE,
   DISCOVERY_USAGE,
   levelText,
   methodHelp,
@@ -83,9 +84,14 @@ function parse<T extends ParseArgsConfig['options']>(args: string[], options: T)
 
 async function runAuth(
   sub: string | undefined,
-  values: { manual?: boolean },
+  values: { manual?: boolean; help?: boolean },
   { io, creds, catalog }: { io: Io; creds: Creds; catalog: Catalog },
 ): Promise<void> {
+  // --help never starts a side effect: no server, no fetch, no file write.
+  if (values.help) {
+    io.stdout.write(`${AUTH_USAGE}\n`);
+    return;
+  }
   if (sub === 'login') {
     const consent = await consentScopes(catalog);
     const tokens = await creds.login({ consent, manual: values.manual === true });
@@ -159,7 +165,14 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   }
 
   if (api === 'schema') {
-    const { values, positionals } = parse(rest, { 'resolve-refs': { type: 'boolean' } });
+    const { values, positionals } = parse(rest, {
+      'resolve-refs': { type: 'boolean' },
+      help: { type: 'boolean' },
+    });
+    if (values.help) {
+      io.stdout.write(`${SCHEMA_USAGE}\n`);
+      return;
+    }
     if (positionals.length !== 2) throw new GapiError(3, `usage: ${SCHEMA_USAGE}`);
     const [name, path] = positionals;
     const model = await catalog.load(name);
@@ -169,7 +182,11 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   }
 
   if (api === 'discovery') {
-    const { positionals } = parse(rest, {});
+    const { values, positionals } = parse(rest, { help: { type: 'boolean' } });
+    if (values.help) {
+      io.stdout.write(`${DISCOVERY_USAGE}\n`);
+      return;
+    }
     const [sub, ...apis] = positionals;
     if (sub === 'path') {
       if (apis.length > 0) throw new GapiError(3, `unexpected argument '${apis[0]}'`);
