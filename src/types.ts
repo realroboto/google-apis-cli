@@ -2,7 +2,7 @@
 // injected ports. Kept in one file so an API entry only imports types, never
 // redefines the contract.
 import type { ParseArgsOptionsConfig } from 'node:util';
-import type { Credentials } from 'google-auth-library';
+import type { CodeVerifierResults, Credentials, GenerateAuthUrlOpts } from 'google-auth-library';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -159,8 +159,9 @@ export type AccessTokenClient = {
 
 // The OAuth client port Credentials drives (google-auth-library's OAuth2Client, or a fake).
 export type OAuthClient = AccessTokenClient & {
-  generateAuthUrl(opts: { access_type: string; prompt: string; scope: string[] }): string;
-  getToken(code: string): Promise<{ tokens: Credentials }>;
+  generateAuthUrl(opts: GenerateAuthUrlOpts): string;
+  generateCodeVerifierAsync(): Promise<CodeVerifierResults>;
+  getToken(opts: { code: string; codeVerifier: string }): Promise<{ tokens: Credentials }>;
   setCredentials(credentials: Credentials): void;
   on(event: 'tokens', listener: (tokens: Credentials) => void): unknown;
 };

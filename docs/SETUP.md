@@ -227,9 +227,15 @@ prints no `API key required` warning on stderr (the header shows `<redacted>` ei
 ## 7. Consent
 
 ```
-gapi auth login            # loopback on 127.0.0.1:4600
-gapi auth login --manual   # headless: prints the URL, takes the pasted code
+gapi auth login            # loopback: listens on 127.0.0.1:4600 for the redirect
+gapi auth login --manual   # headless: prints the URL, takes the pasted redirect URL
 ```
+
+Both flows redirect to `http://127.0.0.1:4600` and send `state` and a PKCE (S256) challenge.
+With `--manual`, open the URL in any browser; after consent that browser cannot load
+`127.0.0.1:4600` (nothing listens there), so copy the full URL from its address bar and paste it at
+the `redirected URL:` prompt. A refused consent exits 2 with `consent failed: access_denied`; a
+pasted URL from another login attempt exits 2 with `state mismatch`.
 
 One consent grants every scope the API entries use, plus `openid` and `email`. The set is computed
 from the discovery documents (first scope of each method; never `drive`/`drive.*` or
@@ -248,7 +254,7 @@ It prints the account, whether a refresh token is stored, whether an API key is 
 the consent scopes the stored grant lacks. A non-empty `missing` means run `gapi auth login` again.
 
 > **Trap — port 4600 lingers.** A login you interrupted keeps the listener, and the next one
-> dies on `EADDRINUSE`. Clear it: `lsof -tiTCP:4600 | xargs kill`.
+> exits 2 with `cannot listen on 127.0.0.1:4600: … EADDRINUSE …`. Clear it: `lsof -tiTCP:4600 | xargs kill`.
 
 **Done when** `gapi auth status` shows your account, `"hasRefreshToken": true`, and `"missing": []`; after step 6, also `"hasApiKey": true`.
 
@@ -348,7 +354,9 @@ key (exit 2 without it). PageSpeed sends the key only when one is set. `project`
 | `API key required` (exit 2) | CrUX call with no key | step 6 |
 | `config.json is not valid JSON` / `is not a JSON object` / `cannot read …config.json` (exit 2) | config file broken or unreadable; every command stops before any prompt or write | fix the file, or remove it and re-run step 5 (`gapi auth setup`) |
 | `not logged in` (exit 2) | `credentials.json` missing, or no `refresh_token` in it | `gapi auth login` |
-| `EADDRINUSE :::4600` | an earlier login still holds the port | `lsof -tiTCP:4600 \| xargs kill` |
+| `cannot listen on 127.0.0.1:4600: … EADDRINUSE …` (exit 2) | an earlier login still holds the port | `lsof -tiTCP:4600 \| xargs kill` |
+| `state mismatch` (exit 2) | the pasted or redirected URL comes from another login attempt | run `gapi auth login` again and use its URL |
+| `consent failed: access_denied` (exit 2) | consent was refused | run `gapi auth login` again and accept |
 | `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | Ads level is Test | step 2 |
 | `403 SERVICE_DISABLED` | API not enabled on the project | step 1; Business Profile: step 3 |
 | `403 BILLING_DISABLED` | no billing account on the project | add a billing account to the project; step 1 trap |
