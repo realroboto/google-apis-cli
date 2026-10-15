@@ -6,7 +6,7 @@
   "version": "v1",
   "revision": "20261015",
   "title": "Mini API",
-  "description": "Hand-made fixture: {+x} with a pattern, a repeated enum, media upload with resumable, media download, a resource named v26, and a $ref cycle.",
+  "description": "Hand-made fixture: {+x} with a pattern, a repeated enum, body paging, media upload with resumable, media download through the download service, a resource named v26, and a $ref cycle.",
   "rootUrl": "https://mini.googleapis.com/",
   "servicePath": "",
   "batchPath": "batch",
@@ -91,6 +91,17 @@
             "https://www.googleapis.com/auth/mini",
             "https://www.googleapis.com/auth/mini.readonly"
           ]
+        },
+        "search": {
+          "id": "mini.files.search",
+          "httpMethod": "POST",
+          "path": "v1/files:search",
+          "description": "Searches files; pages through the request body.",
+          "parameterOrder": [],
+          "parameters": {},
+          "request": { "$ref": "SearchFilesRequest" },
+          "response": { "$ref": "ListFilesResponse" },
+          "scopes": ["https://www.googleapis.com/auth/mini"]
         },
         "upload": {
           "id": "mini.files.upload",
@@ -190,6 +201,14 @@
       "properties": {
         "files": { "type": "array", "items": { "$ref": "File" } },
         "nextPageToken": { "type": "string" }
+      }
+    },
+    "SearchFilesRequest": {
+      "id": "SearchFilesRequest",
+      "type": "object",
+      "properties": {
+        "query": { "type": "string" },
+        "pageToken": { "type": "string" }
       }
     },
     "Node": {

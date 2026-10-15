@@ -4,8 +4,8 @@
 // No developer-token header: it was sunset 2026-09-09 and the API ignores it
 // (https://developers.google.com/google-ads/api/docs/api-policy/developer-token).
 //
-// `:search` keeps its raw {results, nextPageToken}: it pages via the request body, not a
-// query token, so gapi does not page it (epic #30 D6); `--stream` is the all-rows path.
+// `:search` keeps its raw {results, nextPageToken}; `ads customers googleAds search
+// --page-all` pages it through the request body (epic #30 D6); `--stream` is the all-rows path.
 import { GapiError } from '../errors.ts';
 import { isRecord } from '../json.ts';
 import { plan } from '../plan.ts';

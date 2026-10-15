@@ -53,6 +53,9 @@ export type DiscoveryParam = {
 
 export type DiscoverySchema = { [key: string]: unknown };
 
+// Where `pageToken` goes (D6): a query parameter, or a request body field.
+export type Paging = 'query' | 'body';
+
 // One callable method of an ApiModel (epic #30 D4, D7, D8).
 export type ApiMethod = {
   id: string;
@@ -71,8 +74,8 @@ export type ApiMethod = {
   deprecated?: { source?: string }; // overlay, or `deprecated: true` in the document
   paid?: { reason: string; source: string };
   upload?: { accept: string[]; maxSize?: string; resumable: boolean };
-  download: boolean;
-  pageable: boolean; // has a `pageToken` query parameter
+  download?: { service: boolean }; // service: `useMediaDownloadService`, URL takes `download/`
+  paging?: Paging;
 };
 
 // Every user-keyed lookup in the model (command words, --params keys, schema names)
@@ -118,7 +121,7 @@ export type CallPlan = {
 // media download to a file, or batch parts (D7).
 export type SendMode =
   | { send: 'once' }
-  | { send: 'pages'; pageLimit: number }
+  | { send: 'pages'; pageLimit: number; paging: Paging }
   | { send: 'upload'; upload: Upload }
   | { send: 'download'; output: string }
   | { send: 'batch'; parts: BatchPart[] };

@@ -152,8 +152,10 @@ test('fixture documents normalize into auth kind, scopes, overlays, words and me
     'v26',
     'listThings',
   ]);
-  assert.equal(mini.byId.get('mini.files.list')?.pageable, true);
-  assert.equal(mini.byId.get('mini.files.download')?.download, true);
+  assert.equal(mini.byId.get('mini.files.list')?.paging, 'query');
+  assert.equal(mini.byId.get('mini.files.search')?.paging, 'body');
+  assert.equal(mini.byId.get('mini.files.get')?.paging, undefined);
+  assert.deepEqual(mini.byId.get('mini.files.download')?.download, { service: true });
   assert.equal(mini.byId.get('mini.files.upload')?.upload?.resumable, true);
   assert.equal(mini.schemas.has('constructor'), false);
   assert.equal(calls.length, 0);
