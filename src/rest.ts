@@ -19,10 +19,18 @@ export function resolvePath(
   params: Params,
 ): { path: string; used: Set<string> } {
   const used = new Set<string>();
-  const path = pathTemplate.replace(/\{(\w+)\}/g, (_, name) => {
+  const path = pathTemplate.replace(/\{(\w+)\}/g, (_, name: string, offset: number) => {
     if (params[name] == null) throw new Error(`missing path param: ${name}`);
     used.add(name);
-    return encodeURIComponent(String(params[name]));
+    const value = String(params[name]);
+    // `properties/{property}` + `properties/123` would encode to properties%2F123.
+    const segment = /[^/]+\/$/.exec(pathTemplate.slice(0, offset))?.[0];
+    if (segment && value.startsWith(segment)) {
+      throw new Error(
+        `pass the bare id: ${value.slice(segment.length)} (the path already has ${segment})`,
+      );
+    }
+    return encodeURIComponent(value);
   });
   return { path, used };
 }
@@ -54,6 +62,8 @@ export async function execute(
 ): Promise<{ json: unknown; raw: unknown }> {
   const { tokenProvider, fetch: fetchImpl, quotaProject, extraHeaders = {} } = opts;
   const method = row.httpMethod;
+  // Resolve the path first: a bad positional fails before any network call.
+  let url = buildUrl(row.baseUrl, row.pathTemplate, params);
 
   const headers: Record<string, string> = { Authorization: `Bearer ${await tokenProvider()}` };
   if (quotaProject) headers['x-goog-user-project'] = quotaProject;
@@ -66,7 +76,6 @@ export async function execute(
   if (hasBody) headers['Content-Type'] = 'application/json';
 
   const limit = params.limit != null ? Number(params.limit) : undefined;
-  let url = buildUrl(row.baseUrl, row.pathTemplate, params);
   let last: unknown;
   let merged: unknown[] = [];
   let paged = false;
