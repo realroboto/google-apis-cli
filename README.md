@@ -45,7 +45,7 @@ A call moves through these parts in order (migration in progress, epic #30).
 | Part | File | Function |
 |---|---|---|
 | **run** | `src/run.ts` | `run(argv, io)`: strict argv parse, routing (`--help`, `auth`, `schema`, `discovery`, `<api> …`), `GapiError` → exit code. `bin/gapi.ts` passes process io. |
-| **Catalog** | `src/catalog.ts` | API entries (`src/apis/*.ts`, glob, no registry) → `ApiModel`. Discovery entries: document cached 24 h. Hand manifests: `legacyDoc` until migrated. |
+| **Catalog** | `src/catalog.ts` | API entries (`src/apis/*.ts`, glob, no registry) → `ApiModel`. Discovery entries: document cached 24 h. |
 | **Planner** | `src/plan.ts` | `plan(model, words \| methodId, input, settings)` → `CallPlan`. Pure. Every `--params`/`--body` rule; validation fails exit 3 before network. |
 | **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1; 403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` → exit 2. `--page-all` follows `nextPageToken`: one JSON line per page, max `--page-limit` (default 10). `--dry-run` prints the plan instead. |
 | **Renderers** | `src/render.ts` | Root help, level listing, method help, `schemaView` (`$ref` expansion, cycle guard). |
@@ -68,7 +68,6 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 
 - New API = one new `src/apis/<api>.ts` file that default-exports an API entry (`satisfies ApiEntry`): the discovery URL plus overlays (`retired`, `deprecated`, `paid`, `headers`, `helpers`). The discovery document gives every resource and method. The glob finds the file. No shared file changes.
 - Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document.
-- Hand manifests (`satisfies Manifest`) stay only until epic #30 migrates them. Each keeps its frozen coverage array test until then.
 - Test through `run(argv, io)`: fixture entries via `io.apisDir`, cache seeded in a temp `GAPI_CONFIG_DIR`, fake `fetch` (`test/helpers/fetch.ts`). `--dry-run` shows the request. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
 - Fix lint by fixing the code it flags — never `biome --unsafe`, never disable a rule to clear it.
