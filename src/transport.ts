@@ -9,8 +9,27 @@ export type SendDeps = {
   out: { write(chunk: string): unknown };
 };
 
-export async function send(plan: CallPlan, { fetch, authorize, out }: SendDeps): Promise<void> {
-  const res = await fetch(plan.url, {
+export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
+  if (plan.send === 'once') {
+    deps.out.write(`${JSON.stringify(await request(plan, plan.url, deps), null, 2)}\n`);
+    return;
+  }
+  // D6: one compact JSON line per page, until no nextPageToken or pageLimit pages.
+  const url = new URL(plan.url);
+  for (let page = 1; page <= plan.pageLimit; page++) {
+    const data = (await request(plan, url.href, deps)) as { nextPageToken?: unknown };
+    deps.out.write(`${JSON.stringify(data)}\n`);
+    if (typeof data?.nextPageToken !== 'string' || !data.nextPageToken) return;
+    url.searchParams.set('pageToken', data.nextPageToken);
+  }
+}
+
+async function request(
+  plan: CallPlan,
+  url: string,
+  { fetch, authorize }: SendDeps,
+): Promise<unknown> {
+  const res = await fetch(url, {
     method: plan.httpMethod,
     headers: { ...plan.headers, ...(await authorize(plan.auth)) },
     body: plan.body === undefined ? undefined : JSON.stringify(plan.body),
@@ -22,7 +41,7 @@ export async function send(plan: CallPlan, { fetch, authorize, out }: SendDeps):
     const message = (body as { error?: { message?: string } })?.error?.message;
     throw new GapiError(1, message ?? `HTTP ${res.status}`, body || undefined);
   }
-  out.write(`${JSON.stringify(text ? JSON.parse(text) : {}, null, 2)}\n`);
+  return text ? JSON.parse(text) : {};
 }
 
 function parseOrText(text: string): unknown {

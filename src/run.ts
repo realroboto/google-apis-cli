@@ -29,6 +29,8 @@ const GLOBAL_OPTIONS = {
   params: { type: 'string' },
   body: { type: 'string' },
   'dry-run': { type: 'boolean' },
+  'page-all': { type: 'boolean' },
+  'page-limit': { type: 'string' },
   project: { type: 'string' },
   help: { type: 'boolean' },
 } as const;
@@ -135,7 +137,13 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   const call = plan(
     model,
     target.method.id,
-    { params: values.params, body: values.body, dryRun },
+    {
+      params: values.params,
+      body: values.body,
+      dryRun,
+      pageAll: values['page-all'],
+      pageLimit: values['page-limit'],
+    },
     settings,
   );
   for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);

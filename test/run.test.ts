@@ -182,6 +182,11 @@ test('validation errors exit 3 before any network call', async () => {
     ],
     [['gsc', 'sites', 'list', '--json'], /^gapi: Unknown option '--json'/],
     [
+      ['mini', 'files', 'list', '--page-all', '--page-limit', '0'],
+      /^gapi: --page-limit must be a positive integer\n$/,
+    ],
+    [['mini', 'files', 'list', '--page-limit', '2'], /^gapi: --page-limit needs --page-all\n$/],
+    [
       ['gsc', 'urlTestingTools', 'mobileFriendlyTest', 'run', '--body', '{}'],
       /^gapi: retired: Retired by Google in December 2023 \(https:\/\/developers\.google\.com\//,
     ],
@@ -209,6 +214,33 @@ test('send: one authorized request, response printed as JSON', async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'https://searchconsole.googleapis.com/webmasters/v3/sites');
   assert.deepEqual(calls[0].init?.headers, { Authorization: 'Bearer TOK' });
+});
+
+test('send: --page-all follows nextPageToken and prints one NDJSON line per page', async () => {
+  const pages = [{ files: [1], nextPageToken: 't2' }, { files: [2] }];
+  const { fetch, calls } = fakeFetch(() => Response.json(pages[calls.length - 1]));
+  const r = await fx(['mini', 'files', 'list', '--page-all'], { fetch });
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, pages.map((p) => `${JSON.stringify(p)}\n`).join(''));
+  assert.deepEqual(
+    calls.map((c) => c.url),
+    ['https://mini.googleapis.com/v1/files', 'https://mini.googleapis.com/v1/files?pageToken=t2'],
+  );
+  for (const c of calls) assert.deepEqual(c.init?.headers, { Authorization: 'Bearer TOK' });
+
+  const one = fakeFetch(() => Response.json(pages[0]));
+  const limited = await fx(['mini', 'files', 'list', '--page-all', '--page-limit', '1'], {
+    fetch: one.fetch,
+  });
+  assert.equal(limited.code, 0);
+  assert.equal(limited.stdout, `${JSON.stringify(pages[0])}\n`);
+  assert.equal(one.calls.length, 1);
+
+  const none = fakeFetch(() => Response.json({}));
+  const bad = await fx(['gsc', 'sites', 'list', '--page-all'], { fetch: none.fetch });
+  assert.equal(bad.code, 3);
+  assert.equal(bad.stderr, 'gapi: --page-all: gsc sites list has no pageToken parameter\n');
+  assert.equal(none.calls.length, 0);
 });
 
 test('send: a Google non-2xx exits 1 with the error body', async () => {

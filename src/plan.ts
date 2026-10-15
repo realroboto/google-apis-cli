@@ -7,6 +7,7 @@ import type {
   ApiResource,
   CallPlan,
   DiscoveryParam,
+  SendMode,
   Settings,
 } from './types.ts';
 
@@ -25,7 +26,13 @@ const OWNED = new Set([
 // The document-level parameters a caller may pass (D5).
 const SHARED = ['fields', 'quotaUser'];
 
-export type PlanInput = { params?: string; body?: string; dryRun?: boolean };
+export type PlanInput = {
+  params?: string;
+  body?: string;
+  dryRun?: boolean;
+  pageAll?: boolean;
+  pageLimit?: string;
+};
 
 const invalid = (message: string): GapiError => new GapiError(3, message);
 
@@ -95,9 +102,21 @@ export function plan(
     headers,
     body,
     auth: { kind: model.auth, scopes: method.scopes },
-    send: 'once',
     warnings,
+    ...sendMode(method, command, input),
   };
+}
+
+// --page-all [--page-limit <n>] (D6): only where the method takes a `pageToken`.
+function sendMode(method: ApiMethod, command: string, input: PlanInput): SendMode {
+  if (!input.pageAll) {
+    if (input.pageLimit !== undefined) throw invalid('--page-limit needs --page-all');
+    return { send: 'once' };
+  }
+  if (!method.pageable) throw invalid(`--page-all: ${command} has no pageToken parameter`);
+  const limit = input.pageLimit ?? '10';
+  if (!/^[1-9]\d*$/.test(limit)) throw invalid('--page-limit must be a positive integer');
+  return { send: 'pages', pageLimit: Number(limit) };
 }
 
 function parseJson(flag: string, text: string | undefined): unknown {

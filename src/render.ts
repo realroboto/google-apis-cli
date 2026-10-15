@@ -2,7 +2,7 @@
 import type { ApiMethod, ApiModel, ApiResource } from './types.ts';
 
 const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>']
-     [--dry-run] [--project <id>]
+     [--page-all [--page-limit <n>]] [--dry-run] [--project <id>]
 gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
 gapi auth setup | login [--manual] | status | logout
