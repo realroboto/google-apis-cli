@@ -56,6 +56,8 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
     body: plan.body === undefined ? undefined : JSON.stringify(plan.body),
   });
   const location = session.headers.get('Location');
+  // undici holds the connection until a body is read or cancelled; only headers matter here.
+  await session.body?.cancel();
   if (!location) throw new Error('resumable upload: the session response has no Location header');
   let start = 0;
   let stalls = 0;
@@ -67,6 +69,7 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
     if (res.status !== 308) return res;
     // `Range: bytes=0-<last>` names the bytes Google kept; no Range means it kept none.
     const kept = /^bytes=0-(\d+)$/.exec(res.headers.get('Range') ?? '');
+    await res.body?.cancel();
     const next = kept ? Number(kept[1]) + 1 : 0;
     stalls = next > start ? 0 : stalls + 1;
     if (stalls === MAX_STALLS || next >= file.size) {
