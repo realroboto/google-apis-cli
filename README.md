@@ -40,7 +40,7 @@ Testing mode is enough to use the CLI; Production is the no-expiry target. Until
 
 ## Flow
 
-A call moves through these parts in order (migration in progress, epic #30).
+A call moves through these parts in order.
 
 | Part | File | Function |
 |---|---|---|
@@ -66,7 +66,7 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 
 ## Add an API or a resource
 
-- New API = one new `src/apis/<api>.ts` file that default-exports an API entry (`satisfies ApiEntry`): the discovery URL plus overlays (`retired`, `deprecated`, `paid`, `headers`, `helpers`). The discovery document gives every resource and method. The glob finds the file. No shared file changes.
+- New API = one new `src/apis/<api>.ts` file that default-exports an API entry (`satisfies ApiEntry`): the discovery URL plus overlays (`retired`, `deprecated`, `paid`, `headers`, `helpers`). The discovery document gives every resource and method. The glob finds the file; `api` must equal the file name, or the Catalog fails to load. No shared file changes.
 - Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document.
 - Test through `run(argv, io)`: fixture entries via `io.apisDir`, cache seeded in a temp `GAPI_CONFIG_DIR`, fake `fetch` (`test/helpers/fetch.ts`). `--dry-run` shows the request. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
