@@ -47,6 +47,7 @@ type DiscoveryDoc = DiscoveryResource & {
   version?: string;
   title?: string;
   description?: string;
+  documentationLink?: string;
   rootUrl?: string;
   servicePath?: string;
   auth?: { oauth2?: { scopes?: Record<string, unknown> } };
@@ -184,6 +185,7 @@ function toModel(doc: DiscoveryDoc, entry: Overlays): ApiModel {
     version: doc.version ?? '',
     title: doc.title,
     description: doc.description,
+    documentationLink: doc.documentationLink,
     rootUrl: doc.rootUrl ?? '',
     servicePath: doc.servicePath ?? '',
     auth,

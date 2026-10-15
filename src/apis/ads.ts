@@ -23,11 +23,6 @@ import type { Manifest } from '../types.ts';
 const ADS = ['adwords'];
 const C = '/v25/customers/{customer}';
 
-// Build the search-request body from a bare GAQL string (story 31). Trivial by
-// design — kept a named pure function so src/run.ts's `gapi ads gaql "<q>"`
-// sugar has one tested seam.
-export const gaqlBody = (query: string): { query: string } => ({ query });
-
 // searchStream → JSON array of {results, ...} chunks; concat into one list.
 const streamConcat = (data: unknown): unknown =>
   Array.isArray(data) ? data.flatMap((c) => (c as { results?: unknown[] })?.results ?? []) : data;

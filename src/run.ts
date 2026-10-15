@@ -1,6 +1,5 @@
 // Process io is injected so tests drive the whole CLI in-process.
-import { parseArgs } from 'node:util';
-import { gaqlBody } from './apis/ads.ts';
+import { type ParseArgsConfig, parseArgs } from 'node:util';
 import {
   configureAuth,
   loginLoopback,
@@ -9,11 +8,13 @@ import {
   makeTokenProvider,
   status,
 } from './auth.ts';
-import { QUOTA_PROJECT_ENV, resolveAdsHeaders, resolveSetting } from './config.ts';
+import { openCatalog } from './catalog.ts';
+import { configDir, QUOTA_PROJECT_ENV, resolveAdsHeaders, resolveSetting } from './config.ts';
 import { GapiError } from './errors.ts';
-import { checkSchema, findRow, loadManifests } from './manifest.ts';
-import { execute, pathParams } from './rest.ts';
-import type { FetchLike, Manifest, Params } from './types.ts';
+import { plan, resolve } from './plan.ts';
+import { levelText, methodHelp, rootHelp } from './render.ts';
+import { send } from './transport.ts';
+import type { Authorize, FetchLike } from './types.ts';
 
 export type Io = {
   env: NodeJS.ProcessEnv;
@@ -25,26 +26,16 @@ export type Io = {
 };
 
 const GLOBAL_OPTIONS = {
-  json: { type: 'boolean' },
-  raw: { type: 'boolean' },
-  help: { type: 'boolean' },
-  limit: { type: 'string' },
+  params: { type: 'string' },
   body: { type: 'string' },
+  'dry-run': { type: 'boolean' },
   project: { type: 'string' },
-  // Ads (see `ads gaql` sugar + resolveAdsHeaders): login-customer-id header,
-  // target account, and search/searchStream toggle.
-  'login-customer-id': { type: 'string' },
-  customer: { type: 'string' },
-  stream: { type: 'boolean' },
+  help: { type: 'boolean' },
 } as const;
 
 export async function run(argv: string[], io: Io): Promise<number> {
   try {
-    // Interim (#34): every failure of today's dispatch exits 1, as before. Epic #30
-    // steps 4–5 retype the legacy throws (RestError, plain Error) and drop this mapping.
-    await dispatch(argv, io).catch((e) => {
-      throw new GapiError(1, e.message, e.body);
-    });
+    await dispatch(argv, io);
     return 0;
   } catch (e) {
     const err = e instanceof GapiError ? e : new GapiError(5, String(e));
@@ -55,14 +46,12 @@ export async function run(argv: string[], io: Io): Promise<number> {
   }
 }
 
-function printTree(manifests: Record<string, Manifest>, out: Io['stdout']): void {
-  out.write('gapi <api> <resource> <verb> [--json|--raw]\n\n');
-  out.write('auth  setup | login [--manual] | status | logout\n\n');
-  for (const [api, m] of Object.entries(manifests).sort()) {
-    out.write(`${api}\n`);
-    for (const [resource, verbs] of Object.entries(m.resources).sort()) {
-      out.write(`  ${resource}  ${Object.keys(verbs).sort().join(' | ')}\n`);
-    }
+// Strict argv parsing; an unknown flag or a missing flag value is a validation error.
+function parse<T extends ParseArgsConfig['options']>(args: string[], options: T) {
+  try {
+    return parseArgs({ args, options, allowPositionals: true, strict: true });
+  } catch (e) {
+    throw new GapiError(3, (e as Error).message);
   }
 }
 
@@ -92,87 +81,81 @@ async function runAuth(
     io.stderr.write('gapi: credentials removed\n');
     return;
   }
-  throw new Error(`unknown auth command: ${sub}`);
+  throw new GapiError(3, `unknown auth command: ${sub}`);
 }
 
 async function dispatch(argv: string[], io: Io): Promise<void> {
-  const manifests = await loadManifests(io.apisDir);
-  checkSchema(manifests);
+  const catalog = await openCatalog({
+    dir: configDir(),
+    fetch: io.fetch,
+    warn: (message) => io.stderr.write(`gapi: warning: ${message}\n`),
+    apisDir: io.apisDir,
+  });
 
   if (argv.length === 0 || (argv[0] === '--help' && argv.length === 1)) {
-    printTree(manifests, io.stdout);
+    io.stdout.write(rootHelp(Object.keys(catalog.entries)));
     return;
   }
 
   const [api, ...rest] = argv;
 
   if (api === 'auth') {
-    const { values, positionals } = parseArgs({
-      args: rest,
-      options: { manual: { type: 'boolean' }, help: { type: 'boolean' } } as const,
-      allowPositionals: true,
+    const { values, positionals } = parse(rest, {
+      manual: { type: 'boolean' },
+      help: { type: 'boolean' },
     });
-    return runAuth(positionals[0], values, io);
+    // Interim until Credentials (#41): auth failures are untyped and exit 1, as before.
+    return runAuth(positionals[0], values, io).catch((e) => {
+      throw e instanceof GapiError ? e : new GapiError(1, e.message);
+    });
   }
 
-  if (!manifests[api]) throw new Error(`unknown api: ${api} (try \`gapi --help\`)`);
-
-  const { values, positionals } = parseArgs({
-    args: rest,
-    options: GLOBAL_OPTIONS,
-    allowPositionals: true,
-  });
-  const [resource, verb] = positionals;
-
-  if (values.help || !resource || !verb) {
-    printTree({ [api]: manifests[api] }, io.stdout);
+  const { values, positionals } = parse(rest, GLOBAL_OPTIONS);
+  const model = await catalog.load(api);
+  const target = resolve(model, positionals);
+  if (!target.method) {
+    io.stdout.write(levelText(model, positionals, target.node));
+    return;
+  }
+  if (values.help) {
+    io.stdout.write(methodHelp(model, target.method));
     return;
   }
 
-  // `ads gaql` is the one sugar beyond generic dispatch (story 31): the query is
-  // a positional, --stream picks searchStream, --customer fills the path param.
-  const isGaql = api === 'ads' && resource === 'gaql';
-  const row = isGaql
-    ? findRow(manifests, api, 'gaql', values.stream ? 'searchStream' : 'search')
-    : findRow(manifests, api, resource, verb);
-  if (!row) throw new Error(`unknown command: ${api} ${resource} ${verb}`);
+  const dryRun = values['dry-run'] === true;
+  // Interim until Credentials (#41): today's quota-project and Ads-header resolvers.
+  const settings = {
+    project: resolveSetting(values, {
+      flag: 'project',
+      env: QUOTA_PROJECT_ENV,
+      key: 'project',
+    }) as string | undefined,
+    headers: api === 'ads' ? resolveAdsHeaders(values) : {},
+  };
+  const call = plan(
+    model,
+    target.method.id,
+    { params: values.params, body: values.body, dryRun },
+    settings,
+  );
+  for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
 
-  const params: Params = {};
-  if (isGaql) {
-    if (!values.customer) throw new Error('ads gaql requires --customer <id>');
-    params.customer = values.customer;
-    params.body = gaqlBody(verb); // `verb` is the GAQL query string here
-  } else {
-    // params = positional path args after verb, then row.query params as further
-    // positionals, plus body/limit from flags.
-    const pp = pathParams(row.pathTemplate);
-    pp.forEach((name, i) => {
-      if (positionals[2 + i] != null) params[name] = positionals[2 + i];
+  // Interim until Credentials (#41): today's token provider, Bearer for every API.
+  // It opens credentials.json on its first call only, so --dry-run never reads it.
+  const token = makeTokenProvider();
+  const authorize: Authorize = async (_auth, { redact = false } = {}) => {
+    if (redact) return { Authorization: 'Bearer <redacted>' };
+    const value = await token().catch((e: Error) => {
+      throw new GapiError(2, e.message);
     });
-    (row.query ?? []).forEach((name, i) => {
-      const v = positionals[2 + pp.length + i];
-      if (v != null) params[name] = v;
-    });
+    return { Authorization: `Bearer ${value}` };
+  };
+
+  if (dryRun) {
+    const headers = { ...call.headers, ...(await authorize(call.auth, { redact: true })) };
+    const request = { method: call.httpMethod, url: call.url, headers, body: call.body };
+    io.stdout.write(`${JSON.stringify(request, null, 2)}\n`);
+    return;
   }
-  if (values.limit != null) params.limit = values.limit;
-  if (values.body != null) params.body = JSON.parse(values.body);
-
-  const quotaProject = resolveSetting(values as Record<string, unknown>, {
-    flag: 'project',
-    env: QUOTA_PROJECT_ENV,
-    key: 'project',
-  }) as string | undefined;
-
-  // Only Ads calls carry the optional login-customer-id header, so other APIs
-  // never send an Ads-specific header.
-  const extraHeaders =
-    api === 'ads' ? resolveAdsHeaders(values as Record<string, unknown>) : undefined;
-
-  const { json, raw } = await execute(row, params, {
-    tokenProvider: makeTokenProvider(),
-    fetch: io.fetch,
-    quotaProject,
-    extraHeaders,
-  });
-  io.stdout.write(`${JSON.stringify(values.raw ? raw : json, null, 2)}\n`);
+  await send(call, { fetch: io.fetch, authorize, out: io.stdout });
 }
