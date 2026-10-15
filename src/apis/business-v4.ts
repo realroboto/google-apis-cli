@@ -8,7 +8,6 @@ const reference = { source: 'https://developers.google.com/my-business/reference
 export default {
   api: 'business-v4',
   discovery: 'https://developers.google.com/my-business/samples/mybusiness_google_rest_v4p9.json',
-  service: 'mybusiness.googleapis.com',
   scopes: ['business.manage'],
   retired: {
     'mybusiness.accounts.locations.reportInsights': {

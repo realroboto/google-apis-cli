@@ -28,7 +28,6 @@ export type Helpers = Record<`+${string}`, Helper>;
 export type ApiEntry = {
   api: string; // CLI name, ^[a-z0-9-]+$, equals the file base name
   discovery: string; // discovery document URL
-  service?: string; // Cloud service name, only when the discovery URL host is not it
   scopes?: string[]; // only when the document has no auth.oauth2 section
   retired?: Record<string, { reason: string; source: string }>; // method id → why it always fails
   deprecated?: Record<string, { source: string }>; // method id → marks deprecated
@@ -156,7 +155,7 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<FetchRespon
 
 // The minimal token client authorize needs; lets tests inject a fake
 // without constructing a real OAuth2Client.
-export type AccessTokenClient = {
+type AccessTokenClient = {
   getAccessToken(): Promise<{ token?: string | null }>;
 };
 

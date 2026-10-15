@@ -1,7 +1,7 @@
-// Planner: command words + --params/--body text → one validated CallPlan (epic #30 D4, D5).
+// Planner: command words + parsed --params/--body → one validated CallPlan (epic #30 D4, D5).
 // Pure: no I/O; every rejection is a GapiError thrown before any network call.
 import { extname } from 'node:path';
-import { GapiError } from './errors.ts';
+import { GapiError, messageOf } from './errors.ts';
 import { isRecord } from './json.ts';
 import type {
   ApiMethod,
@@ -29,9 +29,10 @@ const OWNED = new Set([
 // The document-level parameters a caller may pass (D5).
 const SHARED = ['fields', 'quotaUser'];
 
-export type PlanInput = {
-  params?: string;
-  body?: string;
+// `params` and `body` are parsed JSON (`parseJson` reads them from argv); helpers pass objects.
+type PlanInput = {
+  params?: unknown;
+  body?: unknown;
   dryRun?: boolean;
   pageAll?: boolean;
   pageLimit?: string;
@@ -111,9 +112,9 @@ export function plan(
       ]
     : [];
 
-  const values = paramValues(model, method, parseJson('--params', input.params) ?? {});
+  const values = paramValues(model, method, input.params ?? {});
 
-  let body = parseJson('--body', input.body);
+  let body = input.body;
   if (body !== undefined && !method.request)
     throw invalid(`--body: ${command} takes no request body`);
 
@@ -138,6 +139,22 @@ export function plan(
     auth: { kind: model.auth, scopes: method.scopes },
     warnings,
     ...mode,
+  };
+}
+
+// The outer CallPlan of a batch call: one POST to the documented `batch` endpoint that
+// carries `parts`, each planned by `plan` with its own headers (D7).
+export function batchPlan(model: ApiModel, parts: CallPlan[]): CallPlan {
+  const [first] = parts;
+  return {
+    methodId: first.methodId,
+    httpMethod: 'POST',
+    url: `${model.rootUrl}batch`,
+    headers: {},
+    auth: first.auth,
+    warnings: first.warnings,
+    send: 'batch',
+    parts,
   };
 }
 
@@ -232,13 +249,14 @@ function accepts(pattern: string, contentType: string): boolean {
   return p === '*/*' || p === t || (p.endsWith('/*') && t.startsWith(p.slice(0, -1)));
 }
 
-function parseJson(flag: string, text: string | undefined): unknown {
+// argv JSON for --params / --body; invalid JSON and unsafe integers exit 3.
+export function parseJson(flag: string, text: string | undefined): unknown {
   if (text === undefined) return undefined;
   let value: unknown;
   try {
     value = JSON.parse(text);
   } catch (e) {
-    throw invalid(`${flag} is not valid JSON: ${(e as Error).message}`);
+    throw invalid(`${flag} is not valid JSON: ${messageOf(e)}`);
   }
   const path = unsafeInteger(value, '');
   if (path !== undefined) {
