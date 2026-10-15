@@ -8,7 +8,7 @@
 - TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (corepack-pinned) for package management.
 - It replaces the 4 fragmented Google MCPs in vmCODE.
 
-Command shape: `gapi <api> <resource> <verb> [--json|--raw]`
+Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--dry-run]`. `gapi <api> [<resource>…]` lists a level; `… <method> --help` shows method help.
 
 ## Install
 
@@ -40,15 +40,18 @@ Testing mode is enough to use the CLI; Production is the no-expiry target. Until
 
 ## Flow
 
-The project has 3 parts. A call moves through them in order.
+A call moves through these parts in order (migration in progress, epic #30).
 
 | Part | File | Function |
 |---|---|---|
-| **auth** | `src/auth.ts` | `gapi auth login` gets one OAuth consent. It stores the refresh token in `~/.config/gapi/credentials.json` (mode 600). `getAccessToken()` refreshes the access token. Only part with real handlers. |
-| **manifest** | `src/apis/*.ts` | Each API is data, not code: `resource → verb → { httpMethod, pathTemplate, scopes, requiredHeaders?, decoder?, listKey?, query? }`. One file per surface. A glob finds them. No central registry. Row/seam types live in `src/types.ts`. |
-| **executor seam** | `src/rest.ts` | `execute(manifestRow, params, { tokenProvider, fetch })` builds the URL, adds headers, follows pagination, applies the `decoder`, and formats `--json`/`--raw`. All network calls pass here. Test seam for requests. |
+| **run** | `src/run.ts` | `run(argv, io)`: strict argv parse, routing (`--help`, `auth`, `<api> …`), `GapiError` → exit code. `bin/gapi.ts` passes process io. |
+| **Catalog** | `src/catalog.ts` | API entries (`src/apis/*.ts`, glob, no registry) → `ApiModel`. Discovery entries: document cached 24 h. Hand manifests: `legacyDoc` until migrated. |
+| **Planner** | `src/plan.ts` | `plan(model, words \| methodId, input, settings)` → `CallPlan`. Pure. Every `--params`/`--body` rule; validation fails exit 3 before network. |
+| **Transport** | `src/transport.ts` | `send(plan, { fetch, authorize, out })`. `authorize` adds the credential per request; non-2xx → exit 1. `--dry-run` prints the plan instead. |
+| **Renderers** | `src/render.ts` | Root help, level listing, method help. |
+| **auth** | `src/auth.ts`, `src/config.ts` | `gapi auth login`: one OAuth consent, refresh token in `<config dir>/credentials.json` (mode 600). Interim token provider + settings resolvers until Credentials (#41). |
 
-`bin/gapi.ts` passes the process io to `run(argv, io)` (`src/run.ts`). `run` parses argv; dispatch, `--help`, and URL resolution all come from the manifests. CLI tests call `run` in-process (`test/helpers/io.ts`). Terms: [GLOSSARY.md](GLOSSARY.md).
+CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Terms: [GLOSSARY.md](GLOSSARY.md).
 
 ## Where to look
 
@@ -66,7 +69,7 @@ The project has 3 parts. A call moves through them in order.
 - New resource = one manifest row.
 - New API = one new `src/apis/<api>.ts` file (default-export `satisfies Manifest`). The glob finds it. No shared file changes.
 - Accept rule — **coverage-oracle**: the self-check fails if the manifest does not cover 100% of the discovery-doc resources.
-- Test through the executor seam. Inject a fake `tokenProvider` and `fetch`. Use no real network.
+- Test through `run(argv, io)`: fixture entries via `io.apisDir`, cache seeded in a temp `GAPI_CONFIG_DIR`, fake `fetch` (`test/helpers/fetch.ts`). `--dry-run` shows the request. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
 - Fix lint by fixing the code it flags — never `biome --unsafe`, never disable a rule to clear it.
 
