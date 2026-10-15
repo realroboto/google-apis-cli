@@ -59,10 +59,10 @@ test('--help prints the usage and every api entry without loading a document', a
 });
 
 test('gapi <api> [<resource>…] lists that level', async () => {
-  const hand = await sh(['gsc']);
-  assert.equal(hand.code, 0);
-  assert.match(hand.stdout, /^resources:\n(?: {2}\S+\n)* {2}sites\n/m);
-  assert.doesNotMatch(hand.stdout, /^helpers:/m);
+  const gsc = await sh(['gsc']);
+  assert.equal(gsc.code, 0);
+  assert.match(gsc.stdout, /^resources:\n(?: {2}\S+\n)* {2}sites\n/m);
+  assert.doesNotMatch(gsc.stdout, /^helpers:/m);
   assert.match((await sh(['ads'])).stdout, /^helpers:\n {2}\+gaql {2}"<query>" --customer <id>/m);
 
   const r = await fx(['ga4-admin', 'properties']);
@@ -72,7 +72,7 @@ test('gapi <api> [<resource>…] lists that level', async () => {
     'gapi ga4-admin properties\n\nresources:\n  dataStreams\n\nmethods:\n  list\n',
   );
   assert.match(
-    (await fx(['gsc', 'urlTestingTools', 'mobileFriendlyTest'])).stdout,
+    (await sh(['gsc', 'urlTestingTools', 'mobileFriendlyTest'])).stdout,
     /run \(retired\)/,
   );
 });
@@ -112,7 +112,7 @@ test('D5 examples: --dry-run prints the exact request', async () => {
   assert.equal(bad.code, 3);
   assert.equal(bad.stderr, 'gapi: name must match ^properties/[^/]+/dataStreams/[^/]+$\n');
   assert.equal(
-    (await dryRun(['gsc', 'sites', 'get', '--params', '{"siteUrl":"https://a.com/"}'])).url,
+    (await dryRun(['gsc', 'sites', 'get', '--params', '{"siteUrl":"https://a.com/"}'], true)).url,
     'https://searchconsole.googleapis.com/webmasters/v3/sites/https%3A%2F%2Fa.com%2F',
   );
 });
@@ -235,6 +235,7 @@ test('validation errors exit 3 before any network call', async () => {
     [
       ['gsc', 'urlTestingTools', 'mobileFriendlyTest', 'run', '--body', '{}'],
       /^gapi: retired: Retired by Google in December 2023 \(https:\/\/developers\.google\.com\//,
+      true,
     ],
     [
       ['ads', '+gaql', 'SELECT campaign.id FROM campaign'],
