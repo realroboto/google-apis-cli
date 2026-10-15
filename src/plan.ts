@@ -224,11 +224,31 @@ function accepts(pattern: string, contentType: string): boolean {
 
 function parseJson(flag: string, text: string | undefined): unknown {
   if (text === undefined) return undefined;
+  let value: unknown;
   try {
-    return JSON.parse(text);
+    value = JSON.parse(text);
   } catch (e) {
     throw invalid(`${flag} is not valid JSON: ${(e as Error).message}`);
   }
+  const path = unsafeInteger(value, '');
+  if (path !== undefined) {
+    throw invalid(`${flag}${path && ` ${path}`}: integer exceeds 2^53; pass it as a string`);
+  }
+  return value;
+}
+
+// JSON.parse rounds integers past 2^53; Discovery sends int64 as a string (discovery/v1/type-format).
+function unsafeInteger(value: unknown, path: string): string | undefined {
+  if (typeof value === 'number') {
+    return Math.abs(value) > Number.MAX_SAFE_INTEGER ? path : undefined;
+  }
+  if (typeof value !== 'object' || value === null) return undefined;
+  const array = Array.isArray(value);
+  for (const [key, item] of Object.entries(value)) {
+    const found = unsafeInteger(item, array ? `${path}[${key}]` : path ? `${path}.${key}` : key);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 }
 
 // --params → one list of string values per known parameter (D5 value rules).
