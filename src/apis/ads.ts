@@ -1,8 +1,8 @@
 // Google Ads API v25 (REST) — GAQL search/searchStream + per-resource :mutate.
 // Ads has no discovery REST doc (the API is proto-defined); endpoints verified
 // against the v25 RPC reference (googleads.googleapis.com/v25). MCC callers add
-// the optional `login-customer-id` header, resolved flag→env→config in
-// src/config.ts (resolveAdsHeaders). One OAuth scope: `adwords`.
+// the optional `login-customer-id` header (`headers` below), resolved
+// flag→env→config by Credentials. One OAuth scope: `adwords`.
 //
 // developer-token was sunset 2026-09-09 — the header is ignored by the API
 // (access is now governed by the Cloud project that owns the OAuth client), so
@@ -96,5 +96,13 @@ export default {
     'ad-group-ads': mutate('adGroupAds'),
     'ad-group-criteria': mutate('adGroupCriteria'),
   },
+  headers: [
+    {
+      name: 'login-customer-id',
+      flag: 'login-customer-id',
+      env: 'GOOGLE_ADS_LOGIN_CUSTOMER_ID',
+      configKey: 'login-customer-id',
+    },
+  ],
   helpers: { '+gaql': gaql },
 } satisfies Manifest;

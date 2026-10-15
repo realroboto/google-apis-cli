@@ -116,7 +116,7 @@ export async function openCatalog({
     if (!entry) throw new GapiError(3, `unknown api: ${api}`);
     const model = isApiEntry(entry)
       ? toModel(await document(entry, refresh), entry)
-      : toModel(legacyDoc(entry), { api });
+      : toModel(legacyDoc(entry), { api, headers: entry.headers });
     models.set(api, model);
     return model;
   }
