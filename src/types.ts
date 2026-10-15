@@ -57,7 +57,7 @@ export type ApiMethod = {
   httpMethod: HttpMethod;
   path: string;
   description?: string;
-  parameters: Record<string, DiscoveryParam>;
+  parameters: Map<string, DiscoveryParam>;
   parameterOrder: string[];
   request?: string; // schema name
   response?: string; // schema name
@@ -72,7 +72,8 @@ export type ApiMethod = {
   pageable: boolean; // has a `pageToken` query parameter
 };
 
-// Maps, not records: a user token like `constructor` must not reach Object.prototype.
+// Every user-keyed lookup in the model (command words, --params keys, schema names)
+// is a Map, so a token like `constructor` never reaches Object.prototype.
 export type ApiResource = {
   resources: Map<string, ApiResource>;
   methods: Map<string, ApiMethod>;
@@ -90,8 +91,8 @@ export type ApiModel = ApiResource & {
   auth: 'oauth' | 'apiKey';
   scopes: string[]; // entry `scopes` as full URLs
   byId: Map<string, ApiMethod>;
-  parameters: Record<string, DiscoveryParam>; // document-level
-  schemas: Record<string, DiscoverySchema>;
+  parameters: Map<string, DiscoveryParam>; // document-level
+  schemas: Map<string, DiscoverySchema>;
   headers?: ApiEntry['headers'];
   problems: string[]; // overlay ids absent from the document
 };

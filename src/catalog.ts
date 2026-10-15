@@ -189,8 +189,8 @@ function toModel(doc: DiscoveryDoc, entry: Overlays): ApiModel {
     auth,
     scopes,
     byId,
-    parameters: doc.parameters ?? {},
-    schemas: doc.schemas ?? {},
+    parameters: new Map(Object.entries(doc.parameters ?? {})),
+    schemas: new Map(Object.entries(doc.schemas ?? {})),
     headers: entry.headers,
     problems,
   };
@@ -198,7 +198,7 @@ function toModel(doc: DiscoveryDoc, entry: Overlays): ApiModel {
 
 function toMethod(m: DiscoveryMethod, words: string[]): ApiMethod {
   const scopes = m.scopes ?? [];
-  const parameters = m.parameters ?? {};
+  const parameters = new Map(Object.entries(m.parameters ?? {}));
   return {
     id: m.id,
     words,
@@ -221,7 +221,7 @@ function toMethod(m: DiscoveryMethod, words: string[]): ApiMethod {
         }
       : undefined,
     download: m.supportsMediaDownload === true,
-    pageable: parameters.pageToken?.location === 'query',
+    pageable: parameters.get('pageToken')?.location === 'query',
   };
 }
 
