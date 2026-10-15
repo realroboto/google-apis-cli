@@ -58,6 +58,10 @@
    [google-apis-cli]
 
 ## User Directives
-1. **[2026-10-15] Repo is public: live-check comments must not expose real account ids, names or domains**
+1. **[2026-10-15] Operator wants decisions made, not asked: gapi is built 100% for LLM agents, idiomatic with Google docs**
+   Do instead: decide by Google source order (SPEC) + best practice; ask only security or hard-to-reverse choices
+   [google-apis-cli]
+
+2. **[2026-10-15] Repo is public: live-check comments must not expose real account ids, names or domains**
    Do instead: replace with placeholders (`<customer-id>`, `<account-id>`, `<property-id>`, `<domain>`); scan with `rg` before `gh issue comment`
    [google-apis-cli]
