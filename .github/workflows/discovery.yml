@@ -1,0 +1,22 @@
+name: Discovery check
+
+on:
+  schedule:
+    # Mondays 06:17 UTC; off the hour, when GitHub delays or drops scheduled runs.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm discovery:check
