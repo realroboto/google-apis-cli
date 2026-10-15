@@ -121,6 +121,25 @@ test('--help prints the usage and every api entry without loading a document', a
   assert.equal(r.stderr, '');
 });
 
+test('auth login --help prints the auth usage and starts no login', async () => {
+  const { fetch, calls } = fakeFetch(() => new Response('{}'));
+  const r = await sh(['auth', 'login', '--help'], { fetch });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.stdout, 'gapi auth setup | login [--manual] | status | logout\n');
+  assert.equal(r.stderr, '');
+  assert.equal(calls.length, 0);
+});
+
+test('schema --help prints the schema usage', async () => {
+  const r = await sh(['schema', '--help']);
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(
+    r.stdout,
+    'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs]\n',
+  );
+  assert.equal(r.stderr, '');
+});
+
 test('gapi <api> [<resource>…] lists that level', async () => {
   const gsc = await sh(['gsc']);
   assert.equal(gsc.code, 0);
