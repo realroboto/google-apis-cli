@@ -1,6 +1,7 @@
 // Transport: sends a CallPlan and prints the response (epic #30 D13).
 // `authorize` adds the credential before every request; a non-2xx exits 1, a missing scope 2.
 import { GapiError } from './errors.ts';
+import { isRecord, parseOrText } from './json.ts';
 import { batch } from './transport/batch.ts';
 import { download } from './transport/download.ts';
 import { upload } from './transport/upload.ts';
@@ -56,10 +57,11 @@ export async function send(plan: CallPlan, deps: SendDeps): Promise<void> {
   // D6: one compact JSON line per page, until no nextPageToken or pageLimit pages.
   const url = new URL(plan.url);
   for (let page = 1; page <= plan.pageLimit; page++) {
-    const data = (await json(await call(url.href, init))) as { nextPageToken?: unknown };
+    const data = await json(await call(url.href, init));
     deps.out.write(`${JSON.stringify(data)}\n`);
-    if (typeof data?.nextPageToken !== 'string' || !data.nextPageToken) return;
-    url.searchParams.set('pageToken', data.nextPageToken);
+    const token = isRecord(data) ? data.nextPageToken : undefined;
+    if (typeof token !== 'string' || !token) return;
+    url.searchParams.set('pageToken', token);
   }
 }
 
@@ -72,27 +74,35 @@ function caller(plan: CallPlan, { fetch, authorize }: SendDeps): Call {
   };
 }
 
+// A 2xx body that is not JSON is Google's surprise, not gapi's: exit 1 with the body.
 async function json(res: FetchResponse): Promise<unknown> {
   const text = await res.text();
-  return text ? JSON.parse(text) : {};
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new GapiError(1, `HTTP ${res.status}: the response body is not JSON`, text);
+  }
 }
 
 function failure(plan: CallPlan, status: number, text: string): GapiError {
   // A front-end error page can be HTML; keep it as text rather than fail on parse.
   const body = parseOrText(text);
-  const error = (body as { error?: { message?: string; details?: { reason?: string }[] } })?.error;
-  // D8: the stored grant lacks this method's scope; a new consent fixes it.
-  if (error?.details?.some((d) => d?.reason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')) {
+  const error = isRecord(body) && isRecord(body.error) ? body.error : {};
+  // D8: the stored grant lacks this method's scope; a new consent fixes it. AIP-193: the
+  // (reason, domain) pair of the ErrorInfo detail identifies the error.
+  const info = (Array.isArray(error.details) ? error.details : []).find(
+    (d) =>
+      isRecord(d) && typeof d['@type'] === 'string' && d['@type'].endsWith('google.rpc.ErrorInfo'),
+  );
+  if (
+    isRecord(info) &&
+    info.reason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' &&
+    info.domain === 'googleapis.com'
+  ) {
     const scopes = plan.auth.scopes.join(', ');
     return new GapiError(2, `missing scope (${scopes}); run gapi auth login`, body);
   }
-  return new GapiError(1, error?.message ?? `HTTP ${status}`, body || undefined);
-}
-
-function parseOrText(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
+  const message = typeof error.message === 'string' ? error.message : `HTTP ${status}`;
+  return new GapiError(1, message, body || undefined);
 }

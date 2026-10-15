@@ -4,6 +4,7 @@ import { type ParseArgsConfig, parseArgs } from 'node:util';
 import { openCatalog } from './catalog.ts';
 import { configDir, openCredentials } from './credentials.ts';
 import { GapiError } from './errors.ts';
+import { isRecord } from './json.ts';
 import { plan, resolve } from './plan.ts';
 import {
   DISCOVERY_USAGE,
@@ -63,8 +64,9 @@ export async function run(argv: string[], io: Io): Promise<number> {
     return 0;
   } catch (e) {
     const err = e instanceof GapiError ? e : new GapiError(5, String(e));
-    const body = err.body as { error?: unknown } | undefined;
-    const detail = body ? `\n${JSON.stringify(body.error ?? body, null, 2)}` : '';
+    const { body } = err;
+    const shown = isRecord(body) ? (body.error ?? body) : body;
+    const detail = body ? `\n${JSON.stringify(shown, null, 2)}` : '';
     io.stderr.write(`gapi: ${err.message}${detail}\n`);
     return err.exit;
   }

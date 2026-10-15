@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -54,6 +55,7 @@ const gaqlMethod = (verb: string, request: string) => ({
 writeFileSync(
   join(dir, 'cache', 'ads.json'),
   JSON.stringify({
+    kind: 'discovery#restDescription',
     name: 'googleads',
     version: 'v26',
     rootUrl: 'https://googleads.googleapis.com/',
@@ -229,6 +231,18 @@ test('ads +gaql: --dry-run prints the search request; --stream concatenates ever
     'https://googleads.googleapis.com/v26/customers/1/googleAds:searchStream',
   );
   assert.equal(calls[0].init?.body, JSON.stringify({ query }));
+});
+
+test('ads +gaql --stream: a chunk with an error exits 1 with that chunk', async () => {
+  const failed = { error: { code: 500, message: 'Internal error encountered.' } };
+  const { fetch } = fakeFetch(() => Response.json([{ results: [{ id: 1 }] }, failed]));
+  const r = await sh(['ads', '+gaql', 'SELECT x FROM y', '--customer', '1', '--stream'], { fetch });
+  assert.equal(r.code, 1);
+  assert.equal(r.stdout, '');
+  assert.equal(
+    r.stderr,
+    `gapi: Internal error encountered.\n${JSON.stringify(failed.error, null, 2)}\n`,
+  );
 });
 
 test('path and query encoding: {+x} per segment, repeated params, scalars', async () => {
@@ -442,7 +456,7 @@ test('schema prints the D9 method shape, or a schema with $ref expanded up to a 
 test('discovery refresh refetches and rewrites the cache; discovery path prints it', async () => {
   const file = join(dir, 'cache', 'mini.json');
   const text = readFileSync(join(FIXTURES, 'discovery', 'mini.json'), 'utf8');
-  writeFileSync(file, '{}'); // fresh, so only a refresh refetches it
+  writeFileSync(file, JSON.stringify({ kind: 'discovery#restDescription' })); // fresh: only a refresh refetches it
   const { fetch, calls } = fakeFetch(() => new Response(text));
   const r = await fx(['discovery', 'refresh', 'mini', 'mini'], { fetch });
   assert.equal(r.code, 0);
@@ -467,6 +481,35 @@ test('discovery refresh refetches and rewrites the cache; discovery path prints 
     assert.equal(bad.code, 3, argv.join(' '));
     assert.equal(bad.stderr, stderr);
     assert.equal(none.calls.length, 0);
+  }
+});
+
+test('a corrupt or wrong-kind cache file is refetched; a failed refetch exits 4', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'gapi-cache-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const file = join(home, 'cache', 'mini.json');
+  mkdirSync(join(home, 'cache'));
+  const text = readFileSync(join(FIXTURES, 'discovery', 'mini.json'), 'utf8');
+  const io = { env: { GAPI_CONFIG_DIR: home }, apisDir };
+  for (const corrupt of ['{"name":', JSON.stringify({ kind: 'discovery#directoryList' })]) {
+    writeFileSync(file, corrupt); // fresh, so only the failed guard refetches it
+    const { fetch, calls } = fakeFetch(() => new Response(text));
+    const r = await gapi(['mini'], { ...io, fetch });
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(r.stderr, '');
+    assert.equal(calls.length, 1);
+    assert.equal(readFileSync(file, 'utf8'), text);
+
+    writeFileSync(file, corrupt);
+    const down = await gapi(['mini'], {
+      ...io,
+      fetch: () => Promise.resolve(new Response('nope', { status: 503 })),
+    });
+    assert.equal(down.code, 4);
+    assert.equal(
+      down.stderr,
+      'gapi: discovery fetch failed for mini: HTTP 503; retry: gapi discovery refresh mini\n',
+    );
   }
 });
 
@@ -531,6 +574,7 @@ test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT exits 2 naming the scope', asy
       {
         '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
         reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT',
+        domain: 'googleapis.com',
       },
     ],
   };
@@ -546,7 +590,16 @@ test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT exits 2 naming the scope', asy
 });
 
 test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT names the entry scope when the method lists none', async () => {
-  const error = { code: 403, details: [{ reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' }] };
+  const error = {
+    code: 403,
+    details: [
+      {
+        '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+        reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT',
+        domain: 'googleapis.com',
+      },
+    ],
+  };
   const { fetch } = fakeFetch(() => Response.json({ error }, { status: 403 }));
   const r = await fx(['business', 'locations', 'get', '--params', '{"name":"locations/1"}'], {
     fetch,
@@ -560,6 +613,24 @@ test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT names the entry scope when the
   );
 });
 
+test('send: ACCESS_TOKEN_SCOPE_INSUFFICIENT from another domain exits 1', async () => {
+  const error = {
+    code: 403,
+    message: 'Denied.',
+    details: [
+      {
+        '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+        reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT',
+        domain: 'example.invalid',
+      },
+    ],
+  };
+  const { fetch } = fakeFetch(() => Response.json({ error }, { status: 403 }));
+  const r = await fx(['indexing', 'urlNotifications', 'getMetadata'], { fetch });
+  assert.equal(r.code, 1);
+  assert.equal(r.stderr, `gapi: Denied.\n${JSON.stringify(error, null, 2)}\n`);
+});
+
 test('send: a Google non-2xx exits 1 with the error body', async () => {
   const error = {
     code: 400,
@@ -571,6 +642,14 @@ test('send: a Google non-2xx exits 1 with the error body', async () => {
   assert.equal(r.code, 1);
   assert.equal(r.stdout, '');
   assert.equal(r.stderr, `gapi: ${error.message}\n${JSON.stringify(error, null, 2)}\n`);
+});
+
+test('send: a 2xx body that is not JSON exits 1 with the body', async () => {
+  const { fetch } = fakeFetch(() => new Response('<html>oops</html>'));
+  const r = await fx(['ga4-admin', 'properties', 'list'], { fetch });
+  assert.equal(r.code, 1);
+  assert.equal(r.stdout, '');
+  assert.equal(r.stderr, 'gapi: HTTP 200: the response body is not JSON\n"<html>oops</html>"\n');
 });
 
 test('media --dry-run prints the upload session request and the alt=media request', async () => {
@@ -694,8 +773,8 @@ test('send: a resumable upload opens a session, then PUTs 8 MiB chunks until a 2
     stuck.calls.length === 1 ? opened() : new Response(null, { status: 308 }),
   );
   const s = await fx(argv, { fetch: stuck.fetch });
-  assert.equal(s.code, 5);
-  assert.match(s.stderr, /^gapi: Error: resumable upload: 308 at byte 0 of 5, no progress\n$/);
+  assert.equal(s.code, 1);
+  assert.equal(s.stderr, 'gapi: resumable upload: 308 at byte 0 of 5, no progress\n');
   assert.equal(stuck.calls.length, 4);
 });
 

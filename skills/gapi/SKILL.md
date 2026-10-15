@@ -98,7 +98,7 @@ gapi ads +gaql "SELECT campaign.id FROM campaign" --customer 1234567890 --stream
 gapi indexing +publishBatch urls.txt --dry-run
 ```
 
-- `+gaql`: `--customer` = account id, 10 digits, no hyphens. Without `--stream`: first `search` page as returned. With `--stream`: `searchStream`, every row in one `results` array.
+- `+gaql`: `--customer` = account id, 10 digits, no hyphens. Without `--stream`: first `search` page as returned. With `--stream`: `searchStream`, every row in one `results` array; a chunk with an `error` key → exit 1 with that chunk.
 - `+publishBatch <file>`: lines `URL_UPDATED <url>` or `URL_DELETED <url>` (blank and `#` lines skipped); 100 per batch call; prints `[{ url, type, status, body }]`; exit 1 if any part fails.
 
 ## Auth and headers
@@ -117,10 +117,10 @@ gapi sa360 customers searchAds360 search --params '{"customerId":"1234567890"}' 
 | Code | Meaning |
 |---|---|
 | 0 | success |
-| 1 | Google API returned non-2xx (body on stderr) |
+| 1 | Google API returned non-2xx, or a response gapi cannot read (2xx body not JSON, upload or batch protocol reply, `searchStream` chunk with `error`); body on stderr |
 | 2 | auth: no credentials, token expired or revoked, missing scope, missing API key, unavailable method |
 | 3 | validation: unknown command or param, missing required, pattern, bad JSON, flag not valid for the method, retired method |
-| 4 | discovery document fetch failed and no cache |
+| 4 | discovery document fetch failed and no usable cache (`gapi discovery refresh <api>` retries) |
 | 5 | internal |
 
 Errors print `gapi: <message>` to stderr. `missing scope (…); run gapi auth login` (exit 2) → run `gapi auth login`.
@@ -168,4 +168,4 @@ Search paths start with `places.`; `get` paths do not.
 
 ## Discovery cache
 
-Documents cache 24 h under the config dir (`GAPI_CONFIG_DIR` or `~/.config/gapi`). `gapi discovery refresh [<api>…]` refetches now; `gapi discovery path` prints the cache dir. A failed refetch falls back to the stale copy with a stderr warning.
+Documents cache 24 h under the config dir (`GAPI_CONFIG_DIR` or `~/.config/gapi`). `gapi discovery refresh [<api>…]` refetches now; `gapi discovery path` prints the cache dir. A failed refetch falls back to the stale copy with a stderr warning. A cache file that is not a `discovery#restDescription` JSON document is refetched.
