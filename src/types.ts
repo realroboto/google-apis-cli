@@ -64,7 +64,7 @@ export type ApiMethod = {
   parameterOrder: string[];
   request?: string; // schema name
   response?: string; // schema name
-  scopes: string[]; // as the document lists them
+  scopes: string[]; // as the document lists them; none listed → the entry `scopes`
   scope?: string; // the first scope not in the never set
   unavailable: boolean; // OAuth API; every scope is in the never set
   retired?: { reason: string; source: string };

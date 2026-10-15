@@ -25,6 +25,7 @@ const dir = mkdtempSync(join(tmpdir(), 'gapi-run-'));
 const env = { GAPI_CONFIG_DIR: dir };
 mkdirSync(join(dir, 'cache'));
 const DOCS = {
+  business: 'business',
   crux: 'crux',
   dv360: 'dv360',
   'ga4-admin': 'ga4-admin',
@@ -539,6 +540,21 @@ test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT exits 2 naming the scope', asy
   assert.ok(
     r.stderr.startsWith(
       'gapi: missing scope (https://www.googleapis.com/auth/indexing); run gapi auth login\n',
+    ),
+    r.stderr,
+  );
+});
+
+test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT names the entry scope when the method lists none', async () => {
+  const error = { code: 403, details: [{ reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' }] };
+  const { fetch } = fakeFetch(() => Response.json({ error }, { status: 403 }));
+  const r = await fx(['business', 'locations', 'get', '--params', '{"name":"locations/1"}'], {
+    fetch,
+  });
+  assert.equal(r.code, 2);
+  assert.ok(
+    r.stderr.startsWith(
+      'gapi: missing scope (https://www.googleapis.com/auth/business.manage); run gapi auth login\n',
     ),
     r.stderr,
   );
