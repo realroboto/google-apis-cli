@@ -10,22 +10,46 @@
 //
 // searchStream is a gRPC server-streaming method: over REST the transport
 // transcodes it to a JSON ARRAY of SearchGoogleAdsStreamResponse objects, each
-// with a `results` field and no nextPageToken. The `streamConcat` decoder
-// flattens that array into one results list — the one non-identity decoder
-// (the Ads decoder seam). `:search` keeps its raw {results, nextPageToken}:
-// it pages via the request body (like GSC searchAnalytics), not a query token,
-// so no listKey — the executor's query-token paging would loop on it.
+// with a `results` field and no nextPageToken. `+gaql --stream` flattens that
+// array into one results list (`streamConcat`). `:search` keeps its raw
+// {results, nextPageToken}: it pages via the request body (like GSC
+// searchAnalytics), not a query token, so gapi does not page it (epic #30 D6).
 //
 // MCC hierarchy (story 30) is a GAQL query on the `customer_client` resource
-// through gaql/search — no separate endpoint.
-import type { Manifest } from '../types.ts';
+// through +gaql — no separate endpoint.
+import { GapiError } from '../errors.ts';
+import { plan } from '../plan.ts';
+import type { Helper, Manifest } from '../types.ts';
 
 const ADS = ['adwords'];
 const C = '/v25/customers/{customer}';
+const GAQL_ARGS = '"<query>" --customer <id> [--stream]';
 
 // searchStream → JSON array of {results, ...} chunks; concat into one list.
 const streamConcat = (data: unknown): unknown =>
   Array.isArray(data) ? data.flatMap((c) => (c as { results?: unknown[] })?.results ?? []) : data;
+
+// D10: one GAQL query; `--stream` returns every row, without it the first page as returned.
+const gaql: Helper = {
+  summary: `${GAQL_ARGS}  run one GAQL query; --stream returns every row`,
+  options: { customer: { type: 'string' }, stream: { type: 'boolean' } },
+  plan: async ({ model, args, flags, settings }) => {
+    if (args.length !== 1) throw new GapiError(3, `usage: gapi ads +gaql ${GAQL_ARGS}`);
+    if (typeof flags.customer !== 'string') throw new GapiError(3, '--customer is required');
+    const stream = flags.stream === true;
+    const call = plan(
+      model,
+      stream ? 'ads.gaql.searchStream' : 'ads.gaql.search',
+      {
+        params: JSON.stringify({ customer: flags.customer }),
+        body: JSON.stringify({ query: args[0] }),
+        dryRun: flags['dry-run'] === true,
+      },
+      settings,
+    );
+    return stream ? { ...call, decode: streamConcat } : call;
+  },
+};
 
 // Every :mutate service is the same shape: POST customers/{}/{collection}:mutate
 // with a {operations:[...]} body. Only the collection segment varies.
@@ -62,7 +86,6 @@ export default {
         httpMethod: 'POST',
         pathTemplate: `${C}/googleAds:searchStream`,
         scopes: ADS,
-        decoder: streamConcat,
       },
     },
     // Core write surface (:mutate). Body: {operations:[{create|update|remove}]}.
@@ -73,4 +96,5 @@ export default {
     'ad-group-ads': mutate('adGroupAds'),
     'ad-group-criteria': mutate('adGroupCriteria'),
   },
+  helpers: { '+gaql': gaql },
 } satisfies Manifest;

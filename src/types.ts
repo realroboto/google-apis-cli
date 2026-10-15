@@ -1,6 +1,7 @@
 // Shared types for the two seams: the declarative manifest row and the
 // executor's injected dependencies. Kept in one file so an API slice only
 // imports types, never redefines the contract.
+import type { ParseArgsOptionsConfig } from 'node:util';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -13,16 +14,34 @@ export type ManifestRow = {
   // Query-param names filled from trailing positionals (after path params), in
   // order — the GET counterpart of path {placeholders} (e.g. indexing getMetadata ?url=).
   query?: string[];
-  decoder?: (data: unknown, raw: unknown) => unknown;
 };
 
 export type Manifest = {
   api: string;
   baseUrl: string;
   resources: Record<string, Record<string, ManifestRow>>;
+  helpers?: Helpers;
 };
 
-// One discovery-driven API (epic #30 D1). `helpers` arrives with the helper mechanism (#40).
+// A `+name` hand command (epic #30 D10): parses its own options, then builds its
+// CallPlan through the Planner by method id.
+export type Helper = {
+  summary: string;
+  options: ParseArgsOptionsConfig;
+  plan(ctx: HelperContext): Promise<CallPlan>;
+};
+
+export type HelperContext = {
+  model: ApiModel;
+  args: string[]; // positionals after `+name`
+  flags: Record<string, unknown>; // parsed global and helper options
+  settings: Settings;
+  read(path: string): Promise<string>;
+};
+
+export type Helpers = Record<`+${string}`, Helper>;
+
+// One discovery-driven API (epic #30 D1).
 export type ApiEntry = {
   api: string; // CLI name, ^[a-z0-9-]+$, equals the file base name
   discovery: string; // discovery document URL
@@ -32,6 +51,7 @@ export type ApiEntry = {
   deprecated?: Record<string, { source: string }>; // method id → marks deprecated
   paid?: Record<string, { reason: string; source: string }>; // method id → billed or closed
   headers?: { name: string; flag: string; env: string; configKey: string }[];
+  helpers?: Helpers;
 };
 
 // A discovery `parameters` value, as Google writes it.
@@ -107,6 +127,7 @@ export type CallPlan = {
   headers: Record<string, string>;
   body?: unknown;
   auth: { kind: ApiModel['auth']; scopes: string[] };
+  decode?: (data: unknown) => unknown; // reshapes a `once` response before it prints
   warnings: string[];
 } & SendMode;
 

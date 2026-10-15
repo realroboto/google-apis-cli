@@ -1,5 +1,5 @@
 // Renderers: plain text views over an ApiModel (epic #30 D4, story 8).
-import type { ApiMethod, ApiModel, ApiResource } from './types.ts';
+import type { ApiMethod, ApiModel, ApiResource, Helpers } from './types.ts';
 
 export const SCHEMA_USAGE =
   'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs]';
@@ -10,6 +10,7 @@ const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<js
      [--page-all [--page-limit <n>]] [--dry-run] [--project <id>]
 gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
+gapi <api> +<helper> … [--dry-run] [--project <id>]
 ${SCHEMA_USAGE}
 ${DISCOVERY_USAGE}
 gapi auth setup | login [--manual] | status | logout
@@ -33,8 +34,16 @@ const marks = (m: ApiMethod): string =>
     .map((s) => ` ${s}`)
     .join('');
 
-export function levelText(model: ApiModel, words: string[], node: ApiResource): string {
+export function levelText(
+  model: ApiModel,
+  words: string[],
+  node: ApiResource,
+  helpers: Helpers = {},
+): string {
   const lines = [`gapi ${[model.api, ...words].join(' ')}`];
+  if (Object.keys(helpers).length > 0) {
+    lines.push('', 'helpers:', ...Object.entries(helpers).map(([k, h]) => `  ${k}  ${h.summary}`));
+  }
   if (node.resources.size > 0) {
     lines.push('', 'resources:', ...[...node.resources.keys()].map((k) => `  ${k}`));
   }
