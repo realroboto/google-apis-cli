@@ -58,17 +58,22 @@ With `gcloud`, one call per batch of names: `gcloud services enable <service> �
 > **Trap — some APIs need a billing account, even for free calls.** Without a billing account
 > on the project, calls such as `bigquery-dts … dataSources list` and `web-risk uris search`
 > return 403 `PERMISSION_DENIED`, reason `BILLING_DISABLED`. Web Risk `uris.search` is free up
-> to 100,000 calls a month; `hashes.search` is paid only. Places (New) also needs a billing
+> to 100,000 calls a month ([pricing](https://cloud.google.com/web-risk/pricing): "free for up to
+> 100,000 calls per month"); `hashes.search` is paid only. Places (New) also needs a billing
 > account: free monthly caps, then billed.
 
 > **Trap — the Ads API Center is dead.** Ads onboarding moved out of the Google Ads UI into
 > Cloud Console. Applications started from `ads.google.com/aw/apicenter` are **not processed**.
 > Use the [Google Ads API Overview page](https://console.cloud.google.com/google/ads-apis/overview) instead.
 > The old API Center still renders, which is what makes this trap convincing.
+> [Google](https://developers.google.com/google-ads/api/docs/api-policy/developer-token): applications
+> "won't be processed if initiated from the API Center page".
 
 > **Trap — developer tokens are gone.** Sunset on **2026-09-09**. The header is ignored by the
-> API and `gapi` never sends it. Your Cloud project carries the access level now. Guides that
-> tell you to fetch a 22-character token are stale.
+> API and `gapi` never sends it ([Google](https://developers.google.com/google-ads/api/docs/api-policy/developer-token):
+> "We sunset developer tokens on September 9, 2026 … optional and ignored by the API servers").
+> Your Cloud project carries the access level now. Guides that tell you to fetch a 22-character
+> token are stale.
 
 **Done when** every API you plan to call, except the Business Profile ones, shows **API Enabled**
 on its Library page.
@@ -83,10 +88,12 @@ not on the Ads account. Read it on the
 
 | Level | Production accounts | Daily operations | How to reach |
 |---|---|---|---|
-| **Test** | test accounts only | 15,000 (test) | default for a new project |
-| **Explorer** | **yes** | 2,880 (production) | apply; automatic review, minutes |
-| **Basic** | yes | higher | apply; needs brand verification |
-| **Standard** | yes | highest | apply; manual review |
+| **Test** | test accounts only | 15,000 | default for a new project |
+| **Explorer** | **yes** | 2,880 production, 15,000 test | apply; Google may upgrade automatically |
+| **Basic** | yes | 15,000 | apply; needs brand verification |
+| **Standard** | yes | unlimited | apply; manual review |
+
+Source: [Google Ads API access levels](https://developers.google.com/google-ads/api/docs/api-policy/access-levels).
 
 **Explorer is the bar for production.** Below it, a call to a real account returns
 `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION`.
@@ -122,7 +129,9 @@ Order — approval → enable → login:
 
 > **Trap — quota 0 means not approved.** Before approval the services do not show in the
 > Library, and calls return `SERVICE_DISABLED` or access denied (exit 1). The Business Profile
-> quota page in Cloud Console reads **0 QPM** until approval and **300 QPM** after.
+> quota page in Cloud Console reads **0 QPM** until approval and **300 QPM** after
+> ([limits](https://developers.google.com/my-business/content/limits): "If your quota limit for the
+> Google Business Profile API is 0, you have not yet been granted access"; default requests 300 QPM).
 
 **Done when** the Business Profile quota reads 300 QPM and the 8 services show **API Enabled**.
 
@@ -138,12 +147,24 @@ Publishing status decides who may log in and **how long your refresh token survi
 
 | Status | Who can log in | Refresh token life | Price of admission |
 |---|---|---|---|
-| **Testing** | only addresses listed under *Test users* | **7 days** | free |
+| **Testing** | only addresses listed under *Test users* (up to 100) | **7 days** | free |
 | **In production** | any Google account | no 7-day expiry | home page + privacy policy + terms of service URLs, on an authorized domain |
 
-Testing is enough to evaluate the CLI; production is the steady state. `Publish app` stays
-disabled until those three URLs are filled in on the Branding page — that is the whole gate.
-Budget a hosted page per URL before planning on production.
+Sources: [OAuth 2.0](https://developers.google.com/identity/protocols/oauth2#expiration) ("a
+publishing status of "Testing" is issued a refresh token expiring in 7 days"),
+[Manage App Audience](https://support.google.com/cloud/answer/15549945),
+[Branding](https://support.google.com/cloud/answer/15549049) ("These links are required for all
+external production apps.").
+
+Testing is enough to evaluate the CLI; production is the steady state. Budget a hosted page per
+URL before planning on production.
+
+Publishing does not need OAuth App Verification. Until verification, the consent for `gapi`'s
+sensitive scopes shows the **unverified app** warning (click through it) and the app has a cap
+of 100 new users. Personal use needs no verification ([Google](https://support.google.com/cloud/answer/13464323):
+"If the app is for your personal use (fewer than 100 users), you and your limited number of users
+can continue using the app without going through verification"). Verification removes the
+warning and the cap; its review timeline is not guaranteed.
 
 In Testing, add your own address under **Test users** first.
 

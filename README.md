@@ -17,7 +17,7 @@
 - TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (corepack-pinned) for package management.
 - It replaces the 4 fragmented Google MCPs in vmCODE.
 
-Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]] [--output <file>] [--page-all [--page-limit <n>]] [--dry-run]`. `gapi <api> [<resource>…]` lists a level (the api level also lists helpers); `… <method> --help` shows method help. `gapi <api> +<helper> … [--dry-run] [--project <id>]` runs a hand command, e.g. `gapi ads +gaql "<query>" --customer <id> [--stream]`, `gapi indexing +publishBatch <file>`. `gapi schema <api> <resource>[.<sub>…].<method> | <SchemaName> [--resolve-refs]` prints a method shape or a schema as JSON. `gapi discovery refresh [<api>…]` refetches discovery documents now; `gapi discovery path` prints the cache dir.
+Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]] [--output <file>] [--page-all [--page-limit <n>]] [--dry-run]`. `gapi <api> [<resource>…]` lists a level (the api level also lists helpers); `… <method> --help` shows method help. `gapi <api> +<helper> … [--dry-run] [--project <id>] [--api-key <key>] [<entry header flag>]` runs a hand command, e.g. `gapi ads +gaql "<query>" --customer <id> [--stream]`, `gapi indexing +publishBatch <file>`. `gapi schema <api> <resource>[.<sub>…].<method> | <SchemaName> [--resolve-refs]` prints a method shape or a schema as JSON. `gapi discovery refresh [<api>…]` refetches discovery documents now; `gapi discovery path` prints the cache dir.
 
 ## Install
 
@@ -42,10 +42,11 @@ API key, Business Profile access, consent, Merchant registration) and the traps 
 
 `gapi` asks for sensitive scopes (e.g. `analytics.manage.users`, `tagmanager.manage.*`, `adwords`, `webmasters`). `gapi auth status` shows the granted and the missing scopes. Never requested: `drive`/`drive.*` (restricted) and `display-video-user-management` (Google rejects it for this app).
 
-- **Testing mode** (default) works for all commands, but the refresh token expires every ~7 days — re-run `gapi auth login` when it does.
-- **Production** removes that expiry, but Google requires **OAuth App Verification** first: a privacy-policy URL, a homepage, and a reviewed consent screen. Review timeline is not guaranteed.
+- **Testing mode** (default) works for all commands, but the refresh token expires after 7 days — re-run `gapi auth login` when it does. [Google](https://developers.google.com/identity/protocols/oauth2#expiration): "a publishing status of "Testing" is issued a refresh token expiring in 7 days".
+- **In production** (`Publish app`) removes that expiry. It needs home page, privacy policy and terms of service links ([Google](https://support.google.com/cloud/answer/15549049): "These links are required for all external production apps."). Verification is not a precondition: an unverified production app shows the "unverified app" warning on consent and has a cap of 100 new users ([Manage App Audience](https://support.google.com/cloud/answer/15549945)).
+- **OAuth App Verification** removes the warning and the cap. Personal use does not need it ([Google](https://support.google.com/cloud/answer/13464323): "If the app is for your personal use (fewer than 100 users), you and your limited number of users can continue using the app without going through verification"). Review timeline is not guaranteed.
 
-Testing mode is enough to use the CLI; Production is the no-expiry target. Until verification passes, stay in Testing and re-auth on the ~7-day cadence.
+Testing mode is enough to use the CLI; production is the no-expiry target. Step 4 of [docs/SETUP.md](docs/SETUP.md) walks the switch.
 
 ## Flow
 

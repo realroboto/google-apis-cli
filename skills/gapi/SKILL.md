@@ -63,7 +63,7 @@ A `$ref` already on the expansion path stays `{"$ref":"<name>"}` (cycle guard).
 
 ## `--dry-run`
 
-Prints `{ method, url, headers, body }` (plus `upload`, `output` or `parts`) and exits 0. No auth, no network. Credentials print as `<redacted>`. Check every write with it first — some calls spend money.
+Prints `{ method, url, headers, body }` (plus `upload`, `output` or `parts`) and exits 0. No auth, no API request (may fetch the discovery document when the cache is missing or stale). Credentials print as `<redacted>`. Check every write with it first — some calls spend money.
 
 Dry-run proves the request shape only: it does not check `required (per description)` params, and it prints unavailable methods that exit 2 live.
 
@@ -130,7 +130,7 @@ Errors print `gapi: <message>` to stderr. `missing scope (…); run gapi auth lo
 Help and the reference mark methods. A call to a deprecated method prints one stderr warning.
 
 - **Retired** (exit 3 before any network call):
-  - `gsc urlTestingTools mobileFriendlyTest run` — retired by Google in December 2023.
+  - `gsc urlTestingTools mobileFriendlyTest run` — retired by Google in December 2023 ([source](https://developers.google.com/search/blog/2017/01/introducing-mobile-friendly-test-api): "As of December 2023, the Mobile-Friendly Test and API have been retired.").
   - `business-v4`: `accounts locations reportInsights`, `accounts locations localPosts reportInsights`, `accounts locations insuranceNetworks list`, `accounts locations getHealthProviderAttributes`, `accounts locations updateHealthProviderAttributes`, every `accounts locations questions …` and `… questions answers …` method.
 - **Unavailable** (exit 2; `--dry-run` works): the 6 `dv360 users` methods `create`, `patch`, `list`, `get`, `delete`, `bulkEditAssignedUserRoles`. Their only scope, `display-video-user-management`, is not grantable to this app.
 - **Paid** (call goes through; check cost first):
@@ -150,7 +150,7 @@ Search paths start with `places.`; `get` paths do not.
 
 ## Google Ads v26 notes
 
-`ads` follows API v26. Changes from v25 that break old queries and bodies:
+`ads` follows API v26. Changes from v25 that break old queries and bodies ([release notes](https://developers.google.com/google-ads/api/docs/release-notes), v26 2026-10-14):
 
 - `ConversionTrackingSetting.enhanced_conversions_for_leads_enabled` removed → read `ConversionTrackingSetting.enablement_setting`.
 - `AdGroupBidModifier` hotel fields → `user_set_dates`, `advance_booking_window`, `length_of_booking` (`min_days`/`max_days`), `start_day_of_week`, `start_date_range`.

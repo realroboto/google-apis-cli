@@ -1,7 +1,8 @@
 // Google Ads API v26: the discovery entry, plus the `login-customer-id` header for MCC
 // callers (D8) and the `+gaql` helper (D10). A version bump renames the resource literally
 // named `v26` (`gapi ads v26 listPlannableLocations`), so its commands change with it.
-// No developer-token header: it was sunset 2026-09-09 and the API ignores it.
+// No developer-token header: it was sunset 2026-09-09 and the API ignores it
+// (https://developers.google.com/google-ads/api/docs/api-policy/developer-token).
 //
 // `:search` keeps its raw {results, nextPageToken}: it pages via the request body, not a
 // query token, so gapi does not page it (epic #30 D6); `--stream` is the all-rows path.
