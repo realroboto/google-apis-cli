@@ -197,7 +197,8 @@ export function openCredentials({
       tokenClient = c;
     }
     const { token } = await tokenClient.getAccessToken().catch((e: unknown) => {
-      const reason = (e as { response?: { data?: { error?: unknown } } }).response?.data?.error;
+      const data = isRecord(e) && isRecord(e.response) ? e.response.data : undefined;
+      const reason = isRecord(data) ? data.error : undefined;
       if (reason === 'invalid_grant')
         throw new GapiError(2, `token expired or revoked; ${RELOGIN}`);
       const message = e instanceof Error ? e.message : String(e);
@@ -317,8 +318,10 @@ export function openCredentials({
 // Decode a JWT payload without verifying (display only; it is our own token).
 function accountFromIdToken(idToken: string): string | null {
   try {
-    const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString());
-    return payload.email || payload.sub || null;
+    const payload: unknown = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString());
+    if (!isRecord(payload)) return null;
+    const account = payload.email || payload.sub;
+    return typeof account === 'string' ? account : null;
   } catch {
     return null;
   }

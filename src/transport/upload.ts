@@ -58,7 +58,7 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
   });
   const location = session.headers.get('Location');
   if (!location) {
-    const body = parseOrText(await session.text()) || undefined;
+    const body = parseOrText(await session.text());
     throw new GapiError(1, 'resumable upload: the session response has no Location header', body);
   }
   // undici holds the connection until a body is read or cancelled; only headers matter here.
@@ -76,7 +76,7 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
     const next = kept ? Number(kept[1]) + 1 : 0;
     stalls = next > start ? 0 : stalls + 1;
     if (stalls === MAX_STALLS || next >= file.size) {
-      const body = parseOrText(await res.text()) || undefined;
+      const body = parseOrText(await res.text());
       throw new GapiError(
         1,
         `resumable upload: 308 at byte ${next} of ${file.size}, no progress`,

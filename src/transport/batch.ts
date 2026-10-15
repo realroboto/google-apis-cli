@@ -41,7 +41,7 @@ async function chunk(plan: BatchPlan, parts: BatchPart[], call: Call): Promise<P
   )?.[1];
   // A response gapi cannot map to its parts is Google's surprise: exit 1 with the body.
   const text = await res.text();
-  const surprise = (message: string) => new GapiError(1, message, parseOrText(text) || undefined);
+  const surprise = (message: string) => new GapiError(1, message, parseOrText(text));
   if (!responseBoundary) throw surprise('batch: the response has no multipart boundary');
   const byId = responses(text, responseBoundary);
   if (!byId) throw surprise('batch: malformed response part');

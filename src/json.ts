@@ -3,7 +3,7 @@
 export const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-// A Google body that may not be JSON (an HTML error page, a proxy reply) stays as text.
+// JSON text parsed; text that is not JSON (an HTML error page, a proxy reply) stays as is.
 export function parseOrText(text: string): unknown {
   try {
     return JSON.parse(text);
