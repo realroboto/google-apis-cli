@@ -1,0 +1,819 @@
+{
+  "ownerDomain": "google.com",
+  "title": "Display & Video 360 API",
+  "schemas": {
+    "BulkEditAssignedUserRolesResponse": {
+      "type": "object",
+      "id": "BulkEditAssignedUserRolesResponse",
+      "properties": {
+        "createdAssignedUserRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "AssignedUserRole"
+          },
+          "description": "The list of assigned user roles that have been successfully created. This list will be absent if empty."
+        }
+      }
+    },
+    "ThirdPartyOnlyConfig": {
+      "properties": {
+        "pixelOrderIdReportingEnabled": {
+          "type": "boolean",
+          "description": "Whether or not order ID reporting for pixels is enabled. This value cannot be changed once set to `true`."
+        }
+      },
+      "id": "ThirdPartyOnlyConfig",
+      "description": "Settings for advertisers that use third-party ad servers only.",
+      "type": "object"
+    },
+    "AdvertiserAdServerConfig": {
+      "description": "Ad server related settings of an advertiser.",
+      "id": "AdvertiserAdServerConfig",
+      "properties": {
+        "cmHybridConfig": {
+          "$ref": "CmHybridConfig",
+          "description": "The configuration for advertisers that use both Campaign Manager 360 (CM360) and third-party ad servers."
+        },
+        "thirdPartyOnlyConfig": {
+          "description": "The configuration for advertisers that use third-party ad servers only.",
+          "$ref": "ThirdPartyOnlyConfig"
+        }
+      },
+      "type": "object"
+    },
+    "AdvertiserTargetingConfig": {
+      "description": "Targeting settings related to ad serving of an advertiser.",
+      "properties": {
+        "exemptTvFromViewabilityTargeting": {
+          "description": "Whether or not connected TV devices are exempt from viewability targeting for all video line items under the advertiser.",
+          "type": "boolean"
+        }
+      },
+      "type": "object",
+      "id": "AdvertiserTargetingConfig"
+    },
+    "CmHybridConfig": {
+      "properties": {
+        "cmSyncableSiteIds": {
+          "description": "A list of CM360 sites whose placements will be synced to DV360 as creatives. If absent or empty in CreateAdvertiser method, the system will automatically create a CM360 site. Removing sites from this list may cause DV360 creatives synced from CM360 to be deleted. At least one site must be specified.",
+          "items": {
+            "format": "int64",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cmAdvertiserIds": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "format": "int64",
+            "type": "string"
+          },
+          "description": "Output only. The set of CM360 Advertiser IDs sharing the CM360 Floodlight configuration."
+        },
+        "cmAccountId": {
+          "description": "Required. Immutable. Account ID of the CM360 Floodlight configuration linked with the DV360 advertiser.",
+          "type": "string",
+          "format": "int64"
+        },
+        "dv360ToCmDataSharingEnabled": {
+          "type": "boolean",
+          "description": "Whether or not to include DV360 data in CM360 data transfer reports."
+        },
+        "cmFloodlightConfigId": {
+          "description": "Required. Immutable. ID of the CM360 Floodlight configuration linked with the DV360 advertiser.",
+          "format": "int64",
+          "type": "string"
+        },
+        "dv360ToCmCostReportingEnabled": {
+          "description": "Whether or not to report DV360 cost to CM360.",
+          "type": "boolean"
+        },
+        "cmFloodlightLinkingAuthorized": {
+          "description": "Required. Immutable. By setting this field to `true`, you, on behalf of your company, authorize the sharing of information from the given Floodlight configuration to this Display & Video 360 advertiser.",
+          "type": "boolean"
+        }
+      },
+      "type": "object",
+      "description": "Settings for advertisers that use both Campaign Manager 360 (CM360) and third-party ad servers.",
+      "id": "CmHybridConfig"
+    },
+    "AdvertiserCreativeConfig": {
+      "properties": {
+        "dynamicCreativeEnabled": {
+          "description": "Whether or not the advertiser is enabled for dynamic creatives.",
+          "type": "boolean"
+        },
+        "iasClientId": {
+          "type": "string",
+          "description": "An ID for configuring campaign monitoring provided by Integral Ad Service (IAS). The DV360 system will append an IAS \"Campaign Monitor\" tag containing this ID to the creative tag.",
+          "format": "int64"
+        },
+        "obaComplianceDisabled": {
+          "description": "Whether or not to disable Google's About this Ad feature that adds badging (to identify the content as an ad) and transparency information (on interaction with About this Ad) to your ads for Online Behavioral Advertising (OBA) and regulatory requirements. About this Ad gives users greater control over the ads they see and helps you explain why they're seeing your ad. [Learn more](//support.google.com/displayvideo/answer/14315795). If you choose to set this field to `true`, note that ads served through Display & Video 360 must comply to the following: * Be Online Behavioral Advertising (OBA) compliant, as per your contract with Google Marketing Platform. * In the European Economic Area (EEA), include transparency information and a mechanism for users to report illegal content in ads. If using an alternative ad badging, transparency, and reporting solution, you must ensure it includes the required transparency information and illegal content flagging mechanism and that you notify Google of any illegal content reports using the appropriate [form](//support.google.com/legal/troubleshooter/1114905?sjid=6787484030557261960-EU#ts=2981967%2C2982031%2C12980091).",
+          "type": "boolean"
+        },
+        "videoCreativeDataSharingAuthorized": {
+          "type": "boolean",
+          "description": "By setting this field to `true`, you, on behalf of your company, authorize Google to use video creatives associated with this Display & Video 360 advertiser to provide reporting and features related to the advertiser's television campaigns. Applicable only when the advertiser has a CM360 hybrid ad server configuration."
+        }
+      },
+      "type": "object",
+      "description": "Creatives related settings of an advertiser.",
+      "id": "AdvertiserCreativeConfig"
+    },
+    "AdvertiserSdfConfig": {
+      "description": "Structured Data Files (SDF) settings of an advertiser.",
+      "id": "AdvertiserSdfConfig",
+      "properties": {
+        "overridePartnerSdfConfig": {
+          "description": "Whether or not this advertiser overrides the SDF configuration of its parent partner. By default, an advertiser inherits the SDF configuration from the parent partner. To override the partner configuration, set this field to `true` and provide the new configuration in sdfConfig.",
+          "type": "boolean"
+        },
+        "sdfConfig": {
+          "description": "The SDF configuration for the advertiser. * Required when overridePartnerSdfConfig is `true`. * Output only when overridePartnerSdfConfig is `false`.",
+          "$ref": "SdfConfig"
+        }
+      },
+      "type": "object"
+    },
+    "AdvertiserDataAccessConfig": {
+      "type": "object",
+      "description": "Settings that control how advertiser related data may be accessed.",
+      "properties": {
+        "sdfConfig": {
+          "description": "Structured Data Files (SDF) settings for the advertiser. If not specified, the SDF settings of the parent partner are used.",
+          "$ref": "AdvertiserSdfConfig"
+        }
+      },
+      "id": "AdvertiserDataAccessConfig"
+    },
+    "Empty": {
+      "id": "Empty",
+      "description": "A generic empty message that you can re-use to avoid defining duplicated empty messages in your APIs. A typical example is to use it as the request or the response type of an API method. For instance: service Foo { rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty); }",
+      "type": "object",
+      "properties": {}
+    },
+    "IntegrationDetails": {
+      "properties": {
+        "integrationCode": {
+          "type": "string",
+          "description": "An external identifier to be associated with the entry. The integration code will show up together with the entry in many places in the system, for example, reporting. Must be UTF-8 encoded with a length of no more than 500 characters."
+        },
+        "details": {
+          "description": "Additional details of the entry in string format. Must be UTF-8 encoded with a length of no more than 1000 characters.",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "description": "Integration details of an entry.",
+      "id": "IntegrationDetails"
+    },
+    "ListUsersResponse": {
+      "properties": {
+        "nextPageToken": {
+          "description": "A token to retrieve the next page of results. Pass this value in the page_token field in the subsequent call to `ListUsers` method to retrieve the next page of results. This token will be absent if there are no more results to return.",
+          "type": "string"
+        },
+        "users": {
+          "type": "array",
+          "description": "The list of users. This list will be absent if empty.",
+          "items": {
+            "$ref": "User"
+          }
+        }
+      },
+      "id": "ListUsersResponse",
+      "type": "object"
+    },
+    "User": {
+      "description": "A single user in Display & Video 360.",
+      "id": "User",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Output only. The resource name of the user.",
+          "readOnly": true,
+          "type": "string"
+        },
+        "assignedUserRoles": {
+          "description": "The assigned user roles. Required in CreateUser. Output only in UpdateUser. Can only be updated through BulkEditAssignedUserRoles.",
+          "type": "array",
+          "items": {
+            "$ref": "AssignedUserRole"
+          }
+        },
+        "userId": {
+          "type": "string",
+          "description": "Output only. The unique ID of the user. Assigned by the system.",
+          "format": "int64",
+          "readOnly": true
+        },
+        "lastLoginTime": {
+          "format": "google-datetime",
+          "type": "string",
+          "description": "Output only. The timestamp when the user last logged in DV360 UI.",
+          "readOnly": true
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Required. The display name of the user. Must be UTF-8 encoded with a maximum size of 240 bytes."
+        },
+        "email": {
+          "description": "Required. Immutable. The email address used to identify the user.",
+          "type": "string"
+        }
+      }
+    },
+    "AdvertiserBillingConfig": {
+      "properties": {
+        "billingProfileId": {
+          "type": "string",
+          "format": "int64",
+          "description": "Required. The ID of a billing profile assigned to the advertiser."
+        }
+      },
+      "id": "AdvertiserBillingConfig",
+      "description": "Billing related settings of an advertiser.",
+      "type": "object"
+    },
+    "AdvertiserGeneralConfig": {
+      "type": "object",
+      "id": "AdvertiserGeneralConfig",
+      "properties": {
+        "currencyCode": {
+          "type": "string",
+          "description": "Required. Immutable. Advertiser's currency in ISO 4217 format. Accepted codes and the currencies they represent are: Currency Code : Currency Name * `ARS` : Argentine Peso * `AUD` : Australian Dollar * `BRL` : Brazilian Real * `CAD` : Canadian Dollar * `CHF` : Swiss Franc * `CLP` : Chilean Peso * `CNY` : Chinese Yuan * `COP` : Colombian Peso * `CZK` : Czech Koruna * `DKK` : Danish Krone * `EGP` : Egyption Pound * `EUR` : Euro * `GBP` : British Pound * `HKD` : Hong Kong Dollar * `HUF` : Hungarian Forint * `IDR` : Indonesian Rupiah * `ILS` : Israeli Shekel * `INR` : Indian Rupee * `JPY` : Japanese Yen * `KRW` : South Korean Won * `MXN` : Mexican Pesos * `MYR` : Malaysian Ringgit * `NGN` : Nigerian Naira * `NOK` : Norwegian Krone * `NZD` : New Zealand Dollar * `PEN` : Peruvian Nuevo Sol * `PLN` : Polish Zloty * `RON` : New Romanian Leu * `RUB` : Russian Ruble * `SEK` : Swedish Krona * `TRY` : Turkish Lira * `TWD` : New Taiwan Dollar * `USD` : US Dollar * `ZAR` : South African Rand"
+        },
+        "timeZone": {
+          "readOnly": true,
+          "description": "Output only. The standard TZ database name of the advertiser's time zone. For example, `America/New_York`. See more at: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones For CM360 hybrid advertisers, the time zone is the same as that of the associated CM360 account; for third-party only advertisers, the time zone is the same as that of the parent partner.",
+          "type": "string"
+        },
+        "domainUrl": {
+          "type": "string",
+          "description": "Required. The domain URL of the advertiser's primary website. The system will send this information to publishers that require website URL to associate a campaign with an advertiser. Provide a URL with no path or query string, beginning with `http:` or `https:`. For example, http://www.example.com"
+        }
+      },
+      "description": "General settings of an advertiser."
+    },
+    "Advertiser": {
+      "type": "object",
+      "id": "Advertiser",
+      "properties": {
+        "prismaEnabled": {
+          "type": "boolean",
+          "description": "Whether integration with Mediaocean (Prisma) is enabled. By enabling this, you agree to the following: On behalf of my company, I authorize Mediaocean (Prisma) to send budget segment plans to Google, and I authorize Google to send corresponding reporting and invoices from DV360 to Mediaocean for the purposes of budget planning, billing, and reconciliation for this advertiser."
+        },
+        "defaultLogoAssetId": {
+          "format": "int64",
+          "description": "Optional. The asset ID of the default logo image for the advertiser. This is the asset ID that will be used by YouTube and Demand ads under this advertiser if a logo asset is not provided. You must use advertisers.adAssets.upload to upload this asset using the API.",
+          "type": "string"
+        },
+        "integrationDetails": {
+          "description": "Integration details of the advertiser. Only integrationCode is currently applicable to advertiser. Other fields of IntegrationDetails are not supported and will be ignored if provided.",
+          "$ref": "IntegrationDetails"
+        },
+        "billingConfig": {
+          "description": "Required. Billing related settings of the advertiser.",
+          "$ref": "AdvertiserBillingConfig"
+        },
+        "containsEuPoliticalAds": {
+          "type": "string",
+          "enumDescriptions": [
+            "Unknown.",
+            "Contains EU political advertising.",
+            "Does not contain EU political advertising."
+          ],
+          "description": "Optional. Whether this advertiser contains line items that serve European Union political ads. If this field is set to `DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING`, then the following will happen: * Any new line items created under this advertiser will be assigned `DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING` if not otherwise specified. * Any existing line items under this advertiser that do not have a set value be updated to `DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING` within a day.",
+          "enum": [
+            "EU_POLITICAL_ADVERTISING_STATUS_UNKNOWN",
+            "CONTAINS_EU_POLITICAL_ADVERTISING",
+            "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING"
+          ]
+        },
+        "displayName": {
+          "description": "Required. The display name of the advertiser. Must be UTF-8 encoded with a maximum size of 240 bytes.",
+          "type": "string"
+        },
+        "creativeConfig": {
+          "$ref": "AdvertiserCreativeConfig",
+          "description": "Required. Creative related settings of the advertiser."
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true,
+          "description": "Output only. The resource name of the advertiser."
+        },
+        "servingConfig": {
+          "description": "Targeting settings related to ad serving of the advertiser.",
+          "$ref": "AdvertiserTargetingConfig"
+        },
+        "partnerId": {
+          "description": "Required. Immutable. The unique ID of the partner that the advertiser belongs to.",
+          "type": "string",
+          "format": "int64"
+        },
+        "entityStatus": {
+          "enumDescriptions": [
+            "Default value when status is not specified or is unknown in this version.",
+            "The entity is enabled to bid and spend budget.",
+            "The entity is archived. Bidding and budget spending are disabled. An entity can be deleted after archived. Deleted entities cannot be retrieved.",
+            "The entity is under draft. Bidding and budget spending are disabled.",
+            "Bidding and budget spending are paused for the entity.",
+            "The entity is scheduled for deletion."
+          ],
+          "type": "string",
+          "description": "Required. Controls whether or not insertion orders and line items of the advertiser can spend their budgets and bid on inventory. * Accepted values are `ENTITY_STATUS_ACTIVE`, `ENTITY_STATUS_PAUSED` and `ENTITY_STATUS_SCHEDULED_FOR_DELETION`. * If set to `ENTITY_STATUS_SCHEDULED_FOR_DELETION`, the advertiser will be deleted 30 days from when it was first scheduled for deletion.",
+          "enum": [
+            "ENTITY_STATUS_UNSPECIFIED",
+            "ENTITY_STATUS_ACTIVE",
+            "ENTITY_STATUS_ARCHIVED",
+            "ENTITY_STATUS_DRAFT",
+            "ENTITY_STATUS_PAUSED",
+            "ENTITY_STATUS_SCHEDULED_FOR_DELETION"
+          ]
+        },
+        "generalConfig": {
+          "description": "Required. General settings of the advertiser.",
+          "$ref": "AdvertiserGeneralConfig"
+        },
+        "defaultBusinessName": {
+          "type": "string",
+          "description": "Optional. The default business name for the advertiser. This is the value used by YouTube and Demand Gen ads under this advertiser if a business name is not provided."
+        },
+        "dataAccessConfig": {
+          "description": "Settings that control how advertiser data may be accessed.",
+          "$ref": "AdvertiserDataAccessConfig"
+        },
+        "updateTime": {
+          "readOnly": true,
+          "description": "Output only. The timestamp when the advertiser was last updated. Assigned by the system.",
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "adServerConfig": {
+          "description": "Required. Immutable. Ad server related settings of the advertiser.",
+          "$ref": "AdvertiserAdServerConfig"
+        },
+        "advertiserId": {
+          "readOnly": true,
+          "format": "int64",
+          "type": "string",
+          "description": "Output only. The unique ID of the advertiser. Assigned by the system."
+        }
+      },
+      "description": "A single advertiser in Display & Video 360 (DV360)."
+    },
+    "AssignedUserRole": {
+      "id": "AssignedUserRole",
+      "type": "object",
+      "description": "A single assigned user role, which defines a user's authorized interaction with a specified partner or advertiser.",
+      "properties": {
+        "advertiserId": {
+          "type": "string",
+          "description": "The ID of the advertiser that the assigend user role applies to.",
+          "format": "int64"
+        },
+        "userRole": {
+          "description": "Required. The user role to assign to a user for the entity.",
+          "enum": [
+            "USER_ROLE_UNSPECIFIED",
+            "ADMIN",
+            "ADMIN_PARTNER_CLIENT",
+            "STANDARD",
+            "STANDARD_PLANNER",
+            "STANDARD_PLANNER_LIMITED",
+            "STANDARD_PARTNER_CLIENT",
+            "READ_ONLY",
+            "REPORTING_ONLY",
+            "LIMITED_REPORTING_ONLY",
+            "CREATIVE",
+            "CREATIVE_ADMIN"
+          ],
+          "enumDescriptions": [
+            "Default value when the user role is not specified or is unknown in this version.",
+            "The user can manage campaigns, creatives, insertion orders, line items, and reports for the entity. They can view and edit billing information, create or modify users, and enable or disable exchanges. This role can only be assigned for a partner entity.",
+            "The user can manage campaigns, creatives, insertion orders, line items, and reports for the entity. They can create and modify other `ADMIN_PARTNER_CLIENT` users and view billing information. They cannot view revenue models, markups, or any other reseller-sensitive fields. This role can only be assigned for a partner entity.",
+            "The user can manage campaigns, creatives, insertion orders, line items, and reports for the entity. They cannot create and modify users or view billing information.",
+            "The user can view all campaigns, creatives, insertion orders, line items, and reports for the entity, including all cost data. They can create and modify planning-related features, including plans and inventory.",
+            "The user can view all campaigns, creatives, insertion orders, line items, and reports for the entity. They can create or modify planning-related features, including plans and inventory. They have no access to cost data and cannot start, accept, or negotiate deals.",
+            "The user can manage campaigns, creatives, insertion orders, line items, and reports for the entity. They cannot create or modify other users or view billing information. They cannot view revenue models, markups, or any other reseller-sensitive fields. This role can only be assigned for an advertiser entity.",
+            "The user can only build reports and view data for the entity.",
+            "The user can only create and manage reports.",
+            "The user can only create and manage the following client-safe reports: General, Audience Performance, Cross-Partner, Keyword, Order ID, Category, and Third-Party Data Provider.",
+            "The user can view media plan information they need to collaborate, but can't view cost-related data or Marketplace.",
+            "The user can view media plan information they need to collaborate, but can't view cost-related data or Marketplace. In addition, they can add other creative admins or creative users to the entity."
+          ],
+          "type": "string"
+        },
+        "assignedUserRoleId": {
+          "description": "Output only. The ID of the assigned user role.",
+          "type": "string",
+          "readOnly": true
+        },
+        "partnerId": {
+          "type": "string",
+          "description": "The ID of the partner that the assigned user role applies to.",
+          "format": "int64"
+        }
+      }
+    },
+    "SdfConfig": {
+      "id": "SdfConfig",
+      "type": "object",
+      "description": "Structured Data File (SDF) related settings.",
+      "properties": {
+        "version": {
+          "enum": [
+            "SDF_VERSION_UNSPECIFIED",
+            "SDF_VERSION_3_1",
+            "SDF_VERSION_4",
+            "SDF_VERSION_4_1",
+            "SDF_VERSION_4_2",
+            "SDF_VERSION_5",
+            "SDF_VERSION_5_1",
+            "SDF_VERSION_5_2",
+            "SDF_VERSION_5_3",
+            "SDF_VERSION_5_4",
+            "SDF_VERSION_5_5",
+            "SDF_VERSION_6",
+            "SDF_VERSION_7",
+            "SDF_VERSION_7_1",
+            "SDF_VERSION_8",
+            "SDF_VERSION_8_1",
+            "SDF_VERSION_9",
+            "SDF_VERSION_9_1",
+            "SDF_VERSION_9_2",
+            "SDF_VERSION_10",
+            "SDF_VERSION_10_1"
+          ],
+          "type": "string",
+          "description": "Required. The version of SDF being used.",
+          "enumDescriptions": [
+            "SDF version value is not specified or is unknown in this version.",
+            "SDF version 3.1",
+            "SDF version 4",
+            "SDF version 4.1",
+            "SDF version 4.2",
+            "SDF version 5.",
+            "SDF version 5.1",
+            "SDF version 5.2",
+            "SDF version 5.3",
+            "SDF version 5.4",
+            "SDF version 5.5",
+            "SDF version 6",
+            "SDF version 7. Read the [v7 migration guide](/display-video/api/structured-data-file/v7-migration-guide) before migrating to this version.",
+            "SDF version 7.1. Read the [v7 migration guide](/display-video/api/structured-data-file/v7-migration-guide) before migrating to this version.",
+            "SDF version 8. Read the [v8 migration guide](/display-video/api/structured-data-file/v8-migration-guide) before migrating to this version.",
+            "SDF version 8.1.",
+            "SDF version 9. Read the [v9 migration guide](/display-video/api/structured-data-file/v9-migration-guide) before migrating to this version.",
+            "SDF version 9.1.",
+            "SDF version 9.2.",
+            "SDF version 10.",
+            "SDF version 10.1."
+          ],
+          "enumDeprecated": [
+            false,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        "adminEmail": {
+          "type": "string",
+          "description": "An administrator email address to which the SDF processing status reports will be sent."
+        }
+      }
+    },
+    "BulkEditAssignedUserRolesRequest": {
+      "description": "Request message for BulkEditAssignedUserRoles.",
+      "properties": {
+        "deletedAssignedUserRoles": {
+          "description": "The assigned user roles to delete in batch, specified as a list of assigned_user_role_ids. The format of assigned_user_role_id is `entityType-entityid`, for example `partner-123`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "createdAssignedUserRoles": {
+          "description": "The assigned user roles to create in batch, specified as a list of AssignedUserRoles.",
+          "type": "array",
+          "items": {
+            "$ref": "AssignedUserRole"
+          }
+        }
+      },
+      "id": "BulkEditAssignedUserRolesRequest",
+      "type": "object"
+    }
+  },
+  "resources": {
+    "advertisers": {
+      "methods": {
+        "get": {
+          "path": "v4/advertisers/{+advertiserId}",
+          "parameters": {
+            "advertiserId": {
+              "required": true,
+              "pattern": "^[^/]+$",
+              "format": "int64",
+              "description": "Required. The ID of the advertiser to fetch.",
+              "location": "path",
+              "type": "string"
+            }
+          },
+          "description": "Gets an advertiser.",
+          "parameterOrder": ["advertiserId"],
+          "response": {
+            "$ref": "Advertiser"
+          },
+          "httpMethod": "GET",
+          "flatPath": "v4/advertisers/{advertisersId}",
+          "id": "displayvideo.advertisers.get",
+          "scopes": ["https://www.googleapis.com/auth/display-video"]
+        }
+      }
+    },
+    "users": {
+      "methods": {
+        "bulkEditAssignedUserRoles": {
+          "description": "Bulk edits user roles for a user. The operation will delete the assigned user roles provided in BulkEditAssignedUserRolesRequest.deletedAssignedUserRoles and then assign the user roles provided in BulkEditAssignedUserRolesRequest.createdAssignedUserRoles. This method has unique authentication requirements. Read the prerequisites in our [Managing Users guide](/display-video/api/guides/users/overview#prerequisites) before using this method. The \"Try this method\" feature does not work for this method.",
+          "scopes": ["https://www.googleapis.com/auth/display-video-user-management"],
+          "httpMethod": "POST",
+          "path": "v4/users/{+userId}:bulkEditAssignedUserRoles",
+          "parameterOrder": ["userId"],
+          "response": {
+            "$ref": "BulkEditAssignedUserRolesResponse"
+          },
+          "flatPath": "v4/users/{usersId}:bulkEditAssignedUserRoles",
+          "id": "displayvideo.users.bulkEditAssignedUserRoles",
+          "request": {
+            "$ref": "BulkEditAssignedUserRolesRequest"
+          },
+          "parameters": {
+            "userId": {
+              "type": "string",
+              "location": "path",
+              "pattern": "^[^/]+$",
+              "description": "Required. The ID of the user to which the assigned user roles belong.",
+              "required": true,
+              "format": "int64"
+            }
+          }
+        },
+        "patch": {
+          "id": "displayvideo.users.patch",
+          "scopes": ["https://www.googleapis.com/auth/display-video-user-management"],
+          "flatPath": "v4/users/{usersId}",
+          "request": {
+            "$ref": "User"
+          },
+          "response": {
+            "$ref": "User"
+          },
+          "parameterOrder": ["userId"],
+          "httpMethod": "PATCH",
+          "description": "Updates an existing user. Returns the updated user if successful. This method has unique authentication requirements. Read the prerequisites in our [Managing Users guide](/display-video/api/guides/users/overview#prerequisites) before using this method. The \"Try this method\" feature does not work for this method.",
+          "path": "v4/users/{+userId}",
+          "parameters": {
+            "userId": {
+              "type": "string",
+              "location": "path",
+              "pattern": "^[^/]+$",
+              "description": "Output only. The unique ID of the user. Assigned by the system.",
+              "format": "int64",
+              "required": true
+            },
+            "updateMask": {
+              "type": "string",
+              "description": "Required. The mask to control which fields to update.",
+              "format": "google-fieldmask",
+              "location": "query"
+            }
+          }
+        },
+        "get": {
+          "httpMethod": "GET",
+          "description": "Gets a user. This method has unique authentication requirements. Read the prerequisites in our [Managing Users guide](/display-video/api/guides/users/overview#prerequisites) before using this method. The \"Try this method\" feature does not work for this method.",
+          "scopes": ["https://www.googleapis.com/auth/display-video-user-management"],
+          "parameterOrder": ["userId"],
+          "path": "v4/users/{+userId}",
+          "flatPath": "v4/users/{usersId}",
+          "parameters": {
+            "userId": {
+              "description": "Required. The ID of the user to fetch.",
+              "required": true,
+              "pattern": "^[^/]+$",
+              "type": "string",
+              "format": "int64",
+              "location": "path"
+            }
+          },
+          "response": {
+            "$ref": "User"
+          },
+          "id": "displayvideo.users.get"
+        },
+        "list": {
+          "scopes": ["https://www.googleapis.com/auth/display-video-user-management"],
+          "httpMethod": "GET",
+          "id": "displayvideo.users.list",
+          "description": "Lists users that are accessible to the current user. If two users have user roles on the same partner or advertiser, they can access each other. This method has unique authentication requirements. Read the prerequisites in our [Managing Users guide](/display-video/api/guides/users/overview#prerequisites) before using this method. The \"Try this method\" feature does not work for this method.",
+          "parameterOrder": [],
+          "response": {
+            "$ref": "ListUsersResponse"
+          },
+          "flatPath": "v4/users",
+          "path": "v4/users",
+          "parameters": {
+            "pageToken": {
+              "type": "string",
+              "description": "A token identifying a page of results the server should return. Typically, this is the value of next_page_token returned from the previous call to `ListUsers` method. If not specified, the first page of results will be returned.",
+              "location": "query"
+            },
+            "filter": {
+              "description": "Allows filtering by user fields. Supported syntax: * Filter expressions are made up of one or more restrictions. * Restrictions can be combined by the logical operator `AND`. * A restriction has the form of `{field} {operator} {value}`. * The `displayName` and `email` fields must use the `HAS (:)` operator. * The `lastLoginTime` field must use either the `LESS THAN OR EQUAL TO (<=)` or `GREATER THAN OR EQUAL TO (>=)` operator. * All other fields must use the `EQUALS (=)` operator. Supported fields: * `assignedUserRole.advertiserId` * `assignedUserRole.entityType`: This is synthetic field of `AssignedUserRole` used for filtering. Identifies the type of entity to which the user role is assigned. Valid values are `Partner` and `Advertiser`. * `assignedUserRole.parentPartnerId`: This is a synthetic field of `AssignedUserRole` used for filtering. Identifies the parent partner of the entity to which the user role is assigned. * `assignedUserRole.partnerId` * `assignedUserRole.userRole` * `displayName` * `email` * `lastLoginTime` (input in ISO 8601 format, or `YYYY-MM-DDTHH:MM:SSZ`) Examples: * The user with `displayName` containing \"foo\": `displayName:\"foo\"` * The user with `email` containing \"bar\": `email:\"bar\"` * All users with standard user roles: `assignedUserRole.userRole=\"STANDARD\"` * All users with user roles for partner 123: `assignedUserRole.partnerId=\"123\"` * All users with user roles for advertiser 123: `assignedUserRole.advertiserId=\"123\"` * All users with partner level user roles: `entityType=\"PARTNER\"` * All users with user roles for partner 123 and advertisers under partner 123: `parentPartnerId=\"123\"` * All users that last logged in on or after 2023-01-01T00:00:00Z (format of ISO 8601): `lastLoginTime>=\"2023-01-01T00:00:00Z\"` The length of this field should be no more than 500 characters. Reference our [filter `LIST` requests](/display-video/api/guides/how-tos/filters) guide for more information.",
+              "type": "string",
+              "location": "query"
+            },
+            "orderBy": {
+              "location": "query",
+              "description": "Field by which to sort the list. Acceptable values are: * `displayName` (default) The default sorting order is ascending. To specify descending order for a field, a suffix \"desc\" should be added to the field name. For example, `displayName desc`.",
+              "type": "string"
+            },
+            "pageSize": {
+              "format": "int32",
+              "description": "Requested page size. Must be between `1` and `200`. If unspecified will default to `100`.",
+              "location": "query",
+              "type": "integer"
+            }
+          }
+        },
+        "delete": {
+          "parameters": {
+            "userId": {
+              "location": "path",
+              "format": "int64",
+              "description": "Required. The ID of the user to delete.",
+              "type": "string",
+              "pattern": "^[^/]+$",
+              "required": true
+            }
+          },
+          "path": "v4/users/{+userId}",
+          "scopes": ["https://www.googleapis.com/auth/display-video-user-management"],
+          "description": "Deletes a user. This method has unique authentication requirements. Read the prerequisites in our [Managing Users guide](/display-video/api/guides/users/overview#prerequisites) before using this method. The \"Try this method\" feature does not work for this method.",
+          "httpMethod": "DELETE",
+          "flatPath": "v4/users/{usersId}",
+          "response": {
+            "$ref": "Empty"
+          },
+          "parameterOrder": ["userId"],
+          "id": "displayvideo.users.delete"
+        },
+        "create": {
+          "path": "v4/users",
+          "description": "Creates a new user. Returns the newly created user if successful. This method has unique authentication requirements. Read the prerequisites in our [Managing Users guide](/display-video/api/guides/users/overview#prerequisites) before using this method. The \"Try this method\" feature does not work for this method.",
+          "parameters": {},
+          "id": "displayvideo.users.create",
+          "flatPath": "v4/users",
+          "parameterOrder": [],
+          "scopes": ["https://www.googleapis.com/auth/display-video-user-management"],
+          "request": {
+            "$ref": "User"
+          },
+          "httpMethod": "POST",
+          "response": {
+            "$ref": "User"
+          }
+        }
+      }
+    }
+  },
+  "version": "v4",
+  "icons": {
+    "x32": "http://www.google.com/images/icons/product/search-32.gif",
+    "x16": "http://www.google.com/images/icons/product/search-16.gif"
+  },
+  "documentationLink": "https://developers.google.com/display-video/",
+  "protocol": "rest",
+  "fullyEncodeReservedExpansion": true,
+  "ownerName": "Google",
+  "kind": "discovery#restDescription",
+  "name": "displayvideo",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/display-video-mediaplanning": {
+          "description": "Create, see, and edit Display & Video 360 Campaign entities and see billing invoices"
+        },
+        "https://www.googleapis.com/auth/doubleclickbidmanager": {
+          "description": "View and manage your reports in DoubleClick Bid Manager"
+        },
+        "https://www.googleapis.com/auth/display-video": {
+          "description": "Create, see, edit, and permanently delete your Display & Video 360 entities and reports"
+        },
+        "https://www.googleapis.com/auth/display-video-user-management": {
+          "description": "Private Service: https://www.googleapis.com/auth/display-video-user-management"
+        }
+      }
+    }
+  },
+  "discoveryVersion": "v1",
+  "description": "Display & Video 360 API allows users to automate complex Display & Video 360 workflows, such as creating insertion orders and setting targeting options for individual line items.",
+  "id": "displayvideo:v4",
+  "batchPath": "batch",
+  "rootUrl": "https://displayvideo.googleapis.com/",
+  "servicePath": "",
+  "basePath": "",
+  "mtlsRootUrl": "https://displayvideo.mtls.googleapis.com/",
+  "baseUrl": "https://displayvideo.googleapis.com/",
+  "canonicalName": "Display Video",
+  "revision": "20261012",
+  "parameters": {
+    "fields": {
+      "description": "Selector specifying which fields to include in a partial response.",
+      "location": "query",
+      "type": "string"
+    },
+    "oauth_token": {
+      "description": "OAuth 2.0 token for the current user.",
+      "location": "query",
+      "type": "string"
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "type": "string",
+      "location": "query"
+    },
+    "alt": {
+      "enum": ["json", "media", "proto"],
+      "default": "json",
+      "description": "Data format for response.",
+      "location": "query",
+      "type": "string",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ]
+    },
+    "key": {
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "type": "string",
+      "location": "query"
+    },
+    "upload_protocol": {
+      "location": "query",
+      "type": "string",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "callback": {
+      "location": "query",
+      "type": "string",
+      "description": "JSONP"
+    },
+    "$.xgafv": {
+      "description": "V1 error format.",
+      "type": "string",
+      "enum": ["1", "2"],
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "location": "query"
+    },
+    "quotaUser": {
+      "type": "string",
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters."
+    },
+    "uploadType": {
+      "location": "query",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "type": "string"
+    },
+    "prettyPrint": {
+      "location": "query",
+      "description": "Returns response with indentations and line breaks.",
+      "type": "boolean",
+      "default": "true"
+    }
+  },
+  "version_module": true
+}

@@ -1,0 +1,202 @@
+{
+  "rootUrl": "https://indexing.googleapis.com/",
+  "version_module": true,
+  "canonicalName": "Indexing",
+  "ownerDomain": "google.com",
+  "icons": {
+    "x16": "http://www.google.com/images/icons/product/search-16.gif",
+    "x32": "http://www.google.com/images/icons/product/search-32.gif"
+  },
+  "parameters": {
+    "key": {
+      "type": "string",
+      "location": "query",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token."
+    },
+    "$.xgafv": {
+      "type": "string",
+      "description": "V1 error format.",
+      "location": "query",
+      "enum": ["1", "2"],
+      "enumDescriptions": ["v1 error format", "v2 error format"]
+    },
+    "uploadType": {
+      "location": "query",
+      "type": "string",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\")."
+    },
+    "quotaUser": {
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "type": "string"
+    },
+    "prettyPrint": {
+      "type": "boolean",
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true",
+      "location": "query"
+    },
+    "callback": {
+      "type": "string",
+      "description": "JSONP",
+      "location": "query"
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "location": "query",
+      "type": "string"
+    },
+    "upload_protocol": {
+      "location": "query",
+      "type": "string",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "fields": {
+      "type": "string",
+      "location": "query",
+      "description": "Selector specifying which fields to include in a partial response."
+    },
+    "alt": {
+      "enum": ["json", "media", "proto"],
+      "description": "Data format for response.",
+      "default": "json",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "location": "query",
+      "type": "string"
+    },
+    "oauth_token": {
+      "location": "query",
+      "description": "OAuth 2.0 token for the current user.",
+      "type": "string"
+    }
+  },
+  "schemas": {
+    "PublishUrlNotificationResponse": {
+      "type": "object",
+      "properties": {
+        "urlNotificationMetadata": {
+          "description": "Description of the notification events received for this URL.",
+          "$ref": "UrlNotificationMetadata"
+        }
+      },
+      "description": "Output for PublishUrlNotification",
+      "id": "PublishUrlNotificationResponse"
+    },
+    "UrlNotificationMetadata": {
+      "properties": {
+        "latestUpdate": {
+          "$ref": "UrlNotification",
+          "description": "Latest notification received with type `URL_UPDATED`."
+        },
+        "latestRemove": {
+          "description": "Latest notification received with type `URL_REMOVED`.",
+          "$ref": "UrlNotification"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to which this metadata refers."
+        }
+      },
+      "type": "object",
+      "description": "Summary of the most recent Indexing API notifications successfully received, for a given URL.",
+      "id": "UrlNotificationMetadata"
+    },
+    "UrlNotification": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enumDescriptions": [
+            "Unspecified.",
+            "The given URL (Web document) has been updated.",
+            "The given URL (Web document) has been deleted."
+          ],
+          "description": "The URL life cycle event that Google is being notified about.",
+          "enum": ["URL_NOTIFICATION_TYPE_UNSPECIFIED", "URL_UPDATED", "URL_DELETED"]
+        },
+        "notifyTime": {
+          "description": "Creation timestamp for this notification. Users should _not_ specify it, the field is ignored at the request time.",
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "url": {
+          "type": "string",
+          "description": "The object of this notification. The URL must be owned by the publisher of this notification and, in case of `URL_UPDATED` notifications, it _must_ be crawlable by Google."
+        }
+      },
+      "description": "`UrlNotification` is the resource used in all Indexing API calls. It describes one event in the life cycle of a Web Document.",
+      "type": "object",
+      "id": "UrlNotification"
+    }
+  },
+  "kind": "discovery#restDescription",
+  "servicePath": "",
+  "revision": "20261007",
+  "mtlsRootUrl": "https://indexing.mtls.googleapis.com/",
+  "batchPath": "batch",
+  "baseUrl": "https://indexing.googleapis.com/",
+  "resources": {
+    "urlNotifications": {
+      "methods": {
+        "getMetadata": {
+          "parameterOrder": [],
+          "parameters": {
+            "url": {
+              "description": "URL that is being queried.",
+              "type": "string",
+              "location": "query"
+            }
+          },
+          "description": "Gets metadata about a Web Document. This method can _only_ be used to query URLs that were previously seen in successful Indexing API notifications. Includes the latest `UrlNotification` received via this API.",
+          "id": "indexing.urlNotifications.getMetadata",
+          "flatPath": "v3/urlNotifications/metadata",
+          "path": "v3/urlNotifications/metadata",
+          "scopes": ["https://www.googleapis.com/auth/indexing"],
+          "response": {
+            "$ref": "UrlNotificationMetadata"
+          },
+          "httpMethod": "GET"
+        },
+        "publish": {
+          "path": "v3/urlNotifications:publish",
+          "request": {
+            "$ref": "UrlNotification"
+          },
+          "flatPath": "v3/urlNotifications:publish",
+          "id": "indexing.urlNotifications.publish",
+          "parameters": {},
+          "response": {
+            "$ref": "PublishUrlNotificationResponse"
+          },
+          "description": "Notifies that a URL has been updated or deleted.",
+          "httpMethod": "POST",
+          "scopes": ["https://www.googleapis.com/auth/indexing"],
+          "parameterOrder": []
+        }
+      }
+    }
+  },
+  "id": "indexing:v3",
+  "ownerName": "Google",
+  "title": "Web Search Indexing API",
+  "fullyEncodeReservedExpansion": true,
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/indexing": {
+          "description": "Submit data to Google for indexing"
+        }
+      }
+    }
+  },
+  "documentationLink": "https://developers.google.com/search/apis/indexing-api/",
+  "protocol": "rest",
+  "description": "Notifies Google Web Search when your web pages change.",
+  "basePath": "",
+  "discoveryVersion": "v1",
+  "version": "v3",
+  "name": "indexing"
+}

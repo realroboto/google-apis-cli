@@ -22,7 +22,7 @@ export type Manifest = {
   resources: Record<string, Record<string, ManifestRow>>;
 };
 
-// One discovery-driven API (epic #30 D1). `helpers` arrives with the Planner (#37).
+// One discovery-driven API (epic #30 D1). `helpers` arrives with the helper mechanism (#40).
 export type ApiEntry = {
   api: string; // CLI name, ^[a-z0-9-]+$, equals the file base name
   discovery: string; // discovery document URL
@@ -32,6 +32,68 @@ export type ApiEntry = {
   deprecated?: Record<string, { source: string }>; // method id → marks deprecated
   paid?: Record<string, { reason: string; source: string }>; // method id → billed or closed
   headers?: { name: string; flag: string; env: string; configKey: string }[];
+};
+
+// A discovery `parameters` value, as Google writes it.
+export type DiscoveryParam = {
+  type?: string;
+  location?: 'path' | 'query';
+  required?: boolean;
+  repeated?: boolean;
+  enum?: string[];
+  pattern?: string;
+  description?: string;
+  deprecated?: boolean;
+  format?: string;
+  default?: string;
+};
+
+export type DiscoverySchema = { [key: string]: unknown };
+
+// One callable method of an ApiModel (epic #30 D4, D7, D8).
+export type ApiMethod = {
+  id: string;
+  words: string[]; // command words: the verbatim tree path, method key last
+  httpMethod: HttpMethod;
+  path: string;
+  description?: string;
+  parameters: Record<string, DiscoveryParam>;
+  parameterOrder: string[];
+  request?: string; // schema name
+  response?: string; // schema name
+  scopes: string[]; // as the document lists them
+  scope?: string; // the first scope not in the never set
+  unavailable: boolean; // OAuth API; every scope is in the never set
+  retired?: { reason: string; source: string };
+  deprecated?: { source?: string }; // overlay, or `deprecated: true` in the document
+  paid?: { reason: string; source: string };
+  upload?: { accept: string[]; maxSize?: string; resumable: boolean };
+  download: boolean;
+  pageable: boolean; // has a `pageToken` query parameter
+};
+
+// Maps, not records: a user token like `constructor` must not reach Object.prototype.
+export type ApiResource = {
+  resources: Map<string, ApiResource>;
+  methods: Map<string, ApiMethod>;
+};
+
+// The normalized form of one API's discovery document or hand manifest (epic #30 D13).
+export type ApiModel = ApiResource & {
+  api: string;
+  name: string;
+  version: string;
+  title?: string;
+  description?: string;
+  rootUrl: string;
+  servicePath: string;
+  auth: 'oauth' | 'apiKey';
+  scopes: string[]; // entry `scopes` as full URLs
+  byId: Map<string, ApiMethod>;
+  parameters: Record<string, DiscoveryParam>; // document-level
+  schemas: Record<string, DiscoverySchema>;
+  headers?: ApiEntry['headers'];
+  problems: string[]; // overlay ids absent from the document
 };
 
 // A manifest row flattened with its manifest's baseUrl (what the executor gets).

@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { openCatalog } from '../src/catalog.ts';
+import { isApiEntry, openCatalog } from '../src/catalog.ts';
 import { GapiError } from '../src/errors.ts';
 import { fakeFetch } from './helpers/fetch.ts';
 
@@ -44,14 +44,14 @@ const down = () => Promise.reject(new TypeError('fetch failed'));
 test('a fresh cache file is used without a fetch', async () => {
   const { dir } = setup({ doc: { name: 'cached' }, ageSec: 60 });
   const { catalog, calls } = await open(dir, fresh);
-  assert.deepEqual(await catalog.load('mini'), { name: 'cached' });
+  assert.equal((await catalog.load('mini')).name, 'cached');
   assert.equal(calls.length, 0);
 });
 
 test('a stale cache file is refetched and rewritten with mode 600', async () => {
   const { dir, file } = setup({ doc: { name: 'cached' }, ageSec: DAY + 60 });
   const { catalog, calls } = await open(dir, fresh);
-  assert.deepEqual(await catalog.load('mini'), { name: 'fresh' });
+  assert.equal((await catalog.load('mini')).name, 'fresh');
   assert.deepEqual(
     calls.map((c) => c.url),
     ['https://mini.invalid/$discovery/rest?version=v1'],
@@ -63,7 +63,7 @@ test('a stale cache file is refetched and rewritten with mode 600', async () => 
 test('a failed fetch falls back to a stale file and warns', async () => {
   const { dir } = setup({ doc: { name: 'cached' }, ageSec: DAY + 60 });
   const { catalog, warnings } = await open(dir, () => new Response('nope', { status: 503 }));
-  assert.deepEqual(await catalog.load('mini'), { name: 'cached' });
+  assert.equal((await catalog.load('mini')).name, 'cached');
   assert.deepEqual(warnings, ['discovery fetch failed for mini: HTTP 503; using cached copy']);
 });
 
@@ -96,8 +96,26 @@ test('refresh ignores the TTL; one parse per api otherwise', async () => {
   const { catalog, calls } = await open(dir, fresh);
   await catalog.load('mini');
   writeFileSync(file, JSON.stringify({ name: 'edited' }));
-  assert.deepEqual(await catalog.load('mini'), { name: 'cached' }); // parsed once, file not re-read
-  assert.deepEqual(await catalog.load('mini', { refresh: true }), { name: 'fresh' });
-  assert.deepEqual(await catalog.load('mini'), { name: 'fresh' });
+  assert.equal((await catalog.load('mini')).name, 'cached'); // parsed once, file not re-read
+  assert.equal((await catalog.load('mini', { refresh: true })).name, 'fresh');
+  assert.equal((await catalog.load('mini')).name, 'fresh');
   assert.equal(calls.length, 1);
+});
+
+test('every hand manifest loads as a discovery-shaped model without a fetch', async () => {
+  const { dir } = setup();
+  const { fetch, calls } = fakeFetch(down);
+  const catalog = await openCatalog({ dir, fetch, warn: assert.fail }); // shipped src/apis
+  const hand = Object.values(catalog.entries).filter((e) => !isApiEntry(e));
+  assert.equal(hand.length, 7);
+  for (const { api } of hand) {
+    const model = await catalog.load(api);
+    assert.ok(model.rootUrl.endsWith('/'), api);
+    assert.ok(model.byId.size > 0, api);
+    for (const m of model.byId.values()) {
+      assert.ok(!m.path.startsWith('/'), m.id);
+      assert.equal(m.request !== undefined, ['POST', 'PUT', 'PATCH'].includes(m.httpMethod), m.id);
+    }
+  }
+  assert.equal(calls.length, 0);
 });

@@ -1,0 +1,182 @@
+{
+  "kind": "discovery#restDescription",
+  "discoveryVersion": "v1",
+  "id": "mini:v1",
+  "name": "mini",
+  "version": "v1",
+  "revision": "20261015",
+  "title": "Mini API",
+  "description": "Hand-made fixture: {+x} with a pattern, a repeated enum, media upload with resumable, media download, a resource named v26, and a $ref cycle.",
+  "rootUrl": "https://mini.googleapis.com/",
+  "servicePath": "",
+  "batchPath": "batch",
+  "protocol": "rest",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/mini": { "description": "See and edit your mini files" },
+        "https://www.googleapis.com/auth/mini.readonly": { "description": "See your mini files" }
+      }
+    }
+  },
+  "parameters": {
+    "fields": {
+      "type": "string",
+      "location": "query",
+      "description": "Selector specifying which fields to include in a partial response."
+    },
+    "quotaUser": {
+      "type": "string",
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications."
+    },
+    "alt": {
+      "type": "string",
+      "location": "query",
+      "default": "json",
+      "enum": ["json", "media", "proto"],
+      "description": "Data format for response."
+    },
+    "key": { "type": "string", "location": "query", "description": "API key." },
+    "uploadType": {
+      "type": "string",
+      "location": "query",
+      "description": "Legacy upload protocol for media."
+    }
+  },
+  "resources": {
+    "files": {
+      "methods": {
+        "get": {
+          "id": "mini.files.get",
+          "httpMethod": "GET",
+          "path": "v1/{+name}",
+          "flatPath": "v1/files/{filesId}",
+          "description": "Gets a file.",
+          "parameterOrder": ["name"],
+          "parameters": {
+            "name": {
+              "type": "string",
+              "location": "path",
+              "required": true,
+              "pattern": "^files/[^/]+$",
+              "description": "Required. Resource name, files/{file}."
+            }
+          },
+          "response": { "$ref": "File" },
+          "scopes": [
+            "https://www.googleapis.com/auth/mini",
+            "https://www.googleapis.com/auth/mini.readonly"
+          ]
+        },
+        "list": {
+          "id": "mini.files.list",
+          "httpMethod": "GET",
+          "path": "v1/files",
+          "description": "Lists files.",
+          "parameterOrder": [],
+          "parameters": {
+            "view": {
+              "type": "string",
+              "location": "query",
+              "repeated": true,
+              "enum": ["BASIC", "FULL"],
+              "description": "Views to include."
+            },
+            "pageSize": { "type": "integer", "format": "int32", "location": "query" },
+            "pageToken": { "type": "string", "location": "query" }
+          },
+          "response": { "$ref": "ListFilesResponse" },
+          "scopes": [
+            "https://www.googleapis.com/auth/mini",
+            "https://www.googleapis.com/auth/mini.readonly"
+          ]
+        },
+        "upload": {
+          "id": "mini.files.upload",
+          "httpMethod": "POST",
+          "path": "v1/files",
+          "description": "Uploads a file.",
+          "parameterOrder": [],
+          "parameters": {},
+          "request": { "$ref": "File" },
+          "response": { "$ref": "File" },
+          "supportsMediaUpload": true,
+          "mediaUpload": {
+            "accept": ["image/*", "text/plain"],
+            "maxSize": "10MB",
+            "protocols": {
+              "simple": { "multipart": true, "path": "/upload/v1/files" },
+              "resumable": { "multipart": true, "path": "/resumable/upload/v1/files" }
+            }
+          },
+          "scopes": ["https://www.googleapis.com/auth/mini"]
+        },
+        "download": {
+          "id": "mini.files.download",
+          "httpMethod": "GET",
+          "path": "v1/{+name}:download",
+          "description": "Downloads a file's bytes.",
+          "parameterOrder": ["name"],
+          "parameters": {
+            "name": {
+              "type": "string",
+              "location": "path",
+              "required": true,
+              "pattern": "^files/[^/]+$"
+            }
+          },
+          "supportsMediaDownload": true,
+          "useMediaDownloadService": true,
+          "scopes": [
+            "https://www.googleapis.com/auth/mini",
+            "https://www.googleapis.com/auth/mini.readonly"
+          ]
+        }
+      }
+    },
+    "v26": {
+      "methods": {
+        "listThings": {
+          "id": "mini.listThings",
+          "httpMethod": "POST",
+          "path": "v26:listThings",
+          "description": "A method under a resource literally named v26, like googleads.listPlannableLocations.",
+          "parameterOrder": [],
+          "parameters": {},
+          "request": { "$ref": "Node" },
+          "response": { "$ref": "Node" },
+          "scopes": ["https://www.googleapis.com/auth/mini"]
+        }
+      }
+    }
+  },
+  "schemas": {
+    "File": {
+      "id": "File",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "size": { "type": "string", "format": "int64" }
+      }
+    },
+    "ListFilesResponse": {
+      "id": "ListFilesResponse",
+      "type": "object",
+      "properties": {
+        "files": { "type": "array", "items": { "$ref": "File" } },
+        "nextPageToken": { "type": "string" }
+      }
+    },
+    "Node": {
+      "id": "Node",
+      "type": "object",
+      "description": "A $ref cycle: Node refers to itself.",
+      "properties": {
+        "value": { "type": "string" },
+        "parent": { "$ref": "Node" },
+        "children": { "type": "array", "items": { "$ref": "Node" } }
+      }
+    }
+  }
+}
