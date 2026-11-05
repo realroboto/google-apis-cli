@@ -121,7 +121,8 @@ const oneLine = (description = ''): string =>
 // The first sentence, max 100 chars: one line of search hits and of `schema --find`.
 const brief = (description?: string): string => {
   const sentence = oneLine(description);
-  return sentence.length > 100 ? `${sentence.slice(0, 99)}…` : sentence;
+  const chars = [...sentence]; // code points: a cut never splits a surrogate pair
+  return chars.length > 100 ? `${chars.slice(0, 99).join('')}…` : sentence;
 };
 
 // Code-point order, so the output does not depend on the machine's locale.

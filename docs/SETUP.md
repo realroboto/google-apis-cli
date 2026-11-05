@@ -359,7 +359,10 @@ In every case it deletes the stored `--cache` responses (`responses/`).
 | `config.json is not valid JSON` / `is not a JSON object` / `cannot read …config.json` (exit 2) | config file broken or unreadable; every command stops before any prompt or write | fix the file, or remove it and re-run step 5 (`gapi auth setup`) |
 | `not logged in` (exit 2) | `credentials.json` missing, or no `refresh_token` in it | `gapi auth login` |
 | `cannot listen on 127.0.0.1:4600: … EADDRINUSE …` (exit 2) | an earlier login still holds the port | `lsof -tiTCP:4600 \| xargs kill` |
-| `state mismatch` (exit 2) | the pasted or redirected URL comes from another login attempt | run `gapi auth login` again and use its URL |
+| `state mismatch` (exit 2, `--manual`) | the pasted URL comes from another login attempt; the loopback login answers 400 and keeps waiting | run `gapi auth login` again and use its URL |
+| `no refresh token returned` (exit 2) | Google sent no refresh token; nothing is saved | `gapi auth login` again |
+| `warning: scopes not granted: …` after login | boxes left unticked on the consent screen; those APIs answer 403 | `gapi auth login` and tick every box |
+| `network: <cause>` (exit 1) | no HTTP answer after the retries (DNS, reset, timeout) | check network, then re-run |
 | `consent failed: access_denied` (exit 2) | consent was refused | run `gapi auth login` again and accept |
 | `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | Ads level is Test | step 2 |
 | `403 SERVICE_DISABLED` | API not enabled on the project | step 1; Business Profile: step 3 |

@@ -21,6 +21,7 @@ import {
 } from './render.ts';
 import { MAX_AGE_MS, openResponses } from './responses.ts';
 import { matchQuery, search } from './search.ts';
+import type { Sleep } from './transport/retry.ts';
 import { send } from './transport.ts';
 import type { ApiEntry, ApiMethod, ApiModel, Authorize, CallPlan, FetchLike } from './types.ts';
 
@@ -36,6 +37,7 @@ export type Io = {
   stderr: NodeJS.WritableStream; // also the prompt output
   stdin: NodeJS.ReadableStream;
   apisDir?: string;
+  sleep?: Sleep; // retry backoff; tests skip the wait
 };
 
 const GLOBAL_OPTIONS = {
@@ -95,12 +97,17 @@ export async function run(argv: string[], io: Io): Promise<number> {
   }
 }
 
-// Strict argv parsing; an unknown flag or a missing flag value is a validation error.
+// Strict argv parsing; an unknown flag, a missing flag value or a repeated flag (parseArgs
+// would keep the last one) is a validation error.
 function parse<T extends ParseArgsConfig['options']>(args: string[], options: T) {
   try {
-    return parseArgs({ args, options, allowPositionals: true, strict: true });
+    const parsed = parseArgs({ args, options, allowPositionals: true, strict: true, tokens: true });
+    const names = parsed.tokens.flatMap((t) => (t.kind === 'option' ? [t.name] : []));
+    const twice = names.find((n, i) => names.indexOf(n) !== i);
+    if (twice !== undefined) throw new GapiError(3, `--${twice} given twice`);
+    return parsed;
   } catch (e) {
-    throw new GapiError(3, messageOf(e));
+    throw e instanceof GapiError ? e : new GapiError(3, messageOf(e));
   }
 }
 
@@ -150,7 +157,10 @@ async function runAuth(
     io.stderr.write('gapi: credentials removed\n');
     return;
   }
-  throw new GapiError(3, `unknown auth command: ${sub}`);
+  throw new GapiError(
+    3,
+    sub === undefined ? `usage: ${AUTH_USAGE}` : `unknown auth command: ${sub}`,
+  );
 }
 
 // D8 consent set: every entry's per-method scope plus its entry scopes (identity is added by login).
@@ -168,9 +178,17 @@ async function consentScopes(catalog: Catalog): Promise<string[]> {
 // schema's name, since method paths of nested resources contain a dot.
 function schemaTarget(model: ApiModel, path: string): { method: ApiMethod } | { schema: string } {
   if (!model.methods.has(path) && model.schemas.has(path)) return { schema: path };
-  const found = resolve(model, path.split('.'));
-  if (!found.method) throw new GapiError(3, `${path} is a resource, not a method or schema`);
-  return { method: found.method };
+  try {
+    const found = resolve(model, path.split('.'));
+    if (!found.method) throw new GapiError(3, `${path} is a resource, not a method or schema`);
+    return { method: found.method };
+  } catch (e) {
+    // resolve knows only the tree; a one-word path can also name a schema.
+    if (e instanceof GapiError && /^unknown /.test(e.message) && !path.includes('.')) {
+      throw new GapiError(3, `${e.message}, or a schema name`);
+    }
+    throw e;
+  }
 }
 
 async function dispatch(argv: string[], io: Io): Promise<void> {
@@ -185,6 +203,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
     stderr: io.stderr,
   });
   const responses = openResponses(join(dir, 'responses'));
+  await responses.sweep();
 
   // ADR 0001 eligibility, before any network call: the entry allows caching, the call is
   // one request or pages, the method is a GET or a `reads` POST.
@@ -328,6 +347,10 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   const model = await catalog.load(api);
   const target = resolve(model, positionals);
   if (!target.method) {
+    // A listing sends nothing: a request flag here means the method word is missing.
+    const flag = Object.keys(values).find((k) => k !== 'help');
+    if (flag)
+      throw new GapiError(3, `--${flag}: ${[api, ...positionals].join(' ')} is not a method`);
     const helpers = positionals.length === 0 ? catalog.entries[api].helpers : undefined;
     io.stdout.write(levelText(model, positionals, target.node, helpers));
     return;
@@ -406,7 +429,7 @@ async function perform(
       return io.stdout.write(chunk);
     },
   };
-  await send(call, { fetch: io.fetch, authorize, out });
+  await send(call, { fetch: io.fetch, authorize, out, sleep: io.sleep });
   if (!cache) return;
   // Best effort: the response is already printed, so a failed write only warns.
   await responses.put(cache.key, chunks.join('')).catch((e: unknown) => {

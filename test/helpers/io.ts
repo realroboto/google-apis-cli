@@ -8,6 +8,7 @@ export async function gapi(argv: string[], io: Partial<Io> = {}) {
   const code = await run(argv, {
     env: {},
     fetch: () => Promise.reject(new Error('unexpected network call')),
+    sleep: async () => {}, // retry backoff never waits in tests
     stdin: Readable.from([]),
     stdout: {
       write: (s: string) => {

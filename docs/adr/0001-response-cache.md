@@ -13,7 +13,7 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
   3. Method is `GET`, or a POST that only reads, listed by id in the API entry `reads` overlay (`src/apis/*.ts`, #186: GAQL search, GA4 reports, GSC Search Analytics and URL Inspection, SA360 search, Merchant reports). An unknown id fails `pnpm discovery:check`.
 - `nocache` entries: `places`, `web-risk`, `crux`, `pagespeed` (Terms below).
 - Key: sha256 of identity, HTTP method, URL (every query value), non-secret headers (`login-customer-id`, quota project), body, send mode, page limit. Two different requests never share an entry.
-- Store: `<config dir>/responses/`, dir mode 700, one file per key mode 600, temp file + rename. Each write deletes files older than 7 days.
+- Store: `<config dir>/responses/`, dir mode 700, one file per key mode 600, temp file + rename. Every run deletes files older than 7 days.
 - Hit: prints the stored text exactly (also every NDJSON line of `--page-all`), then `gapi: cached response from <ISO time>` on stderr. No authorize, no fetch. `--dry-run` adds `"cache": "hit" | "miss"`.
 - Miss: stores the printed output only after a successful send. A non-2xx, an error chunk or a failure during paging stores nothing. A failed store write warns on stderr; exit stays 0.
 
@@ -41,7 +41,7 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
   - CrUX and PageSpeed return Google-owned content → `nocache`.
 - Places: "You must not pre-fetch, cache, or store Places API content beyond the allowed exceptions, although the `place_id` is exempt from caching restrictions." → `nocache`. https://developers.google.com/maps/documentation/places/web-service/policies
 - Web Risk: "Clients of the Lookup API should cache each returned `ThreatUrl` item until the the time defined in the `expireTime` field." A fixed age ignores `expireTime` → `nocache`. https://cloud.google.com/web-risk/docs/caching
-- YouTube: Non-Authorized Data may be stored "but not longer than 30 calendar days"; Authorized Data must be deleted "within 7 calendar days of the revocation". The 7-day max age and the clear on logout meet both. https://developers.google.com/youtube/terms/developer-policies
+- YouTube: Non-Authorized Data may be stored "but not longer than 30 calendar days"; Authorized Data must be deleted "within 7 calendar days of the revocation". The 7-day max age, the sweep on every run and the clear on login and logout meet both. Amended 2026-11-05 (#194): the sweep ran only on a write, so with no new write expired entries stayed on disk. https://developers.google.com/youtube/terms/developer-policies
 
 ## Accepted limits
 
@@ -51,4 +51,4 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
 ## Considered options
 
 - Honor `Cache-Control` headers: rejected. Entries whose content the operator does not own are `nocache` instead.
-- `gapi cache list|clear` commands: out of scope. Login and logout clear; entries older than 7 days go on each write.
+- `gapi cache list|clear` commands: out of scope. Login and logout clear; entries older than 7 days go on every run.

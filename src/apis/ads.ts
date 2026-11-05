@@ -27,7 +27,10 @@ const streamConcat = (data: unknown): unknown => {
       failed,
     );
   }
-  return data.flatMap((c) => (isRecord(c) && Array.isArray(c.results) ? c.results : []));
+  const results = data.flatMap((c) => (isRecord(c) && Array.isArray(c.results) ? c.results : []));
+  // SUMMARY_ROW_SETTING puts the totals in the last chunk's summaryRow; keep them.
+  const summaryRow = data.findLast((c) => isRecord(c) && c.summaryRow !== undefined)?.summaryRow;
+  return summaryRow === undefined ? results : { results, summaryRow };
 };
 
 // D10: one GAQL query; `--stream` returns every row, without it the first page as returned.

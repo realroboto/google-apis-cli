@@ -26,6 +26,8 @@ const OWNED = new Set([
   'upload_protocol',
   '$.xgafv',
 ]);
+// gaxios httpMethodsToRetry, without OPTIONS: a resend of these changes nothing more.
+const IDEMPOTENT = new Set(['GET', 'HEAD', 'PUT', 'DELETE']);
 // The document-level parameters a caller may pass (D5).
 const SHARED = ['fields', 'quotaUser'];
 
@@ -133,18 +135,19 @@ export function plan(
     body,
     auth: { kind: model.auth, scopes: method.scopes },
     warnings,
+    ...(IDEMPOTENT.has(method.httpMethod) || method.read ? { retry: true } : {}),
     ...mode,
   };
 }
 
-// The outer CallPlan of a batch call: one POST to the documented `batch` endpoint that
+// The outer CallPlan of a batch call: one POST to the document's `batchPath` endpoint that
 // carries `parts`, each planned by `plan` with its own headers (D7).
 export function batchPlan(model: ApiModel, parts: CallPlan[]): CallPlan {
   const [first] = parts;
   return {
     methodId: first.methodId,
     httpMethod: 'POST',
-    url: `${model.rootUrl}batch`,
+    url: `${model.rootUrl}${model.batchPath}`,
     headers: {},
     auth: first.auth,
     warnings: first.warnings,
@@ -302,9 +305,22 @@ function paramValues(
       if (typeof v === 'number' || typeof v === 'boolean') return String(v);
       throw invalid(`${name} must be a string, number or boolean`);
     });
+    // An empty list or a required '' sends nothing; a path would lose its segment.
+    if (values.length === 0) throw invalid(`${name} needs at least one value`);
+    if (spec.required && values.includes('')) throw invalid(`${name} needs a value`);
     for (const v of values) {
       if (spec.enum && !spec.enum.includes(v)) {
         throw invalid(`${name} must be one of: ${spec.enum.join(', ')}`);
+      }
+      const type =
+        spec.type === 'integer' || /int64$/.test(spec.format ?? '') ? 'integer' : spec.type;
+      if (type === 'integer' && !/^-?\d+$/.test(v)) throw invalid(`${name} must be an integer`);
+      if (type === 'boolean' && v !== 'true' && v !== 'false') {
+        throw invalid(`${name} must be true or false`);
+      }
+      // Path patterns are checked in buildUrl, after the bare-id hint (#28).
+      if (spec.location !== 'path' && spec.pattern && !matches(spec.pattern, v)) {
+        throw invalid(`${name} must match ${spec.pattern}`);
       }
     }
     out.set(name, { spec, values });
@@ -330,9 +346,13 @@ function buildUrl(
       const param = params.get(name);
       if (!param) throw invalid(`missing required param ${name}`);
       const value = param.values[0];
-      if (param.spec.pattern && !new RegExp(param.spec.pattern).test(value)) {
+      if (param.spec.pattern && !matches(param.spec.pattern, value)) {
         throw invalid(`${name} must match ${param.spec.pattern}`);
       }
+      // googleapis-common validateAndEncodeParams: a `.`/`..` segment would make the URL
+      // parser leave the method path; `%2e` too, since WHATWG URL reads it as a dot.
+      const dot = (reserved ? value.split('/') : [value]).find((s) => /^(?:\.|%2e){1,2}$/i.test(s));
+      if (dot !== undefined) throw invalid(`${name}: '${dot}' is a dot segment; pass a real id`);
       if (reserved) return value.split('/').map(encodeURIComponent).join('/');
       // #28: `properties/{property}` + `properties/123` would encode to properties%2F123.
       const segment = /[^/]+\/$/.exec(method.path.slice(0, offset))?.[0];
@@ -358,6 +378,16 @@ function buildUrl(
         ? `${model.rootUrl}download/`
         : model.rootUrl;
   return `${root}${model.servicePath}${path}${qs ? `?${qs}` : ''}`;
+}
+
+// shortcut: a Java-only discovery pattern (e.g. `(?i)`) is skipped, not checked; translate
+// Java regex to JS if Google ever relies on one for a path.
+function matches(pattern: string, value: string): boolean {
+  try {
+    return new RegExp(pattern).test(value);
+  } catch {
+    return true;
+  }
 }
 
 // google/api/http.proto: {x} percent-encodes every character except [-_.~0-9a-zA-Z];

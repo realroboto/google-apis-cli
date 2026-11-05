@@ -1,7 +1,7 @@
 // Credentials: the only reader and writer of config.json and credentials.json (epic #30 D8, D13).
 // Settings precedence, Bearer vs API key, token refresh + persistence, loopback/manual login.
 import { hash, randomBytes } from 'node:crypto';
-import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
@@ -10,7 +10,7 @@ import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 import type { Credentials } from 'google-auth-library';
 import { CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
-import { shortScope } from './catalog.ts';
+import { shortScope, writeAtomic } from './catalog.ts';
 import { codeOf, GapiError, messageOf } from './errors.ts';
 import { isRecord } from './json.ts';
 import type { ApiEntry, Authorize, CallPlan, OAuthClient, Settings } from './types.ts';
@@ -100,12 +100,11 @@ export function openCredentials({
     return cfg;
   };
 
-  // Owner-only: dir 700, file 600. `mode` applies only on create, so a file that
-  // already exists with looser bits is narrowed too.
+  // Owner-only: file 600 by temp file + rename, so a crash or a concurrent gapi never
+  // leaves a broken file. `mkdir` mode applies only on create: narrow an existing dir too.
   const writeSecure = async (file: string, data: unknown): Promise<void> => {
-    await mkdir(dir, { recursive: true, mode: 0o700 });
-    await writeFile(file, JSON.stringify(data, null, 2), { mode: 0o600 });
-    await chmod(file, 0o600);
+    await writeAtomic(file, JSON.stringify(data, null, 2));
+    await chmod(dir, 0o700);
   };
 
   const readCredentials = async (): Promise<Credentials> => {
@@ -138,6 +137,8 @@ export function openCredentials({
     const { tokens } = await c.getToken({ code, codeVerifier }).catch((e: unknown) => {
       throw new GapiError(2, `token exchange failed: ${messageOf(e)}`);
     });
+    // Google: "refresh tokens are always returned for installed applications".
+    if (!tokens.refresh_token) throw new GapiError(2, `no refresh token returned; ${RELOGIN}`);
     await writeSecure(credentialsFile, tokens);
     return tokens;
   };
@@ -189,9 +190,11 @@ export function openCredentials({
       const c = await client();
       c.setCredentials(await readCredentials());
       // An event listener is not awaited: keep the write so the refresh below can await it.
+      // Copy now: google-auth-library puts the old refresh token back on this object.
       c.on('tokens', (t: Credentials) => {
+        const fresh = { ...t };
         saving = readCredentials().then((stored) =>
-          writeSecure(credentialsFile, { ...stored, ...t }),
+          writeSecure(credentialsFile, { ...stored, ...fresh }),
         );
       });
       tokenClient = c;
@@ -241,14 +244,20 @@ export function openCredentials({
       code_challenge_method: CodeChallengeMethod.S256,
       code_challenge: codeChallenge,
     });
-    const redeem = (redirect: URL): Promise<Credentials> => {
+    // `state` first, so only Google's own redirect can end the login (CSRF).
+    const redeem = async (redirect: URL): Promise<Credentials> => {
       const query = redirect.searchParams;
+      if (query.get('state') !== state) throw new GapiError(2, 'state mismatch');
       const error = query.get('error');
       if (error) throw new GapiError(2, `consent failed: ${error}`);
-      if (query.get('state') !== state) throw new GapiError(2, 'state mismatch');
       const code = query.get('code');
       if (!code) throw new GapiError(2, 'no code in redirect');
-      return exchange(c, code, codeVerifier);
+      const tokens = await exchange(c, code, codeVerifier);
+      // Google: "Your app must verify which scopes were actually granted".
+      const granted = new Set((tokens.scope ?? '').split(' '));
+      const missing = consent.filter((s) => !granted.has(s)).map(shortScope);
+      if (missing.length > 0) warn(`scopes not granted: ${missing.join(', ')}`);
+      return tokens;
     };
 
     if (manual) {
@@ -267,6 +276,11 @@ export function openCredentials({
         if (redirect.pathname !== '/') {
           res.statusCode = 404; // e.g. /favicon.ico: keep waiting for the redirect
           res.end();
+          return;
+        }
+        if (redirect.searchParams.get('state') !== state) {
+          res.statusCode = 400; // not Google's redirect: keep waiting for it
+          res.end('gapi: state mismatch');
           return;
         }
         try {
@@ -308,7 +322,8 @@ export function openCredentials({
   }
 
   // Revoke, then delete (the `gcloud auth revoke` pattern, #151). Revoking the refresh
-  // token ends the whole grant. Google answers 400 for a token already invalid or revoked.
+  // token ends the whole grant. Google answers 400 `invalid_token` for a token already
+  // invalid or revoked; another 400 error code is a failed request.
   // Any other failure keeps credentials.json, so the logout can be retried.
   // No stored token (missing or unreadable file) leaves nothing to revoke. The revoke
   // endpoint takes only the token, so no OAuth client id or secret is needed.
@@ -318,7 +333,8 @@ export function openCredentials({
       await oauth()
         .revokeToken(token)
         .catch((e: unknown) => {
-          if (!isRecord(e) || e.status !== 400)
+          const data = isRecord(e) && isRecord(e.response) ? e.response.data : undefined;
+          if (!isRecord(data) || data.error !== 'invalid_token')
             throw new GapiError(1, `token revoke failed, credentials kept: ${messageOf(e)}`);
           warn('refresh token already invalid or revoked');
         });

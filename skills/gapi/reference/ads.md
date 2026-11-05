@@ -14,6 +14,7 @@ Auth: OAuth. Docs: https://developers.google.com/google-ads/api/
 
 | command | HTTP | description | required params | body | marks |
 |---|---|---|---|---|---|
+| `gapi ads customers checkLocalServicesEligibility` | POST | Returns the Local Services eligibility status and valid categories for a given Customer and GBP Listing ID. | `customerId` | `GoogleAdsGoogleadsV26Services__CheckLocalServicesEligibilityRequest` |  |
 | `gapi ads customers createCustomerClient` | POST | Creates a new client under manager. | `customerId` | `GoogleAdsGoogleadsV26Services__CreateCustomerClientRequest` |  |
 | `gapi ads customers generateAdGroupThemes` | POST | Returns a list of suggested AdGroups and suggested modifications (text, match type) for the given keywords. | `customerId` | `GoogleAdsGoogleadsV26Services__GenerateAdGroupThemesRequest` |  |
 | `gapi ads customers generateAudienceCompositionInsights` | POST | Returns a collection of attributes that are represented in an audience of interest, with metrics that compare each attribute's share of the audience with its share of a baseline audience. | `customerId` | `GoogleAdsGoogleadsV26Services__GenerateAudienceCompositionInsightsRequest` |  |
@@ -378,6 +379,12 @@ Auth: OAuth. Docs: https://developers.google.com/google-ads/api/
 | command | HTTP | description | required params | body | marks |
 |---|---|---|---|---|---|
 | `gapi ads customers customerAssets mutate` | POST | Creates, updates, or removes customer assets. | `customerId` | `GoogleAdsGoogleadsV26Services__MutateCustomerAssetsRequest` |  |
+
+## gapi ads customers customerBudgetNetworkSettings
+
+| command | HTTP | description | required params | body | marks |
+|---|---|---|---|---|---|
+| `gapi ads customers customerBudgetNetworkSettings mutate` | POST | Creates or updates the customer budget network setting. | `customerId` | `GoogleAdsGoogleadsV26Services__MutateCustomerBudgetNetworkSettingRequest` |  |
 
 ## gapi ads customers customerClientLinks
 
