@@ -63,7 +63,7 @@ gapi schema ads GoogleAdsGoogleadsV26Services__MutateCampaignsRequest --find bud
 # operations[].create.campaignBudget: string — The resource name of the campaign budget of the campaign.
 ```
 
-`--find <word>` expands every `$ref` and prints one line per leaf field whose path or first description sentence contains the word (case-insensitive): `path: <type>[ enum] — <first sentence, max 100 chars>`. Paths: `a.b` for properties, `a[]` for array items, `a{}` for map values. On a method path it searches the request (`request.…`) and the response (`response.…`). A `$ref` the cycle guard stops prints `path: $ref <Name>`. `--resolve-refs` adds nothing. `--find ''` → exit 3. No match → `gapi: no match` on stderr, exit 0: retry with another word.
+`--find <word>` expands every `$ref` and prints one line per leaf field whose path or printed description contains the word (case-insensitive): `path: <type>[ enum] — <first sentence, max 100 chars>`. An array or map item without its own description shows the field's. Paths: `a.b` for properties, `a[]` for array items, `a{}` for map values. On a method path it searches the request (`request.…`) and the response (`response.…`). A `$ref` the cycle guard stops prints `path: $ref <Name>` and matches on its path only. `--resolve-refs` adds nothing. `--find ''` → exit 3. No match → `gapi: no match` on stderr, exit 0: retry with another word.
 
 A `$ref` already on the expansion path stays `{"$ref":"<name>"}`, sibling keys such as `description` kept (cycle guard).
 

@@ -236,23 +236,30 @@ export function schemaFind(
       : [['', target.schema]];
   const needle = word.toLowerCase();
   const lines: string[] = [];
-  const walk = (node: Record<string, unknown>, path: string): void => {
+  // An array or map item without a description takes its field's (Google puts it there).
+  const walk = (node: Record<string, unknown>, path: string, fieldDescription = ''): void => {
+    const own = typeof node.description === 'string' ? node.description : fieldDescription;
     const props = isRecord(node.properties) ? Object.entries(node.properties) : [];
-    const children: [string, unknown][] = [
-      ...props.map(([key, child]): [string, unknown] => [path ? `${path}.${key}` : key, child]),
-      [`${path}[]`, node.items],
-      [`${path}{}`, node.additionalProperties],
+    const children: [string, unknown, string][] = [
+      ...props.map(([key, child]): [string, unknown, string] => [
+        path ? `${path}.${key}` : key,
+        child,
+        '',
+      ]),
+      [`${path}[]`, node.items, own],
+      [`${path}{}`, node.additionalProperties, own],
     ];
     let leaf = true;
-    for (const [childPath, child] of children) {
+    for (const [childPath, child, description] of children) {
       if (!isRecord(child)) continue;
       leaf = false;
-      walk(child, childPath);
+      walk(child, childPath, description);
     }
-    const text = brief(typeof node.description === 'string' ? node.description : '');
+    const ref = typeof node.$ref === 'string' ? node.$ref : undefined;
+    const text = ref ? '' : brief(own);
     if (!leaf || !`${path}\n${text}`.toLowerCase().includes(needle)) return;
-    const type = typeof node.$ref === 'string' ? `$ref ${node.$ref}` : String(node.type ?? 'any');
-    lines.push(`${path}: ${type}${node.enum ? ' enum' : ''}${text ? ` — ${text}` : ''}`);
+    const type = ref ? `$ref ${ref}` : `${String(node.type ?? 'any')}${node.enum ? ' enum' : ''}`;
+    lines.push(`${path}: ${type}${text ? ` — ${text}` : ''}`);
   };
   for (const [path, name] of roots) {
     const schema = name ? model.schemas.get(name) : undefined;
