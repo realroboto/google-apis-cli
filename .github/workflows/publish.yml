@@ -1,0 +1,49 @@
+name: Publish
+
+# npm trusted publisher config names this file: renaming it breaks publish.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # GitHub Release
+  id-token: write # npm OIDC
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the guard needs origin/main
+          persist-credentials: false # no write token on disk for install scripts
+      - name: Guard tag against package version and main
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::tag $GITHUB_REF_NAME points to $GITHUB_SHA, which is not on main ($(git rev-parse origin/main))"
+            exit 1
+          fi
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false # no cache in release builds
+      - run: pnpm install --frozen-lockfile
+      - run: npm publish
+      - name: Create GitHub Release from the CHANGELOG section
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '$1 == "##" { on = ($2 == v) ; next } on' CHANGELOG.md > notes.md
+          if [ -s notes.md ]; then
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          fi
