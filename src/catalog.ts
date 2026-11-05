@@ -279,7 +279,7 @@ async function loadEntries(dir: string): Promise<Record<string, ApiEntry>> {
 }
 
 // Temp file + rename so a reader never sees a half-written document.
-async function writeAtomic(file: string, text: string): Promise<void> {
+export async function writeAtomic(file: string, text: string): Promise<void> {
   await mkdir(dirname(file), { recursive: true, mode: 0o700 });
   const tmp = `${file}.${process.pid}.tmp`;
   await writeFile(tmp, text, { mode: 0o600 });

@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1007,4 +1009,96 @@ test('send: a batch or resumable reply gapi cannot read exits 1 with the body', 
     const r = await gapiRun(argv, { fetch });
     assert.deepEqual([r.code, r.stderr, r.stdout, calls.length], [1, stderr, '', 1]);
   }
+});
+
+// --cache tests own a copy of the config dir: they write responses/ and rewrite credentials.
+const cacheEnv = (t: { after(fn: () => void): void }) => {
+  const own = mkdtempSync(join(tmpdir(), 'gapi-cache-'));
+  t.after(() => rmSync(own, { recursive: true, force: true }));
+  cpSync(dir, own, { recursive: true });
+  return { GAPI_CONFIG_DIR: own };
+};
+
+test('--cache: a repeated read is answered from the store with one fetch', async (t) => {
+  const own = cacheEnv(t);
+  const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [{ siteUrl: 'x' }] }));
+  const argv = ['gsc', 'sites', 'list', '--cache', '1h'];
+  const first = await fx(argv, { fetch, env: own });
+  const second = await fx(argv, { fetch, env: own });
+  assert.equal(first.code, 0, first.stderr);
+  assert.equal(second.code, 0, second.stderr);
+  assert.equal(calls.length, 1);
+  assert.equal(second.stdout, first.stdout);
+  assert.match(second.stderr, /^gapi: cached response from \d{4}-\d\d-\d\dT[\d:.]+Z\n$/);
+  // Account data on disk: owner-only, like credentials.json.
+  const responses = join(own.GAPI_CONFIG_DIR, 'responses');
+  assert.equal(statSync(responses).mode & 0o777, 0o700);
+  for (const f of readdirSync(responses)) {
+    assert.equal(statSync(join(responses, f)).mode & 0o777, 0o600);
+  }
+});
+
+test('--cache: a write and a nocache entry exit 3 with no fetch', async (t) => {
+  const own = cacheEnv(t);
+  const { fetch, calls } = fakeFetch(() => Response.json({}));
+  const write = await fx(
+    ['gsc', 'sites', 'delete', '--params', '{"siteUrl":"x"}', '--cache', '1h'],
+    { fetch, env: own },
+  );
+  assert.equal(write.code, 3);
+  assert.equal(write.stderr, 'gapi: --cache: gsc sites delete is not a cacheable read\n');
+  const crux = await fx(['crux', 'records', 'queryRecord', '--body', '{}', '--cache', '1h'], {
+    fetch,
+    env: own,
+  });
+  assert.equal(crux.code, 3);
+  assert.match(crux.stderr, /^gapi: --cache: crux responses must not be cached: .+ \(https:/);
+  assert.equal(calls.length, 0);
+});
+
+test('--cache: another refresh token never reads the stored response', async (t) => {
+  const own = cacheEnv(t);
+  const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [] }));
+  const argv = ['gsc', 'sites', 'list', '--cache', '1h'];
+  assert.equal((await fx(argv, { fetch, env: own })).code, 0);
+  writeFileSync(
+    join(own.GAPI_CONFIG_DIR, 'credentials.json'),
+    JSON.stringify({ access_token: 'TOK', refresh_token: 'RT2', expiry_date: Date.now() + 3600e3 }),
+  );
+  const other = await fx(argv, { fetch, env: own });
+  assert.equal(other.code, 0);
+  assert.equal(other.stderr, '');
+  assert.equal(calls.length, 2);
+});
+
+test('--cache: a failed call is not stored, so the next call fetches', async (t) => {
+  const own = cacheEnv(t);
+  const error = { code: 500, message: 'Internal error.' };
+  const { fetch, calls } = fakeFetch(() => Response.json({ error }, { status: 500 }));
+  const argv = ['gsc', 'sites', 'list', '--cache', '1h'];
+  assert.equal((await fx(argv, { fetch, env: own })).code, 1);
+  assert.equal((await fx(argv, { fetch, env: own })).code, 1);
+  assert.equal(calls.length, 2);
+});
+
+test('auth logout and auth login delete the stored responses', async (t) => {
+  const own = cacheEnv(t);
+  const responses = join(own.GAPI_CONFIG_DIR, 'responses');
+  const seed = () => {
+    mkdirSync(responses, { recursive: true });
+    writeFileSync(join(responses, 'k'), '{}');
+  };
+  // No stored token: logout revokes nothing, so no OAuth client and no network.
+  rmSync(join(own.GAPI_CONFIG_DIR, 'credentials.json'));
+  seed();
+  const logout = await fx(['auth', 'logout'], { env: own });
+  assert.equal(logout.code, 0, logout.stderr);
+  assert.equal(existsSync(responses), false);
+  // No OAuth client: login stops before the consent, after the clear.
+  rmSync(join(own.GAPI_CONFIG_DIR, 'config.json'));
+  seed();
+  const login = await fx(['auth', 'login'], { env: own });
+  assert.equal(login.code, 2);
+  assert.equal(login.stderr, 'gapi: OAuth client not configured; run gapi auth setup\n');
+  assert.equal(existsSync(responses), false);
 });

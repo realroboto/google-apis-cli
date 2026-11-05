@@ -32,6 +32,7 @@ export type ApiEntry = {
   retired?: Record<string, { reason: string; source: string }>; // method id → why it always fails
   deprecated?: Record<string, { source: string }>; // method id → marks deprecated
   paid?: Record<string, { reason: string; source: string }>; // method id → billed or closed
+  nocache?: { reason: string; source: string }; // why --cache must never store this API's responses
   headers?: { name: string; flag: string; env: string; configKey: string }[];
   helpers?: Helpers;
 };
