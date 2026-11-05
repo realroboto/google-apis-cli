@@ -1,6 +1,6 @@
 // Credentials: the only reader and writer of config.json and credentials.json (epic #30 D8, D13).
 // Settings precedence, Bearer vs API key, token refresh + persistence, loopback/manual login.
-import { randomBytes } from 'node:crypto';
+import { hash, randomBytes } from 'node:crypto';
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -13,7 +13,7 @@ import { CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
 import { shortScope } from './catalog.ts';
 import { codeOf, GapiError, messageOf } from './errors.ts';
 import { isRecord } from './json.ts';
-import type { ApiEntry, Authorize, OAuthClient, Settings } from './types.ts';
+import type { ApiEntry, Authorize, CallPlan, OAuthClient, Settings } from './types.ts';
 
 const LOOPBACK_HOST = '127.0.0.1';
 const LOOPBACK_PORT = 4600; // fixed port; vmCODE forwards it for headless use
@@ -212,6 +212,14 @@ export function openCredentials({
     return { Authorization: `Bearer ${token}` };
   };
 
+  // Response cache key part (ADR 0001): one per Google account, never the token itself.
+  // No stored token → undefined; entries are stored only after an authorized success.
+  async function identity(auth: CallPlan['auth']): Promise<string | undefined> {
+    if (auth.kind === 'apiKey') return 'apiKey';
+    const token = (await readCredentials().catch(() => undefined))?.refresh_token;
+    return token ? hash('sha256', token) : undefined;
+  }
+
   // Both flows send `state` and a PKCE S256 challenge, and redeem one redirect URL.
   async function login({
     consent,
@@ -345,7 +353,7 @@ export function openCredentials({
     return configFile;
   }
 
-  return { settings, authorize, login, status, logout, setup };
+  return { settings, authorize, identity, login, status, logout, setup };
 }
 
 // Decode a JWT payload without verifying (display only; it is our own token).

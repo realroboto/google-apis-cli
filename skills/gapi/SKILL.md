@@ -23,7 +23,7 @@ Headless box (no browser)? `gapi auth login --manual` prints the URL; after cons
 ## Grammar
 
 ```sh
-gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>'] [--dry-run]
+gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>'] [--cache <age>] [--dry-run]
 gapi <api> [<resource>…]                     # list sub-resources and methods at that level
 gapi <api> <resource>… <method> --help       # method help: HTTP method, URL, params, body schema, scopes, marks, docs link
 ```
@@ -89,6 +89,22 @@ gapi cm360 files get --params '{"reportId":"1","fileId":"2"}' --output report.cs
 - `--upload <file>` on methods with media upload. `--upload-protocol media|multipart|resumable` (default `multipart` with `--body`, else `media`; `resumable` only where Google offers it, 8 MiB chunks). `--upload-content-type` default from the file extension, else `application/octet-stream`.
 - `--output <file>` on methods with media download: adds `alt=media` (and the `download/` path prefix where Google sets `useMediaDownloadService`), writes the body to the file, prints `{"path","bytes"}`.
 - `--page-all`, `--upload` and `--output` do not combine.
+
+## `--cache`
+
+```sh
+gapi gsc sites list --cache 1h
+gapi ga4-admin properties list --params '{"filter":"parent:accounts/1"}' --page-all --cache 1d
+```
+
+`--cache <age>` returns a stored response younger than `<age>` instead of calling Google, so a repeated identical read costs no quota. Off unless you pass it, per call.
+
+- `<age>` = `<n>s`, `<n>m`, `<n>h` or `<n>d`, from 1s to 7d. Else exit 3.
+- Qualifies: `GET` methods, one request or `--page-all`, on method calls and helpers. Writes (POST, PUT, PATCH, DELETE), `--upload`, `--output` and batch helpers (`+publishBatch`) exit 3: they always reach Google.
+- Never: `places` (terms forbid caching), `web-risk` (results expire at `expireTime`), `crux` and `pagespeed` (Google-owned content; Google APIs Terms §5). Exit 3 with the reason and the source.
+- Hit: same stdout as the live call (also every NDJSON line), plus `gapi: cached response from <ISO time>` on stderr. No API request. `--dry-run --cache <age>` adds `"cache": "hit"` or `"cache": "miss"`.
+- A failed call stores nothing. Entries are per Google account. `gapi auth login` and `gapi auth logout` delete all stored responses; entries older than 7 days are deleted.
+- `--cache` means the operator permits caching of this content (Google APIs Terms §5: content owner's permission). Content shared with you but owned by others: cache it only when that owner allows it.
 
 ## Helpers
 

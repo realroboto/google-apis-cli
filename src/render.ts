@@ -10,11 +10,11 @@ export const AUTH_USAGE = 'gapi auth setup | login [--manual] | status | logout'
 
 const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>']
      [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]]
-     [--output <file>] [--page-all [--page-limit <n>]] [--dry-run] [--project <id>] [--api-key <key>]
-     [<entry header flags, e.g. ads --login-customer-id <id>>]
+     [--output <file>] [--page-all [--page-limit <n>]] [--cache <age>] [--dry-run]
+     [--project <id>] [--api-key <key>] [<entry header flags, e.g. ads --login-customer-id <id>>]
 gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
-gapi <api> +<helper> … [--dry-run] [--project <id>] [--api-key <key>] [<entry header flags>]
+gapi <api> +<helper> … [--dry-run] [--cache <age>] [--project <id>] [--api-key <key>] [<entry header flags>]
 ${SCHEMA_USAGE}
 ${DISCOVERY_USAGE}
 ${AUTH_USAGE}
