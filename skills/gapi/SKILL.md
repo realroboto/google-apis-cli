@@ -23,7 +23,7 @@ Headless box (no browser)? `gapi auth login --manual` prints the URL; after cons
 ## Grammar
 
 ```sh
-gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>'] [--dry-run]
+gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>'] [--cache <age>] [--dry-run]
 gapi <api> [<resource>…]                     # list sub-resources and methods at that level
 gapi <api> <resource>… <method> --help       # method help: HTTP method, URL, params, body schema, scopes, marks, docs link
 ```

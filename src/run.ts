@@ -340,9 +340,9 @@ async function perform(
   { responses, cache }: { responses: Responses; cache?: Cache },
 ): Promise<void> {
   for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
-  const age = cache && (await responses.age(cache.key));
-  const stored =
-    cache && age !== undefined && age < cache.maxAgeMs ? await responses.get(cache.key) : undefined;
+  const mtime = cache && (await responses.mtime(cache.key));
+  const fresh = cache && mtime !== undefined && Date.now() - mtime < cache.maxAgeMs;
+  const stored = fresh ? await responses.get(cache.key) : undefined;
   if (dryRun) {
     const headers = { ...call.headers, ...(await authorize(call.auth, { redact: true })) };
     const request = {
@@ -366,9 +366,9 @@ async function perform(
     io.stdout.write(`${JSON.stringify(request, null, 2)}\n`);
     return;
   }
-  if (stored !== undefined && age !== undefined) {
+  if (stored !== undefined && mtime !== undefined) {
     io.stdout.write(stored);
-    io.stderr.write(`gapi: cached response from ${new Date(Date.now() - age).toISOString()}\n`);
+    io.stderr.write(`gapi: cached response from ${new Date(mtime).toISOString()}\n`);
     return;
   }
   const chunks: string[] = [];

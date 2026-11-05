@@ -1,4 +1,4 @@
-// Response store (ADR 0001): one file per key under <config dir>/responses/, dir 700, files
+// Response cache (ADR 0001): one file per key under <config dir>/responses/, dir 700, files
 // 600, written by temp file + rename. Holds Google account data: login and logout clear it.
 import { hash } from 'node:crypto';
 import { readdir, readFile, rm, stat } from 'node:fs/promises';
@@ -26,10 +26,10 @@ export function openResponses(dir: string) {
       ]),
     );
 
-  // Milliseconds since the entry was stored; undefined when there is none.
-  const age = (k: string): Promise<number | undefined> =>
+  // When the entry was stored (epoch ms); undefined when there is none.
+  const mtime = (k: string): Promise<number | undefined> =>
     stat(file(k)).then(
-      (s) => Date.now() - s.mtimeMs,
+      (s) => s.mtimeMs,
       () => undefined,
     );
 
@@ -48,5 +48,5 @@ export function openResponses(dir: string) {
 
   const clear = (): Promise<void> => rm(dir, { recursive: true, force: true });
 
-  return { key, age, get, put, clear };
+  return { key, mtime, get, put, clear };
 }
