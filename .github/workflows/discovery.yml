@@ -3,7 +3,7 @@ name: Discovery check
 on:
   schedule:
     # Mondays 06:17 UTC; off the hour, when GitHub delays or drops scheduled runs.
-    - cron: '17 6 * * 1'
+    - cron: "17 6 * * 1"
   workflow_dispatch:
 
 permissions:
