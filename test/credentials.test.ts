@@ -71,7 +71,7 @@ function fakeOAuth(
       seen.exchange = { code, codeVerifier };
       return {
         tokens: {
-          refresh_token: `RT-${code}`,
+          refresh_token: code === 'no-rt' ? undefined : `RT-${code}`,
           access_token: 'AT',
           id_token: idTokenFor('op@example.com'),
           scope: `${A}webmasters openid https://www.googleapis.com/auth/userinfo.email`,
@@ -164,7 +164,7 @@ test('manual login takes the pasted redirect URL and exchanges its code with the
   });
 });
 
-test('manual login with a wrong state exits 2 and writes nothing', async () => {
+test('manual login with a wrong state or no refresh token exits 2 and writes nothing', async () => {
   const dir = tempDir();
   const creds = openCredentials({ dir, env: ENV, oauth: fakeOAuth().oauth, stderr: sink().stream });
   await assert.rejects(
@@ -174,6 +174,16 @@ test('manual login with a wrong state exits 2 and writes nothing', async () => {
       prompt: async () => redirectWith({ state: 'forged', code: 'abc' }),
     }),
     { exit: 2, message: 'state mismatch' },
+  );
+  const { oauth, seen } = fakeOAuth();
+  const noRt = openCredentials({ dir, env: ENV, oauth, stderr: sink().stream });
+  await assert.rejects(
+    noRt.login({
+      consent: CONSENT,
+      manual: true,
+      prompt: async () => redirectWith({ state: String(seen.authOpts?.state), code: 'no-rt' }),
+    }),
+    { exit: 2 },
   );
   assert.equal(existsSync(join(dir, 'credentials.json')), false);
 });
@@ -210,7 +220,10 @@ test('loopback login listens on 127.0.0.1:4600 only, 404s other paths and keeps 
     exit: 2,
     message: 'consent failed: access_denied',
   });
+  // A request without the login's state (any local page) gets 400 and ends nothing.
   assert.equal(await visit(redirectWith({ error: 'access_denied' })), 400);
+  const state = String(seen.authOpts?.state);
+  assert.equal(await visit(redirectWith({ state, error: 'access_denied' })), 400);
   await denied;
 });
 
@@ -257,7 +270,7 @@ test('authorize exits 2 when the refreshed token cannot be saved', { skip: asRoo
   const dir = tempDir();
   const file = join(dir, 'credentials.json');
   writeFileSync(file, JSON.stringify({ refresh_token: 'RT', access_token: 'OLD' }));
-  chmodSync(file, 0o400); // readable, so only the write of the refreshed token fails
+  chmodSync(dir, 0o500); // readable, so only the write of the refreshed token fails
   const { oauth } = fakeOAuth(async (emit) => {
     emit({ access_token: 'NEW', expiry_date: 222 });
     return { token: 'NEW' };
@@ -266,6 +279,7 @@ test('authorize exits 2 when the refreshed token cannot be saved', { skip: asRoo
     openCredentials({ dir, env: ENV, oauth }).authorize({ kind: 'oauth', scopes: CONSENT }),
     { exit: 2, message: /^cannot save the refreshed token: EACCES: permission denied/ },
   );
+  chmodSync(dir, 0o700);
 });
 
 test('authorize: API key from flag, env or config; required only where the method lists no scope', async () => {
@@ -417,7 +431,12 @@ test('logout deletes credentials.json with a warning when the token is already r
   const dir = loggedIn();
   const warnings: string[] = [];
   const { oauth } = fakeOAuth(undefined, () =>
-    Promise.reject(Object.assign(new Error('invalid_token'), { status: 400 })),
+    Promise.reject(
+      Object.assign(new Error('invalid_token'), {
+        status: 400,
+        response: { data: { error: 'invalid_token' } },
+      }),
+    ),
   );
   await openCredentials({ dir, env: ENV, oauth, warn: (m) => warnings.push(m) }).logout();
   assert.deepEqual(warnings, ['refresh token already invalid or revoked']);

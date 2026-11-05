@@ -1,9 +1,10 @@
 // Catalog: the API entries found by glob, their discovery documents behind a
 // 24 h disk cache, and the one normalized ApiModel per API (epic #30 D2, D8, D13).
+import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { GapiError } from './errors.ts';
+import { GapiError, reasonOf } from './errors.ts';
 import { isRecord, parseOrText } from './json.ts';
 import type {
   ApiEntry,
@@ -51,6 +52,7 @@ type DiscoveryDoc = DiscoveryResource & {
   documentationLink?: string;
   rootUrl?: string;
   servicePath?: string;
+  batchPath?: string;
   auth?: { oauth2?: { scopes?: Record<string, unknown> } };
   parameters?: Record<string, DiscoveryParam>;
   schemas?: Record<string, DiscoverySchema>;
@@ -99,7 +101,9 @@ export async function openCatalog({
       (s) => s.mtimeMs,
       () => undefined,
     );
-    if (!refresh && mtime !== undefined && Date.now() - mtime < TTL_MS) {
+    // A future mtime (clock skew) counts as stale, so no document freezes.
+    const age = mtime === undefined ? -1 : Date.now() - mtime;
+    if (!refresh && age >= 0 && age < TTL_MS) {
       const doc = await cached(file);
       if (doc) return doc;
     }
@@ -107,7 +111,10 @@ export async function openCatalog({
       e instanceof Error ? e : new Error(String(e)),
     );
     if (!(got instanceof Error)) {
-      await writeAtomic(file, got.text);
+      // The document is already here; a read-only cache dir only costs the next fetch.
+      await writeAtomic(file, got.text).catch((e: unknown) =>
+        warn(`cannot cache the ${entry.api} document: ${reasonOf(e)}`),
+      );
       return got.doc;
     }
     const stale = mtime === undefined ? undefined : await cached(file);
@@ -191,8 +198,10 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
   overlay('paid', entry.paid, (m, v) => {
     m.paid = v;
   });
+  // Only a POST: a `reads` id on a write would let --cache store it and Transport resend it.
   overlay('reads', Object.fromEntries((entry.reads ?? []).map((id) => [id, true])), (m) => {
-    m.read = true;
+    if (m.httpMethod === 'POST') m.read = true;
+    else problems.push(`reads ${m.id}: ${m.httpMethod}, not a POST`);
   });
 
   return {
@@ -205,6 +214,7 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
     documentationLink: doc.documentationLink,
     rootUrl: doc.rootUrl ?? '',
     servicePath: doc.servicePath ?? '',
+    batchPath: doc.batchPath ?? 'batch',
     auth,
     scopes,
     byId,
@@ -276,15 +286,18 @@ async function loadEntries(dir: string): Promise<Record<string, ApiEntry>> {
     if (!isApiEntry(e)) throw new Error(`${file}: default export is not an API entry`);
     const name = basename(f, extname(f));
     if (e.api !== name) throw new Error(`${file}: api '${e.api}' must equal '${name}'`);
+    if (!/^[a-z0-9-]+$/.test(e.api))
+      throw new Error(`${file}: api '${e.api}' must match [a-z0-9-]+`);
     entries[e.api] = e;
   }
   return entries;
 }
 
-// Temp file + rename so a reader never sees a half-written document.
+// gcloud WriteFileAtomically: a new temp file (mode 600, `wx` never reuses a looser one),
+// flushed to disk, then renamed over the target; readers see the old or the new file.
 export async function writeAtomic(file: string, text: string): Promise<void> {
   await mkdir(dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.${process.pid}.tmp`;
-  await writeFile(tmp, text, { mode: 0o600 });
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  await writeFile(tmp, text, { mode: 0o600, flag: 'wx', flush: true });
   await rename(tmp, file);
 }

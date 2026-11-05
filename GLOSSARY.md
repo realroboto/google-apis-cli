@@ -8,7 +8,7 @@ Terms of the call path (epic #30, D13). One line each.
 - **ApiModel** — one API as the CLI sees it: the resource tree, method index, per-method scopes and auth kind, overlays applied, and schemas.
 - **Planner** — `src/plan.ts`: pure `plan(model, target, input, settings)` that applies every parameter rule and returns a CallPlan or throws a validation error (exit 3).
 - **CallPlan** — the request to send, as data: method id, HTTP method, URL, non-secret headers, body, auth kind and scopes, send mode, optional `decode`, warnings; `--dry-run` prints it.
-- **Transport** — `src/transport.ts`: `send(plan, …)` authorizes and performs a CallPlan (single call, paging, upload, download, batch) and classifies HTTP errors.
+- **Transport** — `src/transport.ts` + `src/transport/{upload,download,batch}.ts`: `send(plan, …)` authorizes and performs a CallPlan (single call, paging, upload, download, batch) and classifies HTTP errors.
 - **Credentials** — `src/credentials.ts`: the only reader and writer of `config.json` and `credentials.json`; resolves settings, authorizes requests (Bearer or API key) and runs login.
 - **Search** — `src/search.ts`: `gapi search <words…>`; ranks the methods of every ApiModel against the words with an in-memory SQLite FTS5 index built per call, best 20 first.
 - **response cache** — `src/responses.ts`: opt-in store of read responses under `<config dir>/responses/`, used only on a call with `--cache <age>` (ADR 0001); keyed per Google account; login and logout delete it.

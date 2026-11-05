@@ -20,7 +20,7 @@
    [google-apis-cli]
 
 4. **[2026-10-15] `npm publish` from the VM fails: no npm login, and `!` cannot finish 2FA (security key, EOTP)**
-   Do instead: operator publishes from the Mac clone: `git pull`, `corepack enable`, `pnpm install --frozen-lockfile`, `npm publish`, ENTER + key
+   Do instead: operator publishes from the Mac clone: `git pull`, pnpm 12 on PATH (Node 26 ships no corepack), `pnpm install --frozen-lockfile`, `npm publish`, ENTER + key
    [google-apis-cli]
 
 5. **[2026-10-15] Fresh npm version: `npm i`/`npm view` on the VM read ETARGET or the old version from the local cache**

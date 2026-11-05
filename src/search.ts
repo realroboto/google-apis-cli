@@ -17,7 +17,9 @@ const split = (text: string): string =>
 
 // Tokens hold only letters and digits, so no FTS5 syntax reaches the match expression.
 export function matchQuery(query: string): string {
-  const tokens = query.toLowerCase().match(/[\p{L}\p{N}]+/gu);
+  const tokens = split(query)
+    .toLowerCase()
+    .match(/[\p{L}\p{N}]+/gu);
   if (!tokens) throw new GapiError(3, `usage: ${SEARCH_USAGE}`);
   return tokens.map((t) => `"${t}"`).join(' OR ');
 }

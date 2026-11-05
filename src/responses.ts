@@ -23,6 +23,7 @@ export function openResponses(dir: string) {
         call.body,
         call.send,
         call.send === 'pages' ? call.pageLimit : undefined,
+        call.decode !== undefined, // a helper's decoded output differs from the raw one
       ]),
     );
 
@@ -36,10 +37,12 @@ export function openResponses(dir: string) {
   const get = (k: string): Promise<string | undefined> =>
     readFile(file(k), 'utf8').catch(() => undefined);
 
-  // Writes the entry, then deletes every file (temp files too) older than the max age.
-  async function put(k: string, text: string): Promise<void> {
-    await writeAtomic(file(k), text);
-    for (const name of await readdir(dir)) {
+  const put = (k: string, text: string): Promise<void> => writeAtomic(file(k), text);
+
+  // Deletes every file (temp files too) older than the max age. Every run calls it, so
+  // account data never outlives 7 days on disk (YouTube policy, ADR 0001).
+  async function sweep(): Promise<void> {
+    for (const name of await readdir(dir).catch(() => [])) {
       const f = join(dir, name);
       const s = await stat(f).catch(() => undefined);
       if (s && Date.now() - s.mtimeMs > MAX_AGE_MS) await rm(f, { force: true });
@@ -48,5 +51,5 @@ export function openResponses(dir: string) {
 
   const clear = (): Promise<void> => rm(dir, { recursive: true, force: true });
 
-  return { key, mtime, get, put, clear };
+  return { key, mtime, get, put, sweep, clear };
 }

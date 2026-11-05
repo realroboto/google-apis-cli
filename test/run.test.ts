@@ -355,6 +355,12 @@ test('validation errors exit 3 before any network call', async () => {
       /^gapi: view must be one of: BASIC, FULL\n$/,
     ],
     [
+      ['mini', 'files', 'list', '--params', '{"view":[]}'],
+      /^gapi: view needs at least one value\n$/,
+    ],
+    [['gsc', 'sites', 'delete', '--params', '{"siteUrl":".."}'], /^gapi: siteUrl: '..' /],
+    [[...get, '--params', '{"name":"properties/1/dataStreams/%2E%2e"}'], /^gapi: name: '%2E%2e' /],
+    [
       ['gsc', 'sites', 'list', '--body', '{}'],
       /^gapi: --body: gsc sites list takes no request body\n$/,
     ],
@@ -502,6 +508,8 @@ test('search ranks a camelCase word part first; FTS5 syntax in the query is plai
   const r = await fx(['search', 'things'], { fetch });
   assert.equal(r.code, 0, r.stderr);
   assert.ok(r.stdout.startsWith('gapi mini v26 listThings (deprecated)  POST  '), r.stdout);
+  const camel = await fx(['search', 'listThings'], { fetch });
+  assert.ok(camel.stdout.startsWith('gapi mini v26 listThings'), camel.stderr);
   const odd = await fx(['search', '-list', '"files*', 'OR'], { fetch });
   assert.equal(odd.code, 0, odd.stderr);
   assert.match(odd.stdout, /^gapi mini files list {2}GET {2}Lists files\.$/m);
@@ -694,6 +702,10 @@ test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT exits 2 naming the scope', asy
     ),
     r.stderr,
   );
+  // A streaming method wraps the error in a one-element array (Go errorReplyFromBody).
+  const stream = fakeFetch(() => Response.json([{ error }], { status: 403 }));
+  const s = await sh(['ads', '+gaql', 'SELECT x FROM y', '--customer', '1', '--stream'], stream);
+  assert.equal(s.code, 2, s.stderr);
 });
 
 test('send: a 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT names the entry scope when the method lists none', async () => {
@@ -736,6 +748,34 @@ test('send: ACCESS_TOKEN_SCOPE_INSUFFICIENT from another domain exits 1', async 
   const r = await fx(['indexing', 'urlNotifications', 'getMetadata'], { fetch });
   assert.equal(r.code, 1);
   assert.equal(r.stderr, `gapi: Denied.\n${JSON.stringify(error, null, 2)}\n`);
+});
+
+test('send: an idempotent call retries 429/5xx with backoff; a POST write never retries', async () => {
+  const waits: number[] = [];
+  const sleep = async (ms: number) => {
+    waits.push(ms);
+  };
+  const flaky = (ok: unknown) => {
+    const f = fakeFetch(() =>
+      f.calls.length === 1
+        ? new Response('{}', { status: 503, headers: { 'Retry-After': '7' } })
+        : Response.json(ok),
+    );
+    return f;
+  };
+  const get = flaky({ siteEntry: [] });
+  const r = await fx(['gsc', 'sites', 'list'], { fetch: get.fetch, sleep });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(get.calls.length, 2);
+  assert.deepEqual(waits, [7000]); // Retry-After is a floor on the 1-2 s first backoff
+
+  const post = flaky({});
+  const w = await fx(['indexing', 'urlNotifications', 'publish', '--body', '{}'], {
+    fetch: post.fetch,
+    sleep,
+  });
+  assert.equal(w.code, 1);
+  assert.equal(post.calls.length, 1);
 });
 
 test('send: a Google non-2xx exits 1 with the error body', async () => {
@@ -875,13 +915,31 @@ test('send: a resumable upload opens a session, then PUTs 8 MiB chunks until a 2
     ['bytes 0-4/5', 'bytes 0-4/5'],
   );
 
+  // A 5xx on a chunk asks the session what it kept (`bytes */<size>`), then goes on from there.
+  const resume = [
+    opened,
+    () => new Response('{}', { status: 503 }),
+    () => new Response(null, { status: 308, headers: { Range: 'bytes=0-1' } }),
+    () => Response.json({}),
+  ];
+  const hiccup = fakeFetch(() => resume[hiccup.calls.length - 1]());
+  const h = await fx(argv, { fetch: hiccup.fetch });
+  assert.equal(h.code, 0, h.stderr);
+  assert.deepEqual(
+    hiccup.calls.slice(1).map((c) => new Headers(c.init?.headers).get('Content-Range')),
+    ['bytes 0-4/5', 'bytes */5', 'bytes 2-4/5'],
+  );
+
   // A session that never moves past byte 0 stops after a bounded number of PUTs.
   const stuck = fakeFetch(() =>
     stuck.calls.length === 1 ? opened() : new Response(null, { status: 308 }),
   );
   const s = await fx(argv, { fetch: stuck.fetch });
   assert.equal(s.code, 1);
-  assert.equal(s.stderr, 'gapi: resumable upload: 308 at byte 0 of 5, no progress\n');
+  assert.match(
+    s.stderr,
+    /^gapi: resumable upload: 308 at byte 0 of 5, no progress; session https:/,
+  );
   assert.equal(stuck.calls.length, 4);
 });
 
@@ -1068,6 +1126,20 @@ test('--cache: a repeated read (GET or reads POST) is answered from the store wi
   }
 });
 
+test('--cache: raw searchStream and +gaql --stream keep separate entries', async (t) => {
+  const own = cacheEnv(t);
+  const { fetch, calls } = fakeFetch(() => Response.json([{ results: [{ id: 1 }] }]));
+  const q = 'SELECT campaign.id FROM campaign';
+  const raw = ['ads', 'customers', 'googleAds', 'searchStream', '--params', '{"customerId":"1"}'];
+  await sh([...raw, '--body', JSON.stringify({ query: q }), '--cache', '1h'], { fetch, env: own });
+  const r = await sh(['ads', '+gaql', q, '--customer', '1', '--stream', '--cache', '1h'], {
+    fetch,
+    env: own,
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(r.stdout, `${JSON.stringify([{ id: 1 }], null, 2)}\n`);
+});
+
 test('--cache: a write and a nocache entry exit 3 with no fetch', async (t) => {
   const own = cacheEnv(t);
   const { fetch, calls } = fakeFetch(() => Response.json({}));
@@ -1107,8 +1179,8 @@ test('--cache: another refresh token never reads the stored response', async (t)
 
 test('--cache: a failed call is not stored, so the next call fetches', async (t) => {
   const own = cacheEnv(t);
-  const error = { code: 500, message: 'Internal error.' };
-  const { fetch, calls } = fakeFetch(() => Response.json({ error }, { status: 500 }));
+  const error = { code: 400, message: 'Bad request.' };
+  const { fetch, calls } = fakeFetch(() => Response.json({ error }, { status: 400 }));
   const argv = ['gsc', 'sites', 'list', '--cache', '1h'];
   assert.equal((await fx(argv, { fetch, env: own })).code, 1);
   assert.equal((await fx(argv, { fetch, env: own })).code, 1);

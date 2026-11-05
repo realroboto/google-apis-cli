@@ -6,6 +6,7 @@ import { GapiError, reasonOf } from '../errors.ts';
 import { parseOrText } from '../json.ts';
 import type { Call } from '../transport.ts';
 import type { CallPlan, FetchResponse } from '../types.ts';
+import { backoff, NetworkError, RETRIES, retryable, type Sleep } from './retry.ts';
 
 // Google wants chunks in multiples of 256 KiB; 8 MiB keeps the request count low.
 const CHUNK = 8 * 1024 * 1024;
@@ -15,13 +16,13 @@ const MAX_STALLS = 3;
 type UploadPlan = Extract<CallPlan, { send: 'upload' }>;
 
 // Returns the final response; Transport prints it like a `once` call.
-export async function upload(plan: UploadPlan, call: Call): Promise<FetchResponse> {
+export async function upload(plan: UploadPlan, call: Call, sleep: Sleep): Promise<FetchResponse> {
   const file = await readable(plan.upload.path);
   const { protocol, contentType } = plan.upload;
   if (protocol === 'media') {
     return call(plan.url, { method: plan.httpMethod, headers: plan.headers, body: file });
   }
-  if (protocol === 'resumable') return resumable(plan, file, call);
+  if (protocol === 'resumable') return resumable(plan, file, call, sleep);
   // multipart/related: the JSON metadata part, then the media part.
   const boundary = randomUUID();
   const body = new Blob([
@@ -50,7 +51,14 @@ async function readable(path: string): Promise<Blob> {
 }
 
 // Session request on the upload URL, then PUT chunks to the session URI; 308 = send more.
-async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<FetchResponse> {
+// A 5xx or a network error on a chunk asks the session what it kept (`bytes */<size>`) and
+// goes on from there (google-api-python-client `next_chunk`, @google-cloud/storage).
+async function resumable(
+  plan: UploadPlan,
+  file: Blob,
+  call: Call,
+  sleep: Sleep,
+): Promise<FetchResponse> {
   const session = await call(plan.url, {
     method: plan.httpMethod,
     headers: { ...plan.headers, 'X-Upload-Content-Length': String(file.size) },
@@ -63,27 +71,53 @@ async function resumable(plan: UploadPlan, file: Blob, call: Call): Promise<Fetc
   }
   // undici holds the connection until a body is read or cancelled; only headers matter here.
   await session.body?.cancel();
-  let start = 0;
-  let stalls = 0;
-  for (;;) {
-    const end = Math.min(start + CHUNK, file.size);
-    const range = file.size === 0 ? 'bytes */0' : `bytes ${start}-${end - 1}/${file.size}`;
-    const headers = { 'Content-Range': range };
-    const res = await call(location, { method: 'PUT', headers, body: file.slice(start, end) }, 308);
-    if (res.status !== 308) return res;
-    // `Range: bytes=0-<last>` names the bytes Google kept; no Range means it kept none.
-    const kept = /^bytes=0-(\d+)$/.exec(res.headers.get('Range') ?? '');
-    const next = kept ? Number(kept[1]) + 1 : 0;
-    stalls = next > start ? 0 : stalls + 1;
-    if (stalls === MAX_STALLS || next >= file.size) {
-      const body = parseOrText(await res.text());
-      throw new GapiError(
-        1,
-        `resumable upload: 308 at byte ${next} of ${file.size}, no progress`,
-        body,
-      );
+  // A retryable answer or no answer at all is undefined: the caller asks the session again.
+  const put = (range: string, body?: Blob) =>
+    call(
+      location,
+      { method: 'PUT', headers: { 'Content-Range': range }, body },
+      (s) => s === 308 || retryable(s),
+    ).then(
+      async (res) => (retryable(res.status) ? void (await res.body?.cancel()) : res),
+      (e: unknown) => {
+        if (e instanceof NetworkError) return undefined;
+        throw e;
+      },
+    );
+  // Every final failure names the session, so the operator sees where the upload stopped.
+  try {
+    let start = 0;
+    let stalls = 0;
+    let failures = 0;
+    for (;;) {
+      const end = Math.min(start + CHUNK, file.size);
+      const range = file.size === 0 ? 'bytes */0' : `bytes ${start}-${end - 1}/${file.size}`;
+      let res = await put(range, file.slice(start, end));
+      while (!res) {
+        if (++failures > RETRIES)
+          throw new GapiError(1, `resumable upload: no answer at byte ${start}`);
+        await sleep(backoff(failures - 1));
+        res = await put(`bytes */${file.size}`);
+      }
+      if (res.status !== 308) return res;
+      // `Range: bytes=0-<last>` names the bytes Google kept; no Range means it kept none.
+      const kept = /^bytes=0-(\d+)$/.exec(res.headers.get('Range') ?? '');
+      const next = kept ? Number(kept[1]) + 1 : 0;
+      stalls = next > start ? 0 : stalls + 1;
+      if (next > start) failures = 0;
+      if (stalls === MAX_STALLS || next >= file.size) {
+        const body = parseOrText(await res.text());
+        throw new GapiError(
+          1,
+          `resumable upload: 308 at byte ${next} of ${file.size}, no progress`,
+          body,
+        );
+      }
+      await res.body?.cancel();
+      start = next;
     }
-    await res.body?.cancel();
-    start = next;
+  } catch (e) {
+    if (!(e instanceof GapiError)) throw e;
+    throw new GapiError(e.exit, `${e.message}; session ${location}`, e.body);
   }
 }

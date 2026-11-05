@@ -22,6 +22,12 @@ Auth: OAuth. Docs: https://developers.google.com/data-manager
 | `gapi data-manager accountTypes accounts partnerLinks delete` | DELETE |  | `name` |  |  |
 | `gapi data-manager accountTypes accounts partnerLinks search` | GET |  | `parent` |  |  |
 
+## gapi data-manager accountTypes accounts reports
+
+| command | HTTP | description | required params | body | marks |
+|---|---|---|---|---|---|
+| `gapi data-manager accountTypes accounts reports retrievePartnerMatchReport` | GET |  | `parent` |  |  |
+
 ## gapi data-manager accountTypes accounts userListDirectLicenses
 
 | command | HTTP | description | required params | body | marks |

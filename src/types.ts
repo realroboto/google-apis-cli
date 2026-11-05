@@ -97,6 +97,7 @@ export type ApiModel = ApiResource & {
   documentationLink?: string;
   rootUrl: string;
   servicePath: string;
+  batchPath: string; // discovery `batchPath`, `batch` when the document has none
   auth: 'oauth' | 'apiKey';
   scopes: string[]; // entry `scopes` as full URLs
   byId: Map<string, ApiMethod>;
@@ -116,6 +117,7 @@ export type CallPlan = {
   body?: unknown;
   auth: { kind: ApiModel['auth']; scopes: string[] };
   decode?: (data: unknown) => unknown; // reshapes a `once` response or the batch results
+  retry?: true; // safe to resend: GET, HEAD, PUT, DELETE or a `reads` POST
   warnings: string[];
 } & SendMode;
 

@@ -84,7 +84,7 @@ Default: one request, response printed as pretty JSON (`nextPageToken` included)
 gapi gtm accounts list --page-all --page-limit 5
 ```
 
-`--page-all` follows `nextPageToken`: one compact JSON line per page (NDJSON), at most `--page-limit` pages (default 10; needs `--page-all`). Only on methods with a `pageToken` query parameter, or a `pageToken` request field whose response has `nextPageToken` (Ads/SA360 `search`, Places `searchText`, Merchant `reports.search`, …): there each page re-sends the same `--body` with `pageToken` set. Else exit 3. For every Ads row in one response, `+gaql --stream`.
+`--page-all` follows `nextPageToken`: one compact JSON line per page (NDJSON), at most `--page-limit` pages (default 10; needs `--page-all`). Only on methods with a `pageToken` query parameter, or a `pageToken` request field whose response has `nextPageToken` (Ads/SA360 `search`, Places `searchText`, Merchant `reports.search`, …): there each page re-sends the same `--body` with `pageToken` set. Else exit 3. For every Ads row in one response, `+gaql --stream`: a list of rows, or `{results, summaryRow}` when the query sets `SUMMARY_ROW_SETTING`.
 
 ## Media
 
@@ -150,11 +150,11 @@ gapi sa360 customers searchAds360 search --params '{"customerId":"1234567890"}' 
 | Code | Meaning |
 |---|---|
 | 0 | success |
-| 1 | Google API returned non-2xx, or a response gapi cannot read (2xx body not JSON, upload or batch protocol reply, `searchStream` chunk with `error`); body on stderr |
+| 1 | Google API returned non-2xx after retries, a network failure (`network: <cause>`), or a response gapi cannot read (2xx body not JSON, upload or batch protocol reply, `searchStream` chunk with `error`); body on stderr. GET, HEAD, PUT, DELETE and `reads` POSTs retry 408, 429, 5xx and network errors up to 3 times (backoff 1 s × 2ⁿ + jitter, max 32 s, `Retry-After` as floor); other writes never retry |
 | 2 | auth: no credentials, token expired or revoked, missing scope, missing API key, unavailable method |
-| 3 | validation: unknown command or param, missing required, pattern, bad JSON, flag not valid for the method, retired method |
+| 3 | validation: unknown command or param, missing or empty required, pattern, integer or boolean value, `.`/`..` path segment, bad JSON, flag not valid for the method or given twice, request flag on a listing, unwritable `--output` dir, retired method |
 | 4 | discovery document fetch failed and no usable cache (`gapi discovery refresh <api>` retries) |
-| 5 | internal |
+| 5 | internal, or a stdout/stderr write error other than EPIPE (output lost) |
 
 Errors print `gapi: <message>` to stderr. `missing scope (…); run gapi auth login` (exit 2) → run `gapi auth login`.
 
