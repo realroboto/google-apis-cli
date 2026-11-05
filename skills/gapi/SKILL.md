@@ -39,7 +39,8 @@ gapi ga4-admin properties dataStreams list --params '{"parent":"properties/123"}
 ## `--params` and `--body`
 
 - `--params` = one JSON object with every path and query parameter, Google's names. Also accepts `fields` and `quotaUser`.
-- Path values use the full resource name (`properties/123`, `accounts/1/containers/2`). Value checked against the discovery `pattern` before any network call.
+- Path values use the full resource name (`properties/123`, `accounts/1/containers/2`), also on GA4: a bare `123` → exit 3. Value checked against the discovery `pattern` before any network call.
+- `gsc` `siteUrl`: Domain property `sc-domain:example.com` (no `https://`); URL-prefix property `https://www.example.com/` (trailing slash kept) ([Google](https://developers.google.com/webmaster-tools/v1/sites/get)).
 - Repeated parameter → JSON array. Enum value outside the enum → exit 3.
 - Unknown name or missing required parameter → exit 3. Help shows `required (per description)` when only the description says "Required."; gapi does not enforce those (Google's 400 names them).
 - `--body` = request body JSON. Rejected (exit 3) on methods without a request body.
@@ -157,6 +158,14 @@ gapi sa360 customers searchAds360 search --params '{"customerId":"1234567890"}' 
 
 Errors print `gapi: <message>` to stderr. `missing scope (…); run gapi auth login` (exit 2) → run `gapi auth login`.
 
+Common errors (full table: [docs/SETUP.md runtime errors](https://github.com/realroboto/google-apis-cli/blob/main/docs/SETUP.md#runtime-errors)):
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `token expired or revoked` (exit 2) after about a week | Testing refresh token expired (`invalid_grant`) | `gapi auth login`, or publish the app |
+| `403 SERVICE_DISABLED` | API not enabled on the Cloud project | enable it (SETUP step 1; Business Profile: step 3) |
+| `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` | Ads access level is Test | apply for Ads access (SETUP step 2) |
+
 ## Marks
 
 Help and the reference mark methods. A call to a deprecated method prints one stderr warning.
@@ -180,6 +189,13 @@ gapi places places searchText --params '{"fields":"places.displayName,places.for
 
 Search paths start with `places.`; `get` paths do not.
 
+## Data notes
+
+- GA4 `sessions` counts sessions, not unique users ([Google](https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema)).
+- GSC `position` is an impression-weighted average of the topmost position ([Google](https://support.google.com/webmasters/answer/7042828)).
+- GSC data arrives 2–3 days late ([Google](https://support.google.com/webmasters/answer/96568)).
+- Indexing `urlNotifications publish` only notifies Google. It does not index the page: a 200 means Google "may try to recrawl this URL soon" ([Google](https://developers.google.com/search/apis/indexing-api/v3/using-api)).
+
 ## Google Ads v26 notes
 
 `ads` follows API v26. Changes from v25 that break old queries and bodies ([release notes](https://developers.google.com/google-ads/api/docs/release-notes), v26 2026-10-14):
@@ -189,6 +205,7 @@ Search paths start with `places.`; `get` paths do not.
 - `HotelDateSelectionType` → `DateSelectionType`.
 - Local Services Performance Max: `country_code` and `listing_id` required on create.
 - New Search Lift segments (`segments.search_lift_keyword_bundle`, `segments.search_property`) and metrics.
+- No developer token: Google sunset them on 2026-09-09; gapi never sends the header.
 - 9 methods sit under the resource named `v26` (`gapi ads v26 listPlannableLocations`); the next version renames it.
 
 ## Command reference
