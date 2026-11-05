@@ -310,7 +310,7 @@ gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
 
 ## Config file
 
-`~/.config/gapi/config.json`, mode 600. Set `GAPI_CONFIG_DIR` to move the whole directory (config, credentials, discovery cache). `gapi discovery path` prints the cache dir; `gapi discovery refresh [<api>…]` refetches its documents past the 24 h TTL.
+`~/.config/gapi/config.json`, mode 600. Set `GAPI_CONFIG_DIR` to move the whole directory (config, credentials, discovery cache, `--cache` responses). `gapi discovery path` prints the cache dir; `gapi discovery refresh [<api>…]` refetches its documents past the 24 h TTL.
 
 ```json
 {
@@ -342,6 +342,7 @@ key (exit 2 without it). PageSpeed sends the key only when one is set. `project`
 `credentials.json` and leaves `config.json` — a later `gapi auth login` reuses the same client.
 A token Google already treats as invalid or revoked is deleted with a warning. A network error
 or any other failure keeps `credentials.json` and exits 1: run `gapi auth logout` again.
+In every case it deletes the stored `--cache` responses (`responses/`).
 
 ---
 
