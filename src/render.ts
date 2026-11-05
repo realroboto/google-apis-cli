@@ -1,8 +1,9 @@
 // Renderers: plain text views over an ApiModel (epic #30 D4, story 8).
+import { isRecord } from './json.ts';
 import type { ApiMethod, ApiModel, ApiResource, DiscoveryParam, Helpers } from './types.ts';
 
 export const SCHEMA_USAGE =
-  'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs]';
+  'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs | --find <word>]';
 
 export const DISCOVERY_USAGE = 'gapi discovery refresh [<api>…] | path';
 
@@ -117,6 +118,12 @@ const oneLine = (description = ''): string =>
     .split('\n')[0]
     .split(/(?<=\.)\s+(?=[A-Z*])/)[0];
 
+// The first sentence, max 100 chars: one line of search hits and of `schema --find`.
+const brief = (description?: string): string => {
+  const sentence = oneLine(description);
+  return sentence.length > 100 ? `${sentence.slice(0, 99)}…` : sentence;
+};
+
 // Code-point order, so the output does not depend on the machine's locale.
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 const byKey = <T>(map: Map<string, T>): [string, T][] => [...map].sort(([a], [b]) => compare(a, b));
@@ -179,9 +186,7 @@ function referenceRow(model: ApiModel, m: ApiMethod): string {
 export function searchText(hits: { model: ApiModel; method: ApiMethod }[]): string {
   return hits
     .map(({ model, method: m }) => {
-      const sentence = oneLine(m.description);
-      const short = sentence.length > 100 ? `${sentence.slice(0, 99)}…` : sentence;
-      const line = `gapi ${model.api} ${m.words.join(' ')}${marks(m)}  ${m.httpMethod}  ${short}`;
+      const line = `gapi ${model.api} ${m.words.join(' ')}${marks(m)}  ${m.httpMethod}  ${brief(m.description)}`;
       return `${line.trimEnd()}\n`;
     })
     .join('');
@@ -213,6 +218,55 @@ export function schemaView(
   const schema = model.schemas.get(target.schema);
   const out = resolveRefs && schema ? expandObject(schema, model.schemas, [target.schema]) : schema;
   return `${JSON.stringify(out, null, 2)}\n`;
+}
+
+// `--find`: one line per leaf of the expanded schema (a method: request and response) whose
+// path or printed sentence contains `word`, case-insensitive. A $ref the cycle guard left is a leaf.
+export function schemaFind(
+  model: ApiModel,
+  target: { method: ApiMethod } | { schema: string },
+  word: string,
+): string {
+  const roots: [string, string | undefined][] =
+    'method' in target
+      ? [
+          ['request', target.method.request],
+          ['response', target.method.response],
+        ]
+      : [['', target.schema]];
+  const needle = word.toLowerCase();
+  const lines: string[] = [];
+  // An array or map item without a description takes its field's (Google puts it there).
+  const walk = (node: Record<string, unknown>, path: string, fieldDescription = ''): void => {
+    const own = typeof node.description === 'string' ? node.description : fieldDescription;
+    const props = isRecord(node.properties) ? Object.entries(node.properties) : [];
+    const children: [string, unknown, string][] = [
+      ...props.map(([key, child]): [string, unknown, string] => [
+        path ? `${path}.${key}` : key,
+        child,
+        '',
+      ]),
+      [`${path}[]`, node.items, own],
+      [`${path}{}`, node.additionalProperties, own],
+    ];
+    let leaf = true;
+    for (const [childPath, child, description] of children) {
+      if (!isRecord(child)) continue;
+      leaf = false;
+      walk(child, childPath, description);
+    }
+    const ref = typeof node.$ref === 'string' ? node.$ref : undefined;
+    const text = ref ? '' : brief(own);
+    if (!leaf || !`${path}\n${text}`.toLowerCase().includes(needle)) return;
+    const type = ref ? `$ref ${ref}` : `${String(node.type ?? 'any')}${node.enum ? ' enum' : ''}`;
+    lines.push(`${path}: ${type}${text ? ` — ${text}` : ''}`);
+  };
+  for (const [path, name] of roots) {
+    const schema = name ? model.schemas.get(name) : undefined;
+    const expanded = name && schema ? expandObject(schema, model.schemas, [name]) : undefined;
+    if (isRecord(expanded)) walk(expanded, path);
+  }
+  return lines.map((line) => `${line}\n`).join('');
 }
 
 function expandRefs(value: unknown, schemas: ApiModel['schemas'], path: string[]): unknown {
