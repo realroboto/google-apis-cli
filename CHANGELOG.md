@@ -18,7 +18,7 @@ Since 0.2.0 (`e12a482..a916775`).
 - `reads` overlay: POST reports and searches accept `--cache` (ads, gsc, ga4-data, ga4-data-alpha, sa360, merchant-reports) (#192).
 - `gapi search <words…>`: method search across all entries, best 20 (#189).
 - `gapi schema … --find <word>`: prints only matching field paths (#191).
-- Retry of 408/429/5xx and network errors on GET/HEAD/PUT/DELETE and `reads` POSTs: max 3, backoff with jitter (#195).
+- Retry of 408/429/5xx, 403 rate limit and network errors on GET/HEAD/PUT/DELETE and `reads` POSTs: max 3, backoff with jitter (#195).
 - Resumable upload resumes from the session `Range`; prints session URI on final failure (#195).
 
 ### Fixed (#195)
@@ -30,9 +30,16 @@ Since 0.2.0 (`e12a482..a916775`).
 - `auth login` warns on scopes not granted; exit 2 when Google returns no refresh token.
 - `auth logout` keeps credentials on network or unexpected status errors (exit 1).
 - `gapi search` splits camelCase in the query (`conversionActions`).
-- 403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` inside an array error body exits 2.
+- 403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` inside an array error body or a batch part exits 2.
 - stdout EPIPE exits 0; other stream errors exit 5.
 - `ads` stream concat keeps `summaryRow`.
+- `+publishBatch` posts to the document `batchPath`, not a fixed `batch`.
+- `--output` to an unwritable directory exits 3 before the request.
+- `auth login` checks `state` before the code exchange; a mismatched redirect gets 400 and login keeps waiting.
+- Read-only discovery cache directory warns instead of failing; future cache mtime counts as stale.
+- API entry name must match `[a-z0-9-]+`.
+- `gapi auth` without subcommand prints usage, exit 3.
+- `gapi schema <word>` error names the schema option ("or a schema name").
 
 ### Deps and build
 
