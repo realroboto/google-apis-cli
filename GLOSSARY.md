@@ -10,6 +10,7 @@ Terms of the call path (epic #30, D13). One line each.
 - **CallPlan** — the request to send, as data: method id, HTTP method, URL, non-secret headers, body, auth kind and scopes, send mode, optional `decode`, warnings; `--dry-run` prints it.
 - **Transport** — `src/transport.ts`: `send(plan, …)` authorizes and performs a CallPlan (single call, paging, upload, download, batch) and classifies HTTP errors.
 - **Credentials** — `src/credentials.ts`: the only reader and writer of `config.json` and `credentials.json`; resolves settings, authorizes requests (Bearer or API key) and runs login.
+- **Search** — `src/search.ts`: `gapi search <words…>`; ranks the methods of every ApiModel against the words with an in-memory SQLite FTS5 index built per call, best 20 first.
 - **response cache** — `src/responses.ts`: opt-in store of read responses under `<config dir>/responses/`, used only on a call with `--cache <age>` (ADR 0001); keyed per Google account; login and logout delete it.
 - **nocache overlay** — API entry field `nocache: { reason, source }`: the API's terms forbid or bound caching, so `--cache` on it exits 3.
 - **helper** — a `+name` command an API entry adds (e.g. `ads +gaql`) that builds its CallPlan through the Planner by method id.
