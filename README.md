@@ -14,7 +14,7 @@
 - One login. One refresh token. Every scope the entries use (computed from the documents). Read and write.
 - One runtime dependency: `google-auth-library` (Google). Nothing third-party.
 - All network calls use native `fetch`.
-- TypeScript 7 (strict), Node 24. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (pinned via `packageManager`) for package management.
+- TypeScript 7 (strict), Node 26. Node runs `.ts` directly (type-stripping) — no build step in dev. Biome for lint + format. pnpm 12 (pinned via `packageManager`) for package management.
 - It replaces the 4 fragmented Google MCPs in vmCODE.
 
 Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<json>'] [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]] [--output <file>] [--page-all [--page-limit <n>]] [--dry-run]`. `gapi <api> [<resource>…]` lists a level (the api level also lists helpers); `… <method> --help` shows method help. `gapi <api> +<helper> … [--dry-run] [--project <id>] [--api-key <key>] [<entry header flag>]` runs a hand command, e.g. `gapi ads +gaql "<query>" --customer <id> [--stream]`, `gapi indexing +publishBatch <file>`. `gapi schema <api> <resource>[.<sub>…].<method> | <SchemaName> [--resolve-refs]` prints a method shape or a schema as JSON. `gapi discovery refresh [<api>…]` refetches discovery documents now; `gapi discovery path` prints the cache dir. `gapi schema --help`, `gapi discovery --help` and `gapi auth [<sub>] --help` print that command's usage and run nothing.
@@ -25,7 +25,7 @@ Command shape: `gapi <api> <resource>… <method> [--params '<json>'] [--body '<
 npm i -g google-apis-cli    # installs the `gapi` bin
 ```
 
-Needs **Node ≥ 24**. The package ships `dist/` (plain `tsc` output, built at publish, no bundle); in the repo, Node runs the `.ts` sources directly.
+Needs **Node ≥ 26**. The package ships `dist/` (plain `tsc` output, built at publish, no bundle); in the repo, Node runs the `.ts` sources directly.
 
 ## Start here
 
