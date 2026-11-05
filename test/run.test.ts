@@ -138,7 +138,7 @@ test('schema --help prints the schema usage', async () => {
   assert.equal(r.code, 0, r.stderr);
   assert.equal(
     r.stdout,
-    'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs]\n',
+    'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs | --find <word>]\n',
   );
   assert.equal(r.stderr, '');
 });
@@ -473,6 +473,7 @@ test('schema prints the D9 method shape, or a schema with $ref expanded up to a 
     [['schema', 'mini', 'files'], 'gapi: files is a resource, not a method or schema\n'],
     [['schema', 'mini'], 'gapi: usage: gapi schema <api> <resource>[.<sub-resource>…].<method>'],
     [['gsc', 'sites', 'list', '--resolve-refs'], "gapi: Unknown option '--resolve-refs'"],
+    [['schema', 'mini', 'Node', '--find', ''], 'gapi: --find: needs a word\n'],
   ];
   for (const [argv, stderr] of rows) {
     const { fetch, calls } = fakeFetch(() => new Response('{}'));
@@ -481,6 +482,19 @@ test('schema prints the D9 method shape, or a schema with $ref expanded up to a 
     assert.ok(r.stderr.startsWith(stderr), r.stderr);
     assert.equal(calls.length, 0);
   }
+});
+
+test('schema --find prints only the matching field paths; a cycle ends with $ref', async () => {
+  const nested = await fx(['schema', 'mini', 'files.search', '--find', 'Name']);
+  assert.equal(nested.code, 0, nested.stderr);
+  assert.equal(nested.stdout, 'response.files[].name: string\n');
+
+  const cycle = await fx(['schema', 'mini', 'Node', '--find', 'parent']);
+  assert.equal(cycle.code, 0, cycle.stderr);
+  assert.equal(cycle.stdout, 'parent: $ref Node\n');
+
+  const none = await fx(['schema', 'mini', 'Node', '--find', 'nothing']);
+  assert.deepEqual([none.code, none.stdout, none.stderr], [0, '', 'gapi: no match\n']);
 });
 
 test('search ranks a camelCase word part first; FTS5 syntax in the query is plain text', async () => {

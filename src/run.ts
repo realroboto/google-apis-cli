@@ -15,6 +15,7 @@ import {
   rootHelp,
   SCHEMA_USAGE,
   SEARCH_USAGE,
+  schemaFind,
   schemaView,
   searchText,
 } from './render.ts';
@@ -243,6 +244,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   if (api === 'schema') {
     const { values, positionals } = parse(rest, {
       'resolve-refs': { type: 'boolean' },
+      find: { type: 'string' },
       help: { type: 'boolean' },
     });
     if (values.help) {
@@ -251,9 +253,17 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
     }
     if (positionals.length !== 2) throw new GapiError(3, `usage: ${SCHEMA_USAGE}`);
     const [name, path] = positionals;
+    if (values.find === '') throw new GapiError(3, '--find: needs a word');
     const model = await catalog.load(name);
+    const target = schemaTarget(model, path);
+    if (values.find !== undefined) {
+      const found = schemaFind(model, target, values.find);
+      if (found === '') io.stderr.write('gapi: no match\n');
+      io.stdout.write(found);
+      return;
+    }
     const resolveRefs = values['resolve-refs'] === true;
-    io.stdout.write(schemaView(model, schemaTarget(model, path), { resolveRefs }));
+    io.stdout.write(schemaView(model, target, { resolveRefs }));
     return;
   }
 

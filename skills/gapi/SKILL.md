@@ -58,11 +58,16 @@ Request and response shape, before you build a body:
 ```sh
 gapi schema ga4-admin properties.dataStreams.get              # method: params, request/response schema names, scopes
 gapi schema ga4-admin GoogleAnalyticsAdminV1betaDataStream --resolve-refs   # one schema, every $ref expanded
+gapi schema ads GoogleAdsGoogleadsV26Services__MutateCampaignsRequest --find budget   # only the matching field paths
+# operations[].update.campaignBudget: string — The resource name of the campaign budget of the campaign.
+# operations[].create.campaignBudget: string — The resource name of the campaign budget of the campaign.
 ```
+
+`--find <word>` expands every `$ref` and prints one line per leaf field whose path or first description sentence contains the word (case-insensitive): `path: <type>[ enum] — <first sentence, max 100 chars>`. Paths: `a.b` for properties, `a[]` for array items, `a{}` for map values. On a method path it searches the request (`request.…`) and the response (`response.…`). A `$ref` the cycle guard stops prints `path: $ref <Name>`. `--resolve-refs` adds nothing. `--find ''` → exit 3. No match → `gapi: no match` on stderr, exit 0: retry with another word.
 
 A `$ref` already on the expansion path stays `{"$ref":"<name>"}`, sibling keys such as `description` kept (cycle guard).
 
-`--resolve-refs` re-expands every shared schema at each use: on large Ads schemas the output explodes (`GoogleAdsGoogleadsV26Services__GoogleAdsRow` ≈ 18 MB, vs ≈ 34 KB unresolved). Read the unresolved view, then `gapi schema <api> <Name>` for the one `$ref` you need.
+`--resolve-refs` re-expands every shared schema at each use: on large Ads schemas the output explodes (`GoogleAdsGoogleadsV26Services__GoogleAdsRow` ≈ 18 MB, vs ≈ 34 KB unresolved). Use `--find <word>` for the field you need, or read the unresolved view, then `gapi schema <api> <Name>` for the one `$ref` you need.
 
 ## `--dry-run`
 
