@@ -19,8 +19,8 @@
    Do instead: give the operator absolute paths (`node /home/r2/google-apis-cli/bin/gapi.ts …`, `/tmp/gapi-pack/*.tgz`)
    [google-apis-cli]
 
-4. **[2026-10-15] `npm publish` from the VM fails: no npm login, and `!` cannot finish 2FA (security key, EOTP)**
-   Do instead: operator publishes from the Mac clone: `git pull`, pnpm 12 on PATH (Node 26 ships no corepack), `pnpm install --frozen-lockfile`, `npm publish`, ENTER + key
+4. **[2026-11-05] `npm publish` from the VM fails: no npm login, and `!` cannot finish 2FA (security key, EOTP)**
+   Do instead: release by tag (#196): PR with version bump + `CHANGELOG.md` section, squash merge, then `git tag -a -m vX.Y.Z vX.Y.Z <main sha> && git push origin vX.Y.Z`; `publish.yml` publishes via npm trusted publishing (OIDC). Fallback: operator publishes from the Mac clone with `npm publish` + security key
    [google-apis-cli]
 
 5. **[2026-10-15] Fresh npm version: `npm i`/`npm view` on the VM read ETARGET or the old version from the local cache**
