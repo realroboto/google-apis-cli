@@ -181,7 +181,8 @@ export function searchText(hits: { model: ApiModel; method: ApiMethod }[]): stri
     .map(({ model, method: m }) => {
       const sentence = oneLine(m.description);
       const short = sentence.length > 100 ? `${sentence.slice(0, 99)}…` : sentence;
-      return `${`gapi ${model.api} ${m.words.join(' ')}${marks(m)}  ${m.httpMethod}  ${short}`.trimEnd()}\n`;
+      const line = `gapi ${model.api} ${m.words.join(' ')}${marks(m)}  ${m.httpMethod}  ${short}`;
+      return `${line.trimEnd()}\n`;
     })
     .join('');
 }

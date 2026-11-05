@@ -226,12 +226,12 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   }
 
   if (api === 'search') {
-    const { values, positionals } = parse(rest, { help: { type: 'boolean' } });
-    if (values.help) {
+    // No option parse: a word like `-list` is query text (story 11).
+    if (rest.includes('--help')) {
       io.stdout.write(`${SEARCH_USAGE}\n`);
       return;
     }
-    const query = positionals.join(' ');
+    const query = rest.join(' ');
     matchQuery(query); // a query with no token exits 3 before any document loads
     const models = await Promise.all(Object.keys(catalog.entries).map((a) => catalog.load(a)));
     const hits = search(models, query);
