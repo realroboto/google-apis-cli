@@ -483,6 +483,17 @@ test('schema prints the D9 method shape, or a schema with $ref expanded up to a 
   }
 });
 
+test('search ranks a camelCase word part first; FTS5 syntax in the query is plain text', async () => {
+  const { fetch, calls } = fakeFetch(() => new Response('{}'));
+  const r = await fx(['search', 'things'], { fetch });
+  assert.equal(r.code, 0, r.stderr);
+  assert.ok(r.stdout.startsWith('gapi mini v26 listThings (deprecated)  POST  '), r.stdout);
+  const odd = await fx(['search', '"files* -list OR'], { fetch });
+  assert.equal(odd.code, 0, odd.stderr);
+  assert.match(odd.stdout, /^gapi mini files list {2}GET {2}Lists files\.$/m);
+  assert.equal(calls.length, 0);
+});
+
 test('discovery refresh refetches and rewrites the cache; discovery path prints it', async () => {
   const file = join(dir, 'cache', 'mini.json');
   const text = readFileSync(join(FIXTURES, 'discovery', 'mini.json'), 'utf8');

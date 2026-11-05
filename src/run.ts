@@ -14,9 +14,12 @@ import {
   methodHelp,
   rootHelp,
   SCHEMA_USAGE,
+  SEARCH_USAGE,
   schemaView,
+  searchText,
 } from './render.ts';
 import { MAX_AGE_MS, openResponses } from './responses.ts';
+import { matchQuery, search } from './search.ts';
 import { send } from './transport.ts';
 import type { ApiEntry, ApiMethod, ApiModel, Authorize, CallPlan, FetchLike } from './types.ts';
 
@@ -220,6 +223,21 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       help: { type: 'boolean' },
     });
     return runAuth(positionals[0], values, { io, creds, catalog, responses });
+  }
+
+  if (api === 'search') {
+    const { values, positionals } = parse(rest, { help: { type: 'boolean' } });
+    if (values.help) {
+      io.stdout.write(`${SEARCH_USAGE}\n`);
+      return;
+    }
+    const query = positionals.join(' ');
+    matchQuery(query); // a query with no token exits 3 before any document loads
+    const models = await Promise.all(Object.keys(catalog.entries).map((a) => catalog.load(a)));
+    const hits = search(models, query);
+    if (hits.length === 0) io.stderr.write('gapi: no match\n');
+    io.stdout.write(searchText(hits));
+    return;
   }
 
   if (api === 'schema') {

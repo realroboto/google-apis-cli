@@ -24,12 +24,13 @@ Headless box (no browser)? `gapi auth login --manual` prints the URL; after cons
 
 ```sh
 gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>'] [--cache <age>] [--dry-run]
+gapi search <words…>                         # find methods by intent across every API entry (max 20 lines)
 gapi <api> [<resource>…]                     # list sub-resources and methods at that level
 gapi <api> <resource>… <method> --help       # method help: HTTP method, URL, params, body schema, scopes, marks, docs link
 ```
 
 - Words after `<api>` are the discovery `resources` path, then the method key, verbatim casing: `analyticsadmin.properties.dataStreams.list` → `gapi ga4-admin properties dataStreams list`.
-- Unknown word → exit 3 with the valid words. `gapi --help` lists every API. `gapi schema --help`, `gapi discovery --help`, `gapi auth [<sub>] --help` print that command's usage (exit 0) and run nothing.
+- Unknown word → exit 3 with the valid words. `gapi --help` lists every API. `gapi search --help`, `gapi schema --help`, `gapi discovery --help`, `gapi auth [<sub>] --help` print that command's usage (exit 0) and run nothing.
 
 ```sh
 gapi ga4-admin properties dataStreams list --params '{"parent":"properties/123"}'
@@ -178,6 +179,18 @@ Search paths start with `places.`; `get` paths do not.
 - 9 methods sit under the resource named `v26` (`gapi ads v26 listPlannableLocations`); the next version renames it.
 
 ## Command reference
+
+Find a command with `gapi search <words…>` first: it costs a few hundred tokens, a reference file costs thousands. Then `… <method> --help` for the params and body.
+
+```sh
+gapi search "search analytics query"
+# gapi gsc searchanalytics query  POST  Query your data with filters and parameters that you define.
+```
+
+- One line per hit, best first, max 20: command, marks (`deprecated`, `retired`, `paid`, `unavailable`), HTTP method, first sentence of the description (max 100 chars).
+- Words match command words split at camelCase (`conversion actions` → `conversionActions`), stems (`reports` → `report`), the API name and title, request/response schema names, and `upload`/`download`. A hit needs only some of the words; more matching words rank higher.
+- Quotes, `*`, `-` are plain text. No letter or digit in the query → exit 3. No hit → `gapi: no match` on stderr, exit 0: retry with other words.
+- Search loads every discovery document through the 24 h cache; a warm cache makes no network call.
 
 `gapi --help`, `gapi <api>` and `… <method> --help` are the live source of truth. The generated reference adds one file per API: resource tree, command, HTTP method, one-line description, required params, body schema, marks.
 
