@@ -187,7 +187,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   const responses = openResponses(join(dir, 'responses'));
 
   // ADR 0001 eligibility, before any network call: the entry allows caching, the call is
-  // one request or pages, the method is a GET.
+  // one request or pages, the method is a GET or a `reads` POST.
   const cacheFor = async (
     call: CallPlan,
     model: ApiModel,
@@ -204,7 +204,7 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
     }
     const method = model.byId.get(call.methodId);
     const once = call.send === 'once' || call.send === 'pages';
-    if (!once || method?.httpMethod !== 'GET') {
+    if (!once || (method?.httpMethod !== 'GET' && !method?.read)) {
       const command = method ? `${model.api} ${method.words.join(' ')}` : call.methodId;
       throw new GapiError(3, `--cache: ${command} is not a cacheable read`);
     }

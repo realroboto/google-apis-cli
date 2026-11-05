@@ -55,6 +55,11 @@ const gaql: Helper = {
 export default {
   api: 'ads',
   discovery: 'https://googleads.googleapis.com/$discovery/rest?version=v26',
+  reads: [
+    'googleads.customers.googleAds.search',
+    'googleads.customers.googleAds.searchStream',
+    'googleads.googleAdsFields.search',
+  ],
   headers: [
     {
       name: 'login-customer-id',

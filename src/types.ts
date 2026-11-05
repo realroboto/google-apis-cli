@@ -32,6 +32,7 @@ export type ApiEntry = {
   retired?: Record<string, { reason: string; source: string }>; // method id → why it always fails
   deprecated?: Record<string, { source: string }>; // method id → marks deprecated
   paid?: Record<string, { reason: string; source: string }>; // method id → billed or closed
+  reads?: string[]; // POST method ids that only read: --cache may store them
   nocache?: { reason: string; source: string }; // why --cache must never store this API's responses
   headers?: { name: string; flag: string; env: string; configKey: string }[];
   helpers?: Helpers;
@@ -73,6 +74,7 @@ export type ApiMethod = {
   retired?: { reason: string; source: string };
   deprecated?: { source?: string }; // overlay, or `deprecated: true` in the document
   paid?: { reason: string; source: string };
+  read?: true; // `reads` overlay: a POST that only reads
   upload?: { accept: string[]; maxSize?: string; resumable: boolean };
   download?: { service: boolean }; // service: `useMediaDownloadService`, URL takes `download/`
   paging?: Paging;

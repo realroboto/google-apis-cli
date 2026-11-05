@@ -10,4 +10,5 @@ export default {
         'https://developers.google.com/search/blog/2017/01/introducing-mobile-friendly-test-api',
     },
   },
+  reads: ['webmasters.searchanalytics.query', 'searchconsole.urlInspection.index.inspect'],
 } satisfies ApiEntry;

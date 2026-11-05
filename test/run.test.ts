@@ -1044,17 +1044,22 @@ const cacheEnv = (t: { after(fn: () => void): void }) => {
   return { GAPI_CONFIG_DIR: own };
 };
 
-test('--cache: a repeated read is answered from the store with one fetch', async (t) => {
+test('--cache: a repeated read (GET or reads POST) is answered from the store with one fetch', async (t) => {
   const own = cacheEnv(t);
-  const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [{ siteUrl: 'x' }] }));
-  const argv = ['gsc', 'sites', 'list', '--cache', '1h'];
-  const first = await fx(argv, { fetch, env: own });
-  const second = await fx(argv, { fetch, env: own });
-  assert.equal(first.code, 0, first.stderr);
-  assert.equal(second.code, 0, second.stderr);
-  assert.equal(calls.length, 1);
-  assert.equal(second.stdout, first.stdout);
-  assert.match(second.stderr, /^gapi: cached response from \d{4}-\d\d-\d\dT[\d:.]+Z\n$/);
+  const reads: [string[], unknown][] = [
+    [['gsc', 'sites', 'list', '--cache', '1h'], { siteEntry: [{ siteUrl: 'x' }] }],
+    [['mini', 'files', 'search', '--body', '{"query":"q"}', '--cache', '1h'], { files: [] }],
+  ];
+  for (const [argv, reply] of reads) {
+    const { fetch, calls } = fakeFetch(() => Response.json(reply));
+    const first = await fx(argv, { fetch, env: own });
+    const second = await fx(argv, { fetch, env: own });
+    assert.equal(first.code, 0, first.stderr);
+    assert.equal(second.code, 0, second.stderr);
+    assert.equal(calls.length, 1);
+    assert.equal(second.stdout, first.stdout);
+    assert.match(second.stderr, /^gapi: cached response from \d{4}-\d\d-\d\dT[\d:.]+Z\n$/);
+  }
   // Account data on disk: owner-only, like credentials.json.
   const responses = join(own.GAPI_CONFIG_DIR, 'responses');
   assert.equal(statSync(responses).mode & 0o777, 0o700);
@@ -1072,6 +1077,10 @@ test('--cache: a write and a nocache entry exit 3 with no fetch', async (t) => {
   );
   assert.equal(write.code, 3);
   assert.equal(write.stderr, 'gapi: --cache: gsc sites delete is not a cacheable read\n');
+  // A POST not in `reads` stays a write.
+  const post = await fx([...attach, '--cache', '1h'], { fetch, env: own });
+  assert.equal(post.code, 3);
+  assert.equal(post.stderr, 'gapi: --cache: mini files attach is not a cacheable read\n');
   const crux = await fx(['crux', 'records', 'queryRecord', '--body', '{}', '--cache', '1h'], {
     fetch,
     env: own,

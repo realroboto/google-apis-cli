@@ -6,6 +6,7 @@ import type { ApiEntry } from '../types.ts';
 export default {
   api: 'sa360',
   discovery: 'https://searchads360.googleapis.com/$discovery/rest?version=v0',
+  reads: ['searchads360.customers.searchAds360.search', 'searchads360.searchAds360Fields.search'],
   headers: [
     {
       name: 'login-customer-id',

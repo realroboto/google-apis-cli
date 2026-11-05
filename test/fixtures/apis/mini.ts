@@ -5,4 +5,5 @@ export default {
   discovery: 'https://mini.invalid/$discovery/rest?version=v1', // never resolves (RFC 6761)
   retired: { 'mini.files.gone': { reason: 'absent from mini.json', source: 'lands in problems' } },
   deprecated: { 'mini.listThings': { source: 'fixture overlay' } },
+  reads: ['mini.files.search'],
 } satisfies ApiEntry;
