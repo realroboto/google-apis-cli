@@ -72,6 +72,7 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 | Onboarding a Google account: services to enable, Ads access level, Business Profile access, API key, consent, Merchant registration, customer IDs, runtime errors | **[docs/SETUP.md](docs/SETUP.md)** |
 | Using the CLI as an agent: grammar, `--params`, `schema`, `--dry-run`, paging, media, helpers, exit codes, marks | [skills/gapi/SKILL.md](skills/gapi/SKILL.md) + generated [reference](skills/gapi/reference/index.md) |
 | What the CLI does, decisions, scopes, endpoints, risks | **[docs/SPEC.md](docs/SPEC.md)** — behavior source of truth |
+| Releasing a version (tag push → npm via trusted publishing; changes in [CHANGELOG.md](CHANGELOG.md)) | [docs/runbook.md](docs/runbook.md) item 4 |
 | How work is tracked (issues, blocking edges) | [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) |
 | Triage labels | [docs/agents/triage-labels.md](docs/agents/triage-labels.md) |
 | Domain vocabulary (GLOSSARY.md, ADRs) | [docs/agents/domain.md](docs/agents/domain.md) |
