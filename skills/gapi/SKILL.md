@@ -101,12 +101,20 @@ gapi cm360 files get --params '{"reportId":"1","fileId":"2"}' --output report.cs
 ```sh
 gapi gsc sites list --cache 1h
 gapi ga4-admin properties list --params '{"filter":"parent:accounts/1"}' --page-all --cache 1d
+gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer 1234567890 --cache 1h
 ```
 
 `--cache <age>` returns a stored response younger than `<age>` instead of calling Google, so a repeated identical read costs no quota. Off unless you pass it, per call.
 
 - `<age>` = `<n>s`, `<n>m`, `<n>h` or `<n>d`, from 1s to 7d. Else exit 3.
-- Qualifies: `GET` methods, one request or `--page-all`, on method calls and helpers. Writes (POST, PUT, PATCH, DELETE), `--upload`, `--output` and batch helpers (`+publishBatch`) exit 3: they always reach Google.
+- Qualifies: `GET` methods and these POST reads, one request or `--page-all`, on method calls and helpers:
+  - `ads`: `customers googleAds search`, `customers googleAds searchStream` (so `+gaql`, also `--stream`), `googleAdsFields search`
+  - `gsc`: `searchanalytics query`, `urlInspection index inspect`
+  - `ga4-data`: `properties` `runReport`, `runPivotReport`, `batchRunReports`, `batchRunPivotReports`, `runRealtimeReport`, `checkCompatibility`
+  - `ga4-data-alpha`: `properties` `runReport`, `runFunnelReport`
+  - `sa360`: `customers searchAds360 search`, `searchAds360Fields search`
+  - `merchant-reports`: `accounts reports search`
+- Other writes (POST, PUT, PATCH, DELETE), `--upload`, `--output` and batch helpers (`+publishBatch`) exit 3: they always reach Google.
 - Never: `places` (terms forbid caching), `web-risk` (results expire at `expireTime`), `crux` and `pagespeed` (Google-owned content; Google APIs Terms §5). Exit 3 with the reason and the source.
 - Hit: same stdout as the live call (also every NDJSON line), plus `gapi: cached response from <ISO time>` on stderr. No API request. `--dry-run --cache <age>` adds `"cache": "hit"` or `"cache": "miss"`.
 - A failed call stores nothing. Entries are per Google account. `gapi auth login` and `gapi auth logout` delete all stored responses; entries older than 7 days are deleted.

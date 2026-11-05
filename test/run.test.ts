@@ -1044,17 +1044,22 @@ const cacheEnv = (t: { after(fn: () => void): void }) => {
   return { GAPI_CONFIG_DIR: own };
 };
 
-test('--cache: a repeated read is answered from the store with one fetch', async (t) => {
+test('--cache: a repeated read (GET or reads POST) is answered from the store with one fetch', async (t) => {
   const own = cacheEnv(t);
-  const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [{ siteUrl: 'x' }] }));
-  const argv = ['gsc', 'sites', 'list', '--cache', '1h'];
-  const first = await fx(argv, { fetch, env: own });
-  const second = await fx(argv, { fetch, env: own });
-  assert.equal(first.code, 0, first.stderr);
-  assert.equal(second.code, 0, second.stderr);
-  assert.equal(calls.length, 1);
-  assert.equal(second.stdout, first.stdout);
-  assert.match(second.stderr, /^gapi: cached response from \d{4}-\d\d-\d\dT[\d:.]+Z\n$/);
+  const reads = [
+    ['gsc', 'sites', 'list', '--cache', '1h'],
+    ['mini', 'files', 'search', '--body', '{"query":"q"}', '--cache', '1h'],
+  ];
+  for (const argv of reads) {
+    const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [{ siteUrl: 'x' }] }));
+    const first = await fx(argv, { fetch, env: own });
+    const second = await fx(argv, { fetch, env: own });
+    assert.equal(first.code, 0, first.stderr);
+    assert.equal(second.code, 0, second.stderr);
+    assert.equal(calls.length, 1);
+    assert.equal(second.stdout, first.stdout);
+    assert.match(second.stderr, /^gapi: cached response from \d{4}-\d\d-\d\dT[\d:.]+Z\n$/);
+  }
   // Account data on disk: owner-only, like credentials.json.
   const responses = join(own.GAPI_CONFIG_DIR, 'responses');
   assert.equal(statSync(responses).mode & 0o777, 0o700);

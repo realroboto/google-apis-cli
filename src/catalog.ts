@@ -191,6 +191,9 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
   overlay('paid', entry.paid, (m, v) => {
     m.paid = v;
   });
+  overlay('reads', Object.fromEntries((entry.reads ?? []).map((id) => [id, true])), (m) => {
+    m.read = true;
+  });
 
   return {
     ...root,
