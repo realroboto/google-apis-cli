@@ -1046,12 +1046,12 @@ const cacheEnv = (t: { after(fn: () => void): void }) => {
 
 test('--cache: a repeated read (GET or reads POST) is answered from the store with one fetch', async (t) => {
   const own = cacheEnv(t);
-  const reads = [
-    ['gsc', 'sites', 'list', '--cache', '1h'],
-    ['mini', 'files', 'search', '--body', '{"query":"q"}', '--cache', '1h'],
+  const reads: [string[], unknown][] = [
+    [['gsc', 'sites', 'list', '--cache', '1h'], { siteEntry: [{ siteUrl: 'x' }] }],
+    [['mini', 'files', 'search', '--body', '{"query":"q"}', '--cache', '1h'], { files: [] }],
   ];
-  for (const argv of reads) {
-    const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [{ siteUrl: 'x' }] }));
+  for (const [argv, reply] of reads) {
+    const { fetch, calls } = fakeFetch(() => Response.json(reply));
     const first = await fx(argv, { fetch, env: own });
     const second = await fx(argv, { fetch, env: own });
     assert.equal(first.code, 0, first.stderr);
@@ -1077,6 +1077,10 @@ test('--cache: a write and a nocache entry exit 3 with no fetch', async (t) => {
   );
   assert.equal(write.code, 3);
   assert.equal(write.stderr, 'gapi: --cache: gsc sites delete is not a cacheable read\n');
+  // A POST not in `reads` stays a write.
+  const post = await fx([...attach, '--cache', '1h'], { fetch, env: own });
+  assert.equal(post.code, 3);
+  assert.equal(post.stderr, 'gapi: --cache: mini files attach is not a cacheable read\n');
   const crux = await fx(['crux', 'records', 'queryRecord', '--body', '{}', '--cache', '1h'], {
     fetch,
     env: own,

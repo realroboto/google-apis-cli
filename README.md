@@ -80,7 +80,7 @@ CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Term
 ## Add an API or a resource
 
 - New API = one new `src/apis/<api>.ts` file that default-exports an API entry (`satisfies ApiEntry`): the discovery URL plus overlays (`retired`, `deprecated`, `paid`, `reads`, `nocache`, `headers`, `helpers`). The discovery document gives every resource and method. The glob finds the file; `api` must equal the file name, or the Catalog fails to load. No shared file changes.
-- Check the API's caching terms; set `nocache` (`{ reason, source }`) when they forbid or bound caching ([ADR 0001](docs/adr/0001-response-cache.md)).
+- Check the API's caching terms; set `nocache` (`{ reason, source }`) when they forbid or bound caching ([ADR 0001](docs/adr/0001-response-cache.md)). Else list POST methods that only read (reports, searches) by id in `reads`, so `--cache` accepts them.
 - Accept rule — `pnpm discovery:check` exits 0. It fails when an overlay names a method id that is not in the document. CI runs it weekly and on manual dispatch (`.github/workflows/discovery.yml`); `prepublishOnly` runs it before every publish.
 - Test through `run(argv, io)`: fixture entries via `io.apisDir`, cache seeded in a temp `GAPI_CONFIG_DIR`, fake `fetch` (`test/helpers/fetch.ts`). `--dry-run` shows the request. Use no real network.
 - Before commit: `pnpm typecheck` (tsc --noEmit) · `pnpm lint` (biome) · `pnpm test`.
