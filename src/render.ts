@@ -8,6 +8,8 @@ export const DISCOVERY_USAGE = 'gapi discovery refresh [<api>…] | path';
 
 export const AUTH_USAGE = 'gapi auth setup | login [--manual] | status | logout';
 
+export const SEARCH_USAGE = 'gapi search <words…>';
+
 const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>']
      [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]]
      [--output <file>] [--page-all [--page-limit <n>]] [--cache <age>] [--dry-run]
@@ -15,6 +17,7 @@ const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<js
 gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
 gapi <api> +<helper> … [--dry-run] [--cache <age>] [--project <id>] [--api-key <key>] [<entry header flags>]
+${SEARCH_USAGE}                      find methods by intent, max 20 hits
 ${SCHEMA_USAGE}
 ${DISCOVERY_USAGE}
 ${AUTH_USAGE}
@@ -170,6 +173,18 @@ function referenceRow(model: ApiModel, m: ApiMethod): string {
     .map(([name, p]) => `\`${name}\`${p.required ? '' : ' (per description)'}`);
   const marked = markList(m, { reasons: true }).join('; ');
   return `| \`gapi ${model.api} ${m.words.join(' ')}\` | ${m.httpMethod} | ${cell(oneLine(m.description))} | ${required.join(', ')} | ${m.request ? `\`${m.request}\`` : ''} | ${cell(marked)} |`;
+}
+
+// One line per hit: command, marks, HTTP method, first sentence of the description.
+export function searchText(hits: { model: ApiModel; method: ApiMethod }[]): string {
+  return hits
+    .map(({ model, method: m }) => {
+      const sentence = oneLine(m.description);
+      const short = sentence.length > 100 ? `${sentence.slice(0, 99)}…` : sentence;
+      const line = `gapi ${model.api} ${m.words.join(' ')}${marks(m)}  ${m.httpMethod}  ${short}`;
+      return `${line.trimEnd()}\n`;
+    })
+    .join('');
 }
 
 // D9: a method's shape (request/response as schema names), or one document schema.
