@@ -247,7 +247,7 @@ test('ads +gaql: --dry-run prints the search request; --stream concatenates ever
   const { fetch, calls } = fakeFetch(() => Response.json(chunks));
   const r = await sh(['ads', '+gaql', query, '--customer', '1', '--stream'], { fetch });
   assert.equal(r.code, 0);
-  assert.equal(r.stdout, `${JSON.stringify([{ id: 1 }, { id: 2 }], null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify([{ id: 1 }, { id: 2 }])}\n`);
   assert.equal(calls.length, 1);
   assert.equal(
     calls[0].url,
@@ -602,7 +602,7 @@ test('send: one authorized request, response printed as JSON', async () => {
   const { fetch, calls } = fakeFetch(() => Response.json({ siteEntry: [{ siteUrl: 'x' }] }));
   const r = await fx(['gsc', 'sites', 'list'], { fetch });
   assert.equal(r.code, 0);
-  assert.equal(r.stdout, `${JSON.stringify({ siteEntry: [{ siteUrl: 'x' }] }, null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify({ siteEntry: [{ siteUrl: 'x' }] })}\n`);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'https://searchconsole.googleapis.com/webmasters/v3/sites');
   assert.deepEqual(calls[0].init?.headers, { Authorization: 'Bearer TOK' });
@@ -825,7 +825,7 @@ test('send: media and multipart uploads send the file in one request', async () 
   const media = fakeFetch(() => Response.json({ name: 'files/a' }));
   const r = await fx([...attach, '--upload', BIN], { fetch: media.fetch });
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(r.stdout, `${JSON.stringify({ name: 'files/a' }, null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify({ name: 'files/a' })}\n`);
   assert.equal(media.calls.length, 1);
   const [call] = media.calls;
   assert.equal(call.url, 'https://mini.googleapis.com/upload/v1/files/a:attach?uploadType=media');
@@ -873,7 +873,7 @@ test('send: a resumable upload opens a session, then PUTs 8 MiB chunks until a 2
     },
   );
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(r.stdout, `${JSON.stringify({ name: 'files/big' }, null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify({ name: 'files/big' })}\n`);
   assert.deepEqual(
     calls.map((c) => [c.init?.method, c.url, c.init?.headers]),
     [
@@ -951,7 +951,7 @@ test('send: --output streams the body to the file and prints its path and size',
   const { fetch, calls } = fakeFetch(() => new Response(body));
   const r = await fx(download, { fetch });
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(r.stdout, `${JSON.stringify({ path: out, bytes: body.length }, null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify({ path: out, bytes: body.length })}\n`);
   assert.deepEqual(readFileSync(out), body);
   assert.equal(calls[0].url, 'https://mini.googleapis.com/download/v1/files/a:download?alt=media');
 
@@ -1009,7 +1009,7 @@ test('send: +publishBatch sends at most 100 parts per call, results in input ord
     status: 200,
     body: { part: (i % 100) + 1 },
   }));
-  assert.equal(r.stdout, `${JSON.stringify(results, null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify(results)}\n`);
 
   // A failed second call still prints the 100 parts Google took in the first.
   const error = { code: 503, message: 'The service is currently unavailable.' };
@@ -1019,7 +1019,7 @@ test('send: +publishBatch sends at most 100 parts per call, results in input ord
   const p = await sh(['indexing', '+publishBatch', many], { fetch: second.fetch });
   assert.equal(p.code, 1);
   assert.equal(p.stderr, `gapi: ${error.message}\n${JSON.stringify(error, null, 2)}\n`);
-  assert.equal(p.stdout, `${JSON.stringify(results.slice(0, 100), null, 2)}\n`);
+  assert.equal(p.stdout, `${JSON.stringify(results.slice(0, 100))}\n`);
 });
 
 test('send: +publishBatch prints every part result and exits 1 when one part fails', async () => {
@@ -1043,7 +1043,7 @@ test('send: +publishBatch prints every part result and exits 1 when one part fai
     },
     { url: 'https://a.com/2', type: 'URL_DELETED', status: 400, body: error },
   ];
-  assert.equal(r.stdout, `${JSON.stringify(results, null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify(results)}\n`);
 
   assert.equal(calls.length, 1);
   const headers = calls[0].init?.headers as Record<string, string>;
@@ -1138,7 +1138,7 @@ test('--cache: raw searchStream and +gaql --stream keep separate entries', async
     env: own,
   });
   assert.equal(calls.length, 2);
-  assert.equal(r.stdout, `${JSON.stringify([{ id: 1 }], null, 2)}\n`);
+  assert.equal(r.stdout, `${JSON.stringify([{ id: 1 }])}\n`);
 });
 
 test('--cache: a write and a nocache entry exit 3 with no fetch', async (t) => {
@@ -1186,6 +1186,46 @@ test('--cache: a failed call is not stored, so the next call fetches', async (t)
   assert.equal((await fx(argv, { fetch, env: own })).code, 1);
   assert.equal((await fx(argv, { fetch, env: own })).code, 1);
   assert.equal(calls.length, 2);
+});
+
+test('output: compact JSON off a terminal, 2-space indent on one; a cache hit prints like a live call', async (t) => {
+  const own = cacheEnv(t);
+  const reply = { siteEntry: [{ siteUrl: 'x' }] };
+  const { fetch, calls } = fakeFetch(() => Response.json(reply));
+  const tty = async (argv: string[], io = {}) => {
+    let stdout = '';
+    const write = (s: string) => {
+      stdout += s;
+    };
+    const r = await fx(argv, { fetch, env: own, ...io, stdout: { isTTY: true, write } });
+    return { ...r, stdout };
+  };
+  const cached = ['gsc', 'sites', 'list', '--cache', '1h'];
+  const compact = `${JSON.stringify(reply)}\n`;
+  const indented = `${JSON.stringify(reply, null, 2)}\n`;
+  assert.equal((await fx(cached, { fetch, env: own })).stdout, compact); // live, stored
+  assert.equal((await tty(cached)).stdout, indented); // hit
+  assert.equal((await tty(['gsc', 'sites', 'list'])).stdout, indented); // live
+  assert.equal((await fx(cached, { fetch, env: own })).stdout, compact); // hit
+  assert.equal(calls.length, 2);
+  // An entry stored before D2 is indented text: a terminal hit prints it unchanged.
+  const responses = join(own.GAPI_CONFIG_DIR, 'responses');
+  for (const f of readdirSync(responses)) writeFileSync(join(responses, f), indented);
+  assert.equal((await tty(cached)).stdout, indented);
+  const pages = ['mini', 'files', 'list', '--page-all'];
+  assert.equal((await fx(pages, { fetch })).stdout, compact);
+  assert.equal((await tty(pages, { env })).stdout, indented);
+  for (const argv of [
+    ['gsc', 'sites', 'list', '--dry-run'],
+    ['auth', 'status'],
+  ]) {
+    const plain = await fx(argv, { env: own });
+    const term = await tty(argv);
+    assert.equal(plain.code, 0, plain.stderr);
+    const value = JSON.parse(plain.stdout);
+    assert.equal(plain.stdout, `${JSON.stringify(value)}\n`);
+    assert.equal(term.stdout, `${JSON.stringify(value, null, 2)}\n`);
+  }
 });
 
 test('bigquery: jobs.query plans a POST, is not a cacheable read, and consent asks the bigquery scope', async (t) => {

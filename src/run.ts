@@ -45,7 +45,7 @@ type Cache = { key: string; maxAgeMs: number };
 export type Io = {
   env: NodeJS.ProcessEnv;
   fetch: FetchLike;
-  stdout: { write(chunk: string): unknown };
+  stdout: { write(chunk: string): unknown; isTTY?: boolean }; // isTTY picks the JSON form (epic #200 D2)
   stderr: NodeJS.WritableStream; // also the prompt output
   stdin: NodeJS.ReadableStream;
   apisDir?: string;
@@ -159,7 +159,7 @@ async function runAuth(
   }
   if (sub === 'status') {
     const consent = await consentScopes(catalog);
-    io.stdout.write(`${JSON.stringify(await creds.status(consent), null, 2)}\n`);
+    printJson(io, `${JSON.stringify(await creds.status(consent))}\n`);
     return;
   }
   if (sub === 'logout') {
@@ -492,6 +492,23 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   return perform(call, dryRun, io, creds.authorize, { responses, cache });
 }
 
+// The one JSON writer (epic #200 D2): compact lines stay as they are off a terminal (agents), each
+// line gets a 2-space indent on a terminal (operators).
+function printJson(io: Io, lines: string): unknown {
+  if (!io.stdout.isTTY) return io.stdout.write(lines);
+  let text: string;
+  try {
+    const values = lines
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+    text = values.map((v) => `${JSON.stringify(v, null, 2)}\n`).join('');
+  } catch {
+    text = lines; // a cache entry stored before #205 is already indented
+  }
+  return io.stdout.write(text);
+}
+
 // Prints the plan's warnings, then the redacted request (--dry-run), the stored response
 // (a --cache hit) or the live response, which a --cache miss stores after a full success.
 async function perform(
@@ -525,11 +542,11 @@ async function perform(
           : undefined,
       cache: cache && (stored === undefined ? 'miss' : 'hit'),
     };
-    io.stdout.write(`${JSON.stringify(request, null, 2)}\n`);
+    printJson(io, `${JSON.stringify(request)}\n`);
     return;
   }
   if (stored !== undefined && mtime !== undefined) {
-    io.stdout.write(stored);
+    printJson(io, stored);
     io.stderr.write(`gapi: cached response from ${new Date(mtime).toISOString()}\n`);
     return;
   }
@@ -537,7 +554,7 @@ async function perform(
   const out = {
     write: (chunk: string) => {
       chunks.push(chunk);
-      return io.stdout.write(chunk);
+      return printJson(io, chunk);
     },
   };
   await send(call, { fetch: io.fetch, authorize, out, sleep: io.sleep });

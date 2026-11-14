@@ -33,6 +33,7 @@ gapi <api> <resource>… <method> --help       # method help: HTTP method, URL, 
 
 - Words after `<api>` are the discovery `resources` path, then the method key, verbatim casing: `analyticsadmin.properties.dataStreams.list` → `gapi ga4-admin properties dataStreams list`.
 - Unknown word → exit 3 with the valid words. `gapi --help` lists every API. `gapi search --help`, `gapi schema --help`, `gapi discovery --help`, `gapi auth [<sub>] --help` print that command's usage (exit 0) and run nothing.
+- Output: stdout is compact JSON, one line per response, when it is not a terminal (pipe, agent); a terminal gets a 2-space indent.
 
 ```sh
 gapi ga4-admin properties dataStreams list --params '{"parent":"properties/123"}'
@@ -80,13 +81,13 @@ Dry-run proves the request shape only: it does not check `required (per descript
 
 ## Paging
 
-Default: one request, response printed as pretty JSON (`nextPageToken` included).
+Default: one request, response printed as JSON (form: Output rule above) (`nextPageToken` included).
 
 ```sh
 gapi gtm accounts list --page-all --page-limit 5
 ```
 
-`--page-all` follows `nextPageToken`: one compact JSON line per page (NDJSON), at most `--page-limit` pages (default 10; needs `--page-all`). Only on methods with a `pageToken` query parameter, or a `pageToken` request field whose response has `nextPageToken` (Ads/SA360 `search`, Places `searchText`, Merchant `reports.search`, …): there each page re-sends the same `--body` with `pageToken` set. Else exit 3. For every Ads row in one response, `+gaql --stream`: a list of rows, or `{results, summaryRow}` when the query sets `SUMMARY_ROW_SETTING`.
+`--page-all` follows `nextPageToken`: one JSON value per page (NDJSON off a terminal), at most `--page-limit` pages (default 10; needs `--page-all`). Only on methods with a `pageToken` query parameter, or a `pageToken` request field whose response has `nextPageToken` (Ads/SA360 `search`, Places `searchText`, Merchant `reports.search`, …): there each page re-sends the same `--body` with `pageToken` set. Else exit 3. For every Ads row in one response, `+gaql --stream`: a list of rows, or `{results, summaryRow}` when the query sets `SUMMARY_ROW_SETTING`.
 
 ## Media
 
