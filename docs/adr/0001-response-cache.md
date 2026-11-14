@@ -14,7 +14,7 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
 - `nocache` entries: `places`, `web-risk`, `crux`, `pagespeed` (Terms below).
 - Key: sha256 of identity, HTTP method, URL (every query value), non-secret headers (`login-customer-id`, quota project), body, send mode, page limit. Two different requests never share an entry.
 - Store: `<config dir>/responses/`, dir mode 700, one file per key mode 600, temp file + rename. Every run deletes files older than 7 days.
-- Hit: prints the stored text exactly (also every NDJSON line of `--page-all`), then `gapi: cached response from <ISO time>` on stderr. No authorize, no fetch. `--dry-run` adds `"cache": "hit" | "miss"`.
+- Hit: prints the stored compact text through the same writer as a live call (also every NDJSON line of `--page-all`): compact off a terminal, indented on one (#205; was: the stored text exactly). Entries stored before #205 are indented and print as stored, then `gapi: cached response from <ISO time>` on stderr. No authorize, no fetch. `--dry-run` adds `"cache": "hit" | "miss"`.
 - Miss: stores the printed output only after a successful send. A non-2xx, an error chunk or a failure during paging stores nothing. A failed store write warns on stderr; exit stays 0.
 
 ## Account isolation
