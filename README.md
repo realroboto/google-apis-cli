@@ -63,14 +63,14 @@ A call moves through these parts in order.
 | **Response cache** | `src/responses.ts` | `--cache <age>` (1s–7d, opt-in per call, [ADR 0001](docs/adr/0001-response-cache.md)): `run` checks eligibility before any network call (no `nocache` entry, single call or pages, `GET` or a `reads` POST), then answers a hit from `responses/` in the config dir (dir 700, files 600) with no fetch, or stores a miss after a successful send. Key holds `identity(auth)` from Credentials (refresh-token hash), so accounts never share entries. `auth login` and `auth logout` delete `responses/`. |
 | **Credentials** | `src/credentials.ts` | Only reader and writer of `config.json` and `credentials.json` (mode 600) in the config dir (`GAPI_CONFIG_DIR` or `~/.config/gapi`; it also holds the discovery `cache/` and `responses/`). `settings`: `--project`, `--api-key` and entry header flags, each flag → env → config. `authorize`: OAuth Bearer (refreshed token saved) or `X-Goog-Api-Key`. `login`, `status` (with `missing`), `logout` (revoke, then delete), `setup`. |
 
-CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). Terms: [GLOSSARY.md](GLOSSARY.md).
+CLI tests call `run` in-process (`test/run.test.ts`, `test/helpers/io.ts`). `test/skill.test.ts` runs every `gapi … --dry-run` line of SKILL.md and recipes.md against the shipped entries; a new example method needs its entry in the pruned docs of `test/fixtures/skill/`. Terms: [GLOSSARY.md](GLOSSARY.md).
 
 ## Where to look
 
 | For | Read |
 |---|---|
 | Onboarding a Google account: services to enable, Ads access level, Business Profile access, API key, consent, Merchant registration, client access, customer IDs, runtime errors | **[docs/SETUP.md](docs/SETUP.md)** |
-| Using the CLI as an agent: grammar, `--params`, `schema`, `--dry-run`, paging, media, helpers, exit codes, marks | [skills/gapi/SKILL.md](skills/gapi/SKILL.md) + generated [reference](skills/gapi/reference/index.md) |
+| Using the CLI as an agent: grammar, `--params`, `schema`, `--dry-run`, paging, media, helpers, exit codes, marks | [skills/gapi/SKILL.md](skills/gapi/SKILL.md) + [recipes](skills/gapi/recipes.md) + generated [reference](skills/gapi/reference/index.md) |
 | What the CLI does, decisions, scopes, endpoints, risks | **[docs/SPEC.md](docs/SPEC.md)** — behavior source of truth |
 | Releasing a version (tag push → npm via trusted publishing; changes in [CHANGELOG.md](CHANGELOG.md)) | [docs/runbook.md](docs/runbook.md) item 4 |
 | How work is tracked (issues, blocking edges) | [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) |

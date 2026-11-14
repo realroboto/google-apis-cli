@@ -7,6 +7,7 @@ Newest first. One section per npm version.
 ### Added
 
 - `bigquery` entry: every BigQuery v2 method (47), scope `bigquery` (#208). **Re-login required:** run `gapi auth login` once; until then `gapi auth status` lists `bigquery` as missing and BigQuery calls exit 2.
+- Skill recipes (`skills/gapi/recipes.md`): GA4, GSC, GTM, Ads, PageSpeed and YouTube business questions mapped to commands; a test dry-runs every SKILL.md and recipes example (#206).
 
 ## 0.3.0 — 2026-11-05
 
