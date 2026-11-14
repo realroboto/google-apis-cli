@@ -1274,6 +1274,35 @@ test('bigquery: jobs.query plans a POST, is not a cacheable read, and consent as
   assert.ok(JSON.parse(status.stdout).missing.includes('bigquery'));
 });
 
+test('cloudquotas: the consent set does not change (cloud-platform only, already asked by places)', async (t) => {
+  const own = cacheEnv(t);
+  const skill = join(FIXTURES, 'skill');
+  for (const api of ['cloudquotas', 'places']) {
+    copyFileSync(join(skill, `${api}.json`), join(own.GAPI_CONFIG_DIR, 'cache', `${api}.json`));
+  }
+  // Real documents (all 28 cloudquotas methods); places without its overlays (pruned document).
+  const apis = mkdtempSync(join(tmpdir(), 'gapi-apis-'));
+  t.after(() => rmSync(apis, { recursive: true, force: true }));
+  const places =
+    "export default { api: 'places', discovery: 'https://places.googleapis.com/$discovery/rest?version=v1' };\n";
+  writeFileSync(join(apis, 'places.ts'), places);
+  const missing = async () => {
+    const r = await gapi(['auth', 'status'], { env: own, apisDir: apis });
+    assert.equal(r.code, 0, r.stderr);
+    return JSON.parse(r.stdout).missing;
+  };
+  const before = await missing();
+  assert.deepEqual(before, ['cloud-platform']);
+  copyFileSync(
+    join(import.meta.dirname, '..', 'src', 'apis', 'cloudquotas.ts'),
+    join(apis, 'cloudquotas.ts'),
+  );
+  const level = await gapi(['cloudquotas'], { env: own, apisDir: apis });
+  assert.equal(level.stderr, '');
+  assert.match(level.stdout, /^resources:\n {2}projects\n {2}organizations\n {2}folders\n/m);
+  assert.deepEqual(await missing(), before);
+});
+
 // +query (#200 D5): a free dry run, then the query, polled and paged by the follow rule.
 const BQ = 'https://bigquery.googleapis.com/bigquery/v2/projects/p';
 const SQL = 'SELECT 1';
