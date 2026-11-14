@@ -1235,7 +1235,9 @@ test('bigquery: jobs.query plans a POST, is not a cacheable read, and consent as
     import('./fixtures/apis/bigquery.ts'),
     import('../src/apis/bigquery.ts'),
   ]);
-  assert.deepEqual(fixture.default, shipped.default);
+  const { helpers, ...overlays } = shipped.default;
+  assert.deepEqual(fixture.default, overlays);
+  assert.deepEqual(Object.keys(helpers), ['+query']);
   assert.match((await fx(['bigquery'])).stdout, /^resources:\n {2}jobs\n/m);
   const query = [
     'bigquery',
@@ -1266,6 +1268,197 @@ test('bigquery: jobs.query plans a POST, is not a cacheable read, and consent as
   const status = await fx(['auth', 'status'], { env: own });
   assert.equal(status.code, 0, status.stderr);
   assert.ok(JSON.parse(status.stdout).missing.includes('bigquery'));
+});
+
+// +query (#200 D5): a free dry run, then the query, polled and paged by the follow rule.
+const BQ = 'https://bigquery.googleapis.com/bigquery/v2/projects/p';
+const SQL = 'SELECT 1';
+const bq = (...more: string[]) => ['bigquery', '+query', SQL, '--project', 'p', ...more];
+const bodyOf = (init?: RequestInit) => JSON.parse(String(init?.body));
+const estimate = (statementType: string, bytes: string) =>
+  Response.json({ kind: 'bigquery#queryResponse', statementType, totalBytesProcessed: bytes });
+
+test('bigquery +query --dry-run prints the dry-run request; no project exits 3', async () => {
+  const plan = await dryRun(bq(), true);
+  assert.equal(plan.method, 'POST');
+  assert.equal(plan.url, `${BQ}/queries`);
+  assert.equal(plan.headers['x-goog-user-project'], 'p');
+  const { requestId, ...body } = plan.body;
+  assert.match(requestId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.deepEqual(body, {
+    query: SQL,
+    useLegacySql: false,
+    maximumBytesBilled: '10737418240',
+    jobCreationMode: 'JOB_CREATION_OPTIONAL',
+    timeoutMs: 60000,
+    jobTimeoutMs: '600000',
+    formatOptions: { useInt64Timestamp: true },
+    dryRun: true,
+  });
+  assert.equal((await dryRun([...bq(), '--max-bytes', '5'], true)).body.maximumBytesBilled, '5');
+
+  const none = await sh(['bigquery', '+query', SQL, '--dry-run']);
+  assert.equal(none.code, 3);
+  assert.match(none.stderr, /^gapi: \+query needs a job project: --project <id>/);
+  for (const bad of [
+    ['--max-bytes', '0'],
+    ['--page-limit', 'x'],
+  ]) {
+    assert.equal((await sh([...bq(...bad), '--dry-run'])).code, 3);
+  }
+  const cached = await sh(bq('--cache', '1h'));
+  assert.equal(cached.code, 3);
+  assert.equal(cached.stderr, 'gapi: --cache: bigquery jobs query is not a cacheable read\n');
+});
+
+test('bigquery +query: dry run, query, poll, pages; rows decoded to plain JSON', async () => {
+  const schema = {
+    fields: [
+      { name: 'n', type: 'INTEGER' },
+      { name: 'x', type: 'FLOAT' },
+      { name: 'ok', type: 'BOOLEAN' },
+      { name: 'at', type: 'TIMESTAMP' },
+      { name: 'none', type: 'STRING' },
+      { name: 'tags', type: 'STRING', mode: 'REPEATED' },
+      {
+        name: 'device',
+        type: 'RECORD',
+        fields: [
+          { name: 'os', type: 'STRING' },
+          { name: 'big', type: 'BIGNUMERIC' },
+        ],
+      },
+      {
+        name: 'params',
+        type: 'RECORD',
+        mode: 'REPEATED',
+        fields: [{ name: 'key', type: 'STRING' }],
+      },
+    ],
+  };
+  const row = {
+    f: [
+      { v: '9007199254740993' },
+      { v: '1.5' },
+      { v: 'true' },
+      { v: '1763116800123456' },
+      { v: null },
+      { v: [{ v: 'a' }, { v: 'b' }] },
+      { v: { f: [{ v: 'ios' }, { v: '12345678901234567890.5' }] } },
+      { v: [{ v: { f: [{ v: 'page' }] } }] },
+    ],
+  };
+  const page = {
+    jobComplete: true,
+    schema,
+    totalRows: '2',
+    totalBytesProcessed: '100',
+    cacheHit: false,
+  };
+  const job = { projectId: 'p', jobId: 'j1', location: 'EU' };
+  const answers = [
+    estimate('SELECT', '100'),
+    Response.json({ jobComplete: false, jobReference: job }),
+    Response.json({ jobComplete: false, jobReference: job }),
+    Response.json({ ...page, jobReference: job, rows: [row], pageToken: 't2' }),
+    Response.json({ ...page, jobReference: job, rows: [{ f: row.f.map(() => ({ v: null })) }] }),
+  ];
+  const { fetch, calls } = fakeFetch(() => answers[calls.length - 1]);
+  const r = await sh(bq(), { fetch });
+  assert.equal(r.code, 0, r.stderr);
+  const results = `${BQ}/queries/j1?location=EU&timeoutMs=60000&formatOptions.useInt64Timestamp=true`;
+  assert.deepEqual(
+    calls.map((c) => `${c.init?.method} ${c.url}`),
+    [
+      `POST ${BQ}/queries`,
+      `POST ${BQ}/queries`,
+      `GET ${results}`,
+      `GET ${results}`,
+      `GET ${results}&pageToken=t2`,
+    ],
+  );
+  const [dry, query] = calls.map((c) => c.init?.body && bodyOf(c.init));
+  assert.equal(dry.dryRun, true);
+  const { dryRun: _, ...rest } = dry;
+  assert.deepEqual(query, rest);
+  const nulls = Object.fromEntries(schema.fields.map((f) => [f.name, null]));
+  const meta = { totalRows: '2', totalBytesProcessed: '100', cacheHit: false };
+  const decoded = {
+    n: '9007199254740993',
+    x: 1.5,
+    ok: true,
+    at: '2025-11-14T10:40:00.123456Z',
+    none: null,
+    tags: ['a', 'b'],
+    device: { os: 'ios', big: '12345678901234567890.5' },
+    params: [{ key: 'page' }],
+  };
+  assert.equal(
+    r.stdout,
+    `${JSON.stringify({ rows: [decoded], ...meta })}\n${JSON.stringify({ rows: [nulls], ...meta })}\n`,
+  );
+
+  const limited = fakeFetch((_u, init) =>
+    init?.method === 'POST' && bodyOf(init).dryRun
+      ? estimate('SELECT', '1')
+      : Response.json({ ...page, rows: [], pageToken: 't', jobReference: job }),
+  );
+  const l = await sh(bq('--page-limit', '1'), { fetch: limited.fetch });
+  assert.equal(l.code, 0, l.stderr);
+  assert.equal(limited.calls.length, 2);
+});
+
+test('bigquery +query: a non-SELECT or an estimate over the budget sends no query; --estimate sends only the dry run', async () => {
+  for (const [answer, more, code, message] of [
+    [estimate('DELETE', '0'), [], 3, /^gapi: \+query runs only SELECT; this statement is DELETE/],
+    [
+      estimate('SELECT', '11'),
+      ['--max-bytes', '10'],
+      1,
+      /^gapi: estimate 11 bytes is over the budget of 10 bytes/,
+    ],
+  ] as const) {
+    const { fetch, calls } = fakeFetch(() => answer.clone());
+    const r = await sh(bq(...more), { fetch });
+    assert.equal(r.code, code);
+    assert.match(r.stderr, message);
+    assert.equal(r.stdout, '');
+    assert.equal(calls.length, 1);
+  }
+  const { fetch, calls } = fakeFetch(() => estimate('INSERT', '42'));
+  const r = await sh(bq('--estimate'), { fetch });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(
+    r.stdout,
+    `${JSON.stringify({ statementType: 'INSERT', totalBytesProcessed: '42' })}\n`,
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(bodyOf(calls[0].init).dryRun, true);
+});
+
+test('bigquery +query: a resend after a 503 reuses the requestId; bytesBilledLimitExceeded exits 1', async () => {
+  const done = { jobComplete: true, schema: { fields: [] }, rows: [], totalRows: '0' };
+  const answers = [
+    estimate('SELECT', '1'),
+    new Response('busy', { status: 503 }),
+    Response.json(done),
+  ];
+  const { fetch, calls } = fakeFetch(() => answers[calls.length - 1]);
+  const r = await sh(bq(), { fetch });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(calls.length, 3);
+  const [, first, resend] = calls.map((c) => bodyOf(c.init));
+  assert.equal(first.dryRun, undefined);
+  assert.deepEqual(resend, first);
+
+  const message = 'Query exceeded limit for bytes billed: 10. 20 or higher required.';
+  const error = { code: 400, message, errors: [{ reason: 'bytesBilledLimitExceeded', message }] };
+  const over = [estimate('SELECT', '1'), Response.json({ error }, { status: 400 })];
+  const billed = fakeFetch(() => over[billed.calls.length - 1]);
+  const b = await sh(bq(), { fetch: billed.fetch });
+  assert.equal(b.code, 1);
+  assert.match(b.stderr, /^gapi: Query exceeded limit for bytes billed/);
+  assert.equal(billed.calls.length, 2);
 });
 
 test('auth logout and auth login delete the stored responses and the entities index', async (t) => {

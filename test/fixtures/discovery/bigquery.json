@@ -173,6 +173,83 @@
           "flatPath": "projects/{projectsId}/jobs/{jobsId}",
           "id": "bigquery.jobs.get",
           "description": "Returns information about a specific job. Job information is available for a six month period after creation. Requires that you're the person who ran the job, or have the Is Owner project role. # IAM Permissions Requires the `bigquery.jobs.get` permission on the job resource. If the user matches the creator of the job, the `bigquery.jobs.create` permission on the project is required instead."
+        },
+        "getQueryResults": {
+          "description": "RPC to get the results of a query job. # IAM Permissions Requires the following IAM permission(s) to use this method: - `bigquery.jobs.get` on the job. - `bigquery.tables.getData` on the destination table. If the user matches the creator of the job, the following IAM permission(s) are required instead: - `bigquery.jobs.create` on the project. - `bigquery.tables.getData` on the destination table.",
+          "parameterOrder": ["projectId", "jobId"],
+          "response": {
+            "$ref": "GetQueryResultsResponse"
+          },
+          "path": "projects/{+projectId}/queries/{+jobId}",
+          "scopes": [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/cloud-platform.read-only"
+          ],
+          "flatPath": "projects/{projectsId}/queries/{queriesId}",
+          "httpMethod": "GET",
+          "parameters": {
+            "location": {
+              "location": "query",
+              "type": "string",
+              "description": "The geographic location of the job. You must specify the location to run the job for the following scenarios: * If the location to run a job is not in the `us` or the `eu` multi-regional location * If the job's location is in a single region (for example, `us-central1`) For more information, see how to [specify locations](https://cloud.google.com/bigquery/docs/locations#specify_locations)."
+            },
+            "formatOptions.timestampOutputFormat": {
+              "type": "string",
+              "location": "query",
+              "enumDescriptions": [
+                "Corresponds to default API output behavior, which is FLOAT64.",
+                "Timestamp is output as float64 seconds since Unix epoch.",
+                "Timestamp is output as int64 microseconds since Unix epoch.",
+                "Timestamp is output as ISO 8601 String (\"YYYY-MM-DDTHH:MM:SS.FFFFFFFFFFFFZ\")."
+              ],
+              "description": "Optional. The API output format for a timestamp. This offers more explicit control over the timestamp output format as compared to the existing `use_int64_timestamp` option.",
+              "enum": ["TIMESTAMP_OUTPUT_FORMAT_UNSPECIFIED", "FLOAT64", "INT64", "ISO8601_STRING"]
+            },
+            "maxResults": {
+              "format": "uint32",
+              "location": "query",
+              "type": "integer",
+              "description": "Maximum number of results to read."
+            },
+            "projectId": {
+              "required": true,
+              "description": "Required. Project ID of the query job.",
+              "pattern": "^[^/]+$",
+              "type": "string",
+              "location": "path"
+            },
+            "timeoutMs": {
+              "location": "query",
+              "description": "Optional: Specifies the maximum amount of time, in milliseconds, that the client is willing to wait for the query to complete. By default, this limit is 10 seconds (10,000 milliseconds). If the query is complete, the jobComplete field in the response is true. If the query has not yet completed, jobComplete is false. You can request a longer timeout period in the timeoutMs field. However, the call is not guaranteed to wait for the specified timeout; it typically returns after around 200 seconds (200,000 milliseconds), even if the query is not complete. If jobComplete is false, you can continue to wait for the query to complete by calling the getQueryResults method until the jobComplete field in the getQueryResults response is true.",
+              "type": "integer",
+              "format": "uint32"
+            },
+            "formatOptions.useInt64Timestamp": {
+              "location": "query",
+              "type": "boolean",
+              "description": "Optional. Output timestamp as usec int64. Default is false."
+            },
+            "pageToken": {
+              "type": "string",
+              "location": "query",
+              "description": "Page token, returned by a previous call, to request the next page of results."
+            },
+            "jobId": {
+              "required": true,
+              "pattern": "^[^/]+$",
+              "description": "Required. Job ID of the query job.",
+              "type": "string",
+              "location": "path"
+            },
+            "startIndex": {
+              "type": "string",
+              "format": "uint64",
+              "location": "query",
+              "description": "Zero-based index of the starting row."
+            }
+          },
+          "id": "bigquery.jobs.getQueryResults"
         }
       }
     }

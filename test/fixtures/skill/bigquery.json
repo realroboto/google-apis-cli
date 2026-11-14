@@ -1,0 +1,282 @@
+{
+  "mtlsRootUrl": "https://bigquery.mtls.googleapis.com/",
+  "ownerDomain": "google.com",
+  "documentationLink": "https://cloud.google.com/bigquery/",
+  "id": "bigquery:v2",
+  "discoveryVersion": "v1",
+  "basePath": "/bigquery/v2/",
+  "schemas": {},
+  "servicePath": "bigquery/v2/",
+  "title": "BigQuery API",
+  "description": "A data platform for customers to create, manage, share and query data.",
+  "revision": "20261107",
+  "canonicalName": "Bigquery",
+  "baseUrl": "https://bigquery.googleapis.com/bigquery/v2/",
+  "ownerName": "Google",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/cloud-platform": {
+          "description": "See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account."
+        },
+        "https://www.googleapis.com/auth/bigquery": {
+          "description": "View and manage your data in Google BigQuery and see the email address for your Google Account"
+        },
+        "https://www.googleapis.com/auth/devstorage.read_write": {
+          "description": "Manage your data in Cloud Storage and see the email address of your Google Account"
+        },
+        "https://www.googleapis.com/auth/bigquery.insertdata": {
+          "description": "Insert data into Google BigQuery"
+        },
+        "https://www.googleapis.com/auth/devstorage.read_only": {
+          "description": "View your data in Google Cloud Storage"
+        },
+        "https://www.googleapis.com/auth/devstorage.full_control": {
+          "description": "Manage your data and permissions in Cloud Storage and see the email address for your Google Account"
+        },
+        "https://www.googleapis.com/auth/cloud-platform.read-only": {
+          "description": "View your data across Google Cloud services and see the email address of your Google Account"
+        }
+      }
+    }
+  },
+  "rootUrl": "https://bigquery.googleapis.com/",
+  "version": "v2",
+  "parameters": {
+    "oauth_token": {
+      "description": "OAuth 2.0 token for the current user.",
+      "location": "query",
+      "type": "string"
+    },
+    "key": {
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "type": "string",
+      "location": "query"
+    },
+    "fields": {
+      "location": "query",
+      "type": "string",
+      "description": "Selector specifying which fields to include in a partial response."
+    },
+    "prettyPrint": {
+      "type": "boolean",
+      "location": "query",
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true"
+    },
+    "alt": {
+      "location": "query",
+      "type": "string",
+      "default": "json",
+      "enum": ["json", "media", "proto"],
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "description": "Data format for response."
+    },
+    "access_token": {
+      "type": "string",
+      "location": "query",
+      "description": "OAuth access token."
+    },
+    "uploadType": {
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "type": "string",
+      "location": "query"
+    },
+    "callback": {
+      "description": "JSONP",
+      "location": "query",
+      "type": "string"
+    },
+    "quotaUser": {
+      "type": "string",
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters."
+    },
+    "upload_protocol": {
+      "type": "string",
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "$.xgafv": {
+      "description": "V1 error format.",
+      "location": "query",
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "enum": ["1", "2"],
+      "type": "string"
+    }
+  },
+  "name": "bigquery",
+  "fullyEncodeReservedExpansion": true,
+  "resources": {
+    "jobs": {
+      "methods": {
+        "query": {
+          "response": {
+            "$ref": "QueryResponse"
+          },
+          "id": "bigquery.jobs.query",
+          "scopes": [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/cloud-platform.read-only"
+          ],
+          "flatPath": "projects/{projectsId}/queries",
+          "path": "projects/{+projectId}/queries",
+          "parameterOrder": ["projectId"],
+          "request": {
+            "$ref": "QueryRequest"
+          },
+          "httpMethod": "POST",
+          "parameters": {
+            "projectId": {
+              "type": "string",
+              "description": "Required. Project ID of the query request.",
+              "required": true,
+              "location": "path",
+              "pattern": "^[^/]+$"
+            }
+          },
+          "description": "Runs a BigQuery SQL query synchronously and returns query results if the query completes within a specified timeout. # IAM Permissions Requires the `bigquery.jobs.create` permission on the project resource. Data-level permissions are highly dependent on the SQL statement being executed. While standard queries require data access (such as `bigquery.tables.getData`), complex operations like DDL or DCL may require permissions to manage reservations, IAM policies, or project settings."
+        }
+      }
+    }
+  },
+  "endpoints": [
+    {
+      "location": "asia-south1",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.asia-south1.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.asia-south2.rep.googleapis.com/",
+      "location": "asia-south2"
+    },
+    {
+      "location": "europe-west1",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west1.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west10.rep.googleapis.com/",
+      "location": "europe-west10"
+    },
+    {
+      "location": "europe-west2",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west2.rep.googleapis.com/"
+    },
+    {
+      "location": "europe-west3",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west3.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west4.rep.googleapis.com/",
+      "location": "europe-west4"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west6.rep.googleapis.com/",
+      "location": "europe-west6"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west8.rep.googleapis.com/",
+      "location": "europe-west8"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west9.rep.googleapis.com/",
+      "location": "europe-west9"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.me-central2.rep.googleapis.com/",
+      "location": "me-central2"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.northamerica-northeast1.rep.googleapis.com/",
+      "location": "northamerica-northeast1"
+    },
+    {
+      "location": "northamerica-northeast2",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.northamerica-northeast2.rep.googleapis.com/"
+    },
+    {
+      "location": "us-central1",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-central1.rep.googleapis.com/"
+    },
+    {
+      "location": "us-central2",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-central2.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-east1.rep.googleapis.com/",
+      "location": "us-east1"
+    },
+    {
+      "location": "us-east4",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-east4.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-east5.rep.googleapis.com/",
+      "location": "us-east5"
+    },
+    {
+      "location": "us-east7",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-east7.rep.googleapis.com/"
+    },
+    {
+      "location": "us-south1",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-south1.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-west1.rep.googleapis.com/",
+      "location": "us-west1"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-west2.rep.googleapis.com/",
+      "location": "us-west2"
+    },
+    {
+      "location": "us-west3",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-west3.rep.googleapis.com/"
+    },
+    {
+      "location": "us-west4",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-west4.rep.googleapis.com/"
+    },
+    {
+      "location": "us-west8",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-west8.rep.googleapis.com/"
+    }
+  ],
+  "protocol": "rest",
+  "batchPath": "batch/bigquery/v2",
+  "kind": "discovery#restDescription",
+  "icons": {
+    "x16": "http://www.google.com/images/icons/product/search-16.gif",
+    "x32": "http://www.google.com/images/icons/product/search-32.gif"
+  }
+}

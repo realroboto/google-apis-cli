@@ -44,7 +44,7 @@ export async function send(
 // A batch yields its results before it throws a failure: the parts sent were acted on.
 export async function* receive(plan: CallPlan, deps: SendDeps): AsyncGenerator<unknown> {
   const call = caller(plan, deps);
-  const decode = (data: unknown) => (plan.decode ? plan.decode(data) : data);
+  const decode = (data: unknown, step?: Step) => (plan.decode ? plan.decode(data, step) : data);
   if (plan.send === 'upload') {
     yield* some(decode(await json(await upload(plan, call, deps.sleep ?? setTimeout))));
     return;
@@ -80,13 +80,13 @@ export async function* receive(plan: CallPlan, deps: SendDeps): AsyncGenerator<u
     );
   let step: Step | undefined = { httpMethod: plan.httpMethod, url: plan.url, body: plan.body };
   if (plan.send === 'once') {
-    yield* some(decode(await fetchStep(step)));
+    yield* some(decode(await fetchStep(step), step));
     return;
   }
   // D3: follow the rule until it stops or pageLimit responses were yielded.
   for (let yielded = 0; step && yielded < plan.pageLimit; ) {
     const data = await fetchStep(step);
-    const decoded = decode(data);
+    const decoded = decode(data, step);
     if (decoded !== undefined) {
       yielded++;
       yield decoded;

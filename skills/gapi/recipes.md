@@ -144,3 +144,50 @@ gapi youtube playlistItems list --params '{"part":["snippet"],"playlistId":"UU01
 ```
 
 Projections: first command `jq -r '.items[0].contentDetails.relatedPlaylists.uploads'`; second (one JSON line per page) `jq -c '.items[] | {videoId: .snippet.resourceId.videoId, title: .snippet.title, publishedAt: .snippet.publishedAt}'`
+
+## BigQuery: GA4 export
+
+The GA4 daily export writes one table per day, `events_YYYYMMDD`, to the dataset `analytics_<property id>` ([Google](https://support.google.com/analytics/answer/7029846)).
+
+- IDs: `my-project` = the Cloud project of the export dataset; `123` = the GA4 property id. `--project` is the job project.
+- Date filter: `events_*` plus `_TABLE_SUFFIX BETWEEN "YYYYMMDD" AND "YYYYMMDD"` scans only those days. Bytes scanned = cost; select only the columns you need.
+- SQL goes in single quotes: the shell then leaves the backticks alone. Use double quotes for SQL strings (GoogleSQL accepts both).
+- `+query` runs a free dry run first: not `SELECT` → exit 3, estimate over `--max-bytes` (default 10 GiB) → exit 1. `--estimate` prints the estimate and runs nothing.
+- Projection for every query: `jq -c '.rows[]'` (one JSON line per result page).
+
+### Flattened events
+
+- Question: which pages did each session view, day by day?
+- `event_params` is a repeated record; a subquery per key pulls one value.
+
+```sh
+gapi bigquery +query 'SELECT event_date, event_name, (SELECT value.int_value FROM UNNEST(event_params) WHERE key = "ga_session_id") AS session_id, (SELECT value.string_value FROM UNNEST(event_params) WHERE key = "page_location") AS page_location FROM `my-project.analytics_123.events_*` WHERE _TABLE_SUFFIX BETWEEN "20261001" AND "20261031" AND event_name = "page_view" LIMIT 1000' --project my-project --dry-run
+gapi bigquery +query 'SELECT event_name FROM `my-project.analytics_123.events_*` WHERE _TABLE_SUFFIX BETWEEN "20261001" AND "20261031"' --project my-project --estimate --dry-run
+```
+
+### Funnel
+
+- Question: how many users viewed, added to cart, and bought?
+- Users per step in the period, not in step order.
+
+```sh
+gapi bigquery +query 'SELECT COUNT(DISTINCT IF(event_name = "page_view", user_pseudo_id, NULL)) AS viewed, COUNT(DISTINCT IF(event_name = "add_to_cart", user_pseudo_id, NULL)) AS added, COUNT(DISTINCT IF(event_name = "purchase", user_pseudo_id, NULL)) AS purchased FROM `my-project.analytics_123.events_*` WHERE _TABLE_SUFFIX BETWEEN "20261001" AND "20261031" AND event_name IN ("page_view", "add_to_cart", "purchase")' --project my-project --dry-run
+```
+
+### Sessions by source
+
+- Question: which source and medium bring sessions?
+- One `session_start` event per session; source = last-click cross-channel attribution (`session_traffic_source_last_click`).
+
+```sh
+gapi bigquery +query 'SELECT session_traffic_source_last_click.cross_channel_campaign.source AS source, session_traffic_source_last_click.cross_channel_campaign.medium AS medium, COUNT(*) AS sessions FROM `my-project.analytics_123.events_*` WHERE _TABLE_SUFFIX BETWEEN "20261001" AND "20261031" AND event_name = "session_start" GROUP BY source, medium ORDER BY sessions DESC' --project my-project --dry-run
+```
+
+### Hashed user ids
+
+- Question: which users are most active, without exposing their ids?
+- `TO_HEX(SHA256(…))` hashes in SQL, so the raw `user_pseudo_id` never leaves BigQuery. Warehouse control: [column data masking](https://cloud.google.com/bigquery/docs/column-data-masking-intro).
+
+```sh
+gapi bigquery +query 'SELECT TO_HEX(SHA256(user_pseudo_id)) AS user_hash, COUNT(*) AS events FROM `my-project.analytics_123.events_*` WHERE _TABLE_SUFFIX BETWEEN "20261001" AND "20261031" GROUP BY user_hash ORDER BY events DESC LIMIT 100' --project my-project --dry-run
+```
