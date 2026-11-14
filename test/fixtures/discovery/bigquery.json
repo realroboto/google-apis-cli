@@ -1,0 +1,180 @@
+{
+  "kind": "discovery#restDescription",
+  "discoveryVersion": "v1",
+  "id": "bigquery:v2",
+  "name": "bigquery",
+  "version": "v2",
+  "revision": "20261107",
+  "title": "BigQuery API",
+  "rootUrl": "https://bigquery.googleapis.com/",
+  "servicePath": "bigquery/v2/",
+  "basePath": "/bigquery/v2/",
+  "batchPath": "batch/bigquery/v2",
+  "protocol": "rest",
+  "parameters": {
+    "quotaUser": {
+      "type": "string",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "location": "query"
+    },
+    "$.xgafv": {
+      "enum": ["1", "2"],
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "description": "V1 error format.",
+      "location": "query",
+      "type": "string"
+    },
+    "prettyPrint": {
+      "location": "query",
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true",
+      "type": "boolean"
+    },
+    "callback": {
+      "description": "JSONP",
+      "location": "query",
+      "type": "string"
+    },
+    "alt": {
+      "description": "Data format for response.",
+      "default": "json",
+      "type": "string",
+      "location": "query",
+      "enum": ["json", "media", "proto"],
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ]
+    },
+    "upload_protocol": {
+      "type": "string",
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "location": "query",
+      "type": "string"
+    },
+    "fields": {
+      "type": "string",
+      "description": "Selector specifying which fields to include in a partial response.",
+      "location": "query"
+    },
+    "oauth_token": {
+      "location": "query",
+      "description": "OAuth 2.0 token for the current user.",
+      "type": "string"
+    },
+    "key": {
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "type": "string",
+      "location": "query"
+    },
+    "uploadType": {
+      "type": "string",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "location": "query"
+    }
+  },
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/devstorage.read_only": {
+          "description": "View your data in Google Cloud Storage"
+        },
+        "https://www.googleapis.com/auth/devstorage.full_control": {
+          "description": "Manage your data and permissions in Cloud Storage and see the email address for your Google Account"
+        },
+        "https://www.googleapis.com/auth/devstorage.read_write": {
+          "description": "Manage your data in Cloud Storage and see the email address of your Google Account"
+        },
+        "https://www.googleapis.com/auth/bigquery.insertdata": {
+          "description": "Insert data into Google BigQuery"
+        },
+        "https://www.googleapis.com/auth/bigquery": {
+          "description": "View and manage your data in Google BigQuery and see the email address for your Google Account"
+        },
+        "https://www.googleapis.com/auth/cloud-platform.read-only": {
+          "description": "View your data across Google Cloud services and see the email address of your Google Account"
+        },
+        "https://www.googleapis.com/auth/cloud-platform": {
+          "description": "See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account."
+        }
+      }
+    }
+  },
+  "schemas": {},
+  "resources": {
+    "jobs": {
+      "methods": {
+        "query": {
+          "id": "bigquery.jobs.query",
+          "flatPath": "projects/{projectsId}/queries",
+          "parameterOrder": ["projectId"],
+          "scopes": [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/cloud-platform.read-only"
+          ],
+          "parameters": {
+            "projectId": {
+              "location": "path",
+              "required": true,
+              "pattern": "^[^/]+$",
+              "type": "string",
+              "description": "Required. Project ID of the query request."
+            }
+          },
+          "response": {
+            "$ref": "QueryResponse"
+          },
+          "path": "projects/{+projectId}/queries",
+          "request": {
+            "$ref": "QueryRequest"
+          },
+          "httpMethod": "POST",
+          "description": "Runs a BigQuery SQL query synchronously and returns query results if the query completes within a specified timeout. # IAM Permissions Requires the `bigquery.jobs.create` permission on the project resource. Data-level permissions are highly dependent on the SQL statement being executed. While standard queries require data access (such as `bigquery.tables.getData`), complex operations like DDL or DCL may require permissions to manage reservations, IAM policies, or project settings."
+        },
+        "get": {
+          "path": "projects/{+projectId}/jobs/{+jobId}",
+          "scopes": [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/cloud-platform.read-only"
+          ],
+          "httpMethod": "GET",
+          "response": {
+            "$ref": "Job"
+          },
+          "parameters": {
+            "projectId": {
+              "location": "path",
+              "type": "string",
+              "description": "Required. Project ID of the requested job.",
+              "pattern": "^[^/]+$",
+              "required": true
+            },
+            "location": {
+              "location": "query",
+              "description": "The geographic location of the job. You must specify the location to run the job for the following scenarios: * If the location to run a job is not in the `us` or the `eu` multi-regional location * If the job's location is in a single region (for example, `us-central1`) For more information, see how to [specify locations](https://cloud.google.com/bigquery/docs/locations#specify_locations).",
+              "type": "string"
+            },
+            "jobId": {
+              "description": "Required. Job ID of the requested job.",
+              "required": true,
+              "type": "string",
+              "pattern": "^[^/]+$",
+              "location": "path"
+            }
+          },
+          "parameterOrder": ["projectId", "jobId"],
+          "flatPath": "projects/{projectsId}/jobs/{jobsId}",
+          "id": "bigquery.jobs.get",
+          "description": "Returns information about a specific job. Job information is available for a six month period after creation. Requires that you're the person who ran the job, or have the Is Owner project role. # IAM Permissions Requires the `bigquery.jobs.get` permission on the job resource. If the user matches the creator of the job, the `bigquery.jobs.create` permission on the project is required instead."
+        }
+      }
+    }
+  }
+}
