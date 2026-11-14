@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import { openCatalog } from './catalog.ts';
 import { configDir, openCredentials } from './credentials.ts';
-import { openEntities, type Request } from './entities.ts';
+import { type ListCall, openEntities } from './entities.ts';
 import { GapiError, messageOf, reasonOf } from './errors.ts';
 import { isRecord } from './json.ts';
 import { parseJson, plan, resolve } from './plan.ts';
@@ -183,17 +183,20 @@ async function runEntities(
   args: string[],
   { io, creds, catalog, entities }: { io: Io; creds: Creds; catalog: Catalog; entities: Entities },
 ): Promise<void> {
-  const [sub, ...rest] = args;
-  const { values, positionals } = parse(rest, {
+  const parsed = parse(args, {
     help: { type: 'boolean' },
-    ...(sub === 'find' && { api: { type: 'string' } }),
-    ...(sub === 'sync' && { 'page-limit': { type: 'string' } }),
+    api: { type: 'string' },
+    'page-limit': { type: 'string' },
   });
+  const { values } = parsed;
+  const [sub, ...positionals] = parsed.positionals;
   if (values.help) {
     io.stdout.write(`${ENTITIES_USAGE}\n`);
     return;
   }
   if (sub !== 'find' && sub !== 'sync') throw new GapiError(3, `usage: ${ENTITIES_USAGE}`);
+  const other = sub === 'find' ? 'page-limit' : 'api';
+  if (values[other] !== undefined) throw new GapiError(3, `--${other}: not an option of ${sub}`);
   const identity = await creds.identity({ kind: 'oauth', scopes: [] });
   const sourcesOf = (api: string): EntitySource[] => {
     if (!Object.hasOwn(catalog.entries, api)) throw new GapiError(3, `unknown api: ${api}`);
@@ -245,7 +248,7 @@ async function runEntities(
     try {
       const model = await catalog.load(api);
       const settings = await creds.settings({}, model.headers);
-      const request: Request = (method, params) => {
+      const request: ListCall = (method, params) => {
         const paged = model.byId.get(method)?.paging !== undefined;
         const call = plan(
           model,
@@ -308,7 +311,8 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   const responses = openResponses(join(dir, 'responses'));
   await responses.sweep();
   const entities = openEntities(join(dir, 'entities.db'));
-  await entities.sweep();
+  // shortcut: a lock or disk error skips this run's sweep with a warning, the next run retries.
+  await entities.sweep().catch((e: unknown) => warn(`entities sweep skipped: ${messageOf(e)}`));
 
   // ADR 0001 eligibility, before any network call: the entry allows caching, the call is
   // one request or pages, the method is a GET or a `reads` POST.

@@ -1,8 +1,8 @@
 // Entities (#200 D6, ADR 0002): the offline index of the operator's own accounts, properties
 // and sites in <config dir>/entities.db, mode 600. Rows hold the Credentials identity and live
 // at most 7 days; login and logout delete the file. Nothing here ever picks an ID for a call.
-// shortcut: DatabaseSync is a documentation-only deprecated alias of Database since Node v26.11.0
-// (DEP0210); switch when @types/node types Database.
+// shortcut: DatabaseSync is a deprecated alias of Database since Node v26.11.0 (DEP0210), switch
+// when @types/node types Database.
 
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
@@ -14,14 +14,16 @@ import { MAX_AGE_MS } from './responses.ts';
 import type { Entity, EntitySource } from './types.ts';
 
 const VERSION = 1; // PRAGMA user_version; another value drops the file, sync rebuilds it
-const SCHEMA = `create virtual table entity using fts5(
+const NOT_A_DATABASE = 26; // SQLITE_NOTADB: the file is dropped like another version
+const BUSY_MS = 5000; // another gapi process may hold the write lock
+const SCHEMA = `create virtual table if not exists entity using fts5(
   api unindexed, kind unindexed, id, name, parent, domain, identity unindexed, synced unindexed,
   tokenize = 'trigram')`;
 
 export type EntityHit = Entity & { api: string; synced: number };
 
 // One list call: every decoded page of `method` called with `params`.
-export type Request = (method: string, params: Record<string, unknown>) => AsyncIterable<unknown>;
+export type ListCall = (method: string, params: Record<string, unknown>) => AsyncIterable<unknown>;
 
 // Domain key: URL host, lower case (IDN as punycode), no leading `www.`.
 // shortcut: no public-suffix parsing, so `shop.acme.com` does not link to `acme.com`; upgrade
@@ -40,39 +42,45 @@ export const items = (data: unknown, key: string): Record<string, unknown>[] =>
 export const text = (v: unknown): string | undefined =>
   typeof v === 'string' && v ? v : undefined;
 
-// A file that is not a SQLite database throws on its first read.
-function versionOf(db: DatabaseSync): unknown {
+// Schema version; undefined for a file that is not a database. Any other error (a lock) throws,
+// so a busy index is never dropped.
+function versionOf(db: DatabaseSync): number | undefined {
   try {
-    return db.prepare('pragma user_version').get()?.user_version;
-  } catch {
-    return undefined;
+    return Number(db.prepare('pragma user_version').get()?.user_version);
+  } catch (e) {
+    if (e instanceof Error && 'errcode' in e && e.errcode === NOT_A_DATABASE) return undefined;
+    throw e;
   }
 }
 
 export function openEntities(file: string) {
   const clear = async (): Promise<void> => {
-    await Promise.all(
-      ['', '-journal', '-wal', '-shm'].map((s) => rm(`${file}${s}`, { force: true })),
-    );
+    await Promise.all(['', '-journal'].map((s) => rm(`${file}${s}`, { force: true })));
   };
 
   // Created mode 600 before SQLite opens it (SQLite gives its journal the same mode).
   const create = async (): Promise<DatabaseSync> => {
     await mkdir(dirname(file), { recursive: true, mode: 0o700 });
     await writeFile(file, '', { mode: 0o600, flag: 'a' });
-    return new DatabaseSync(file);
+    return new DatabaseSync(file, { timeout: BUSY_MS });
   };
 
-  // A file of another schema version, or not a database at all, is dropped and rebuilt empty.
+  // Version 0 is a new file: the schema is added in place. A file of another schema version, or
+  // not a database at all, is dropped and rebuilt empty.
   async function open(): Promise<DatabaseSync> {
-    const db = await create();
-    if (versionOf(db) === VERSION) return db;
-    db.close();
-    await clear();
-    const fresh = await create();
-    fresh.exec(SCHEMA);
-    fresh.exec(`pragma user_version = ${VERSION}`);
-    return fresh;
+    let db = await create();
+    let version = versionOf(db);
+    if (version !== 0 && version !== VERSION) {
+      db.close();
+      await clear();
+      db = await create();
+      version = 0;
+    }
+    if (version === 0) {
+      db.exec(SCHEMA);
+      db.exec(`pragma user_version = ${VERSION}`);
+    }
+    return db;
   }
 
   async function use<T>(fn: (db: DatabaseSync) => T): Promise<T> {
@@ -98,7 +106,7 @@ export function openEntities(file: string) {
     api: string,
     sources: EntitySource[],
     identity: string,
-    request: Request,
+    request: ListCall,
   ): Promise<number> {
     const rows: Entity[] = [];
     const walk = async (source: EntitySource, parent?: Entity): Promise<void> => {

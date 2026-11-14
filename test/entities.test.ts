@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { after, type TestContext, test } from 'node:test';
 import { fakeFetch } from './helpers/fetch.ts';
 import { gapi } from './helpers/io.ts';
@@ -176,6 +177,11 @@ test('entities sync <api> --page-limit bounds each list and refreshes only that 
     [['entities', 'find', 'acme', '--api', 'crux'], 'gapi: crux has no entity sources\n'],
     [['entities', 'find', 'ac'], "gapi: find: each term needs 3 or more characters: 'ac'\n"],
     [['entities', 'find'], 'gapi: find: each term needs 3 or more characters\n'],
+    [['entities', 'sync', '--api', 'gsc'], 'gapi: --api: not an option of sync\n'],
+    [
+      ['entities', 'find', 'acme', '--page-limit', '1'],
+      'gapi: --page-limit: not an option of find\n',
+    ],
     [
       ['entities', 'list'],
       'gapi: usage: gapi entities sync [<api>…] [--page-limit <n>] | find <words…> [--api <api>]\n',
@@ -185,6 +191,22 @@ test('entities sync <api> --page-limit bounds each list and refreshes only that 
     assert.deepEqual([e.code, e.stderr], [3, message]);
   }
   assert.equal(calls.length, 2);
+});
+
+test('entities --help prints the usage and runs nothing', async (t) => {
+  const { run } = setup(t);
+  for (const argv of [
+    ['entities', '--help'],
+    ['entities', 'sync', '--help'],
+    ['entities', 'find', '--help'],
+  ]) {
+    const r = await run(argv);
+    assert.deepEqual(r, {
+      code: 0,
+      stdout: 'gapi entities sync [<api>…] [--page-limit <n>] | find <words…> [--api <api>]\n',
+      stderr: '',
+    });
+  }
 });
 
 test('entities find: an empty, foreign-identity, aged or unreadable index says so on stderr', async (t) => {
@@ -203,9 +225,16 @@ test('entities find: an empty, foreign-identity, aged or unreadable index says s
   assert.equal((await run(['entities', 'sync'], { fetch: google().fetch })).code, 0);
   t.mock.timers.reset();
   assert.equal((await run(['entities', 'find', 'acme'])).stderr, empty);
-  // A file that is not this schema version (here: no database at all) is dropped and rebuilt.
-  writeFileSync(join(dir, 'entities.db'), 'not a database');
-  assert.equal((await run(['entities', 'find', 'acme'])).stderr, empty);
+  // A database of another schema version, or no database at all, is dropped and rebuilt.
+  for (const stale of ['future version', 'not a database']) {
+    assert.equal((await run(['entities', 'sync'], { fetch: google().fetch })).code, 0);
+    if (stale === 'future version') {
+      const db = new DatabaseSync(join(dir, 'entities.db'));
+      db.exec('pragma user_version = 99');
+      db.close();
+    } else writeFileSync(join(dir, 'entities.db'), stale);
+    assert.equal((await run(['entities', 'find', 'acme'])).stderr, empty, stale);
+  }
   assert.equal((await run(['entities', 'sync'], { fetch: google().fetch })).code, 0);
   assert.notEqual((await run(['entities', 'find', 'acme'])).stdout, '');
 });

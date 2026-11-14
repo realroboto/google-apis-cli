@@ -1,6 +1,7 @@
 // Renderers: plain text views over an ApiModel (epic #30 D4, story 8).
+import type { EntityHit } from './entities.ts';
 import { isRecord } from './json.ts';
-import type { ApiMethod, ApiModel, ApiResource, DiscoveryParam, Entity, Helpers } from './types.ts';
+import type { ApiMethod, ApiModel, ApiResource, DiscoveryParam, Helpers } from './types.ts';
 
 export const SCHEMA_USAGE =
   'gapi schema <api> <resource>[.<sub-resource>…].<method> | <SchemaName> [--resolve-refs | --find <word>]';
@@ -197,8 +198,8 @@ export function searchText(hits: { model: ApiModel; method: ApiMethod }[]): stri
     .join('');
 }
 
-// #200 D6: one tab-separated line per hit: API, kind, ID, name, parent, domain, sync date.
-export function entitiesText(hits: (Entity & { api: string; synced: number })[]): string {
+// #200 D6: tabs keep empty cells (no name, parent or domain) unambiguous for `cut`.
+export function entitiesText(hits: EntityHit[]): string {
   return hits
     .map((h) => {
       const date = new Date(h.synced).toISOString().slice(0, 10);
