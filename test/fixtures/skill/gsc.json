@@ -1,0 +1,179 @@
+{
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/webmasters.readonly": {
+          "description": "View Search Console data for your verified sites"
+        },
+        "https://www.googleapis.com/auth/webmasters": {
+          "description": "View and manage Search Console data for your verified sites"
+        }
+      }
+    }
+  },
+  "version": "v1",
+  "basePath": "",
+  "discoveryVersion": "v1",
+  "schemas": {},
+  "parameters": {
+    "fields": {
+      "type": "string",
+      "location": "query",
+      "description": "Selector specifying which fields to include in a partial response."
+    },
+    "$.xgafv": {
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "type": "string",
+      "description": "V1 error format.",
+      "enum": ["1", "2"],
+      "location": "query"
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "type": "string",
+      "location": "query"
+    },
+    "upload_protocol": {
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\").",
+      "type": "string"
+    },
+    "prettyPrint": {
+      "description": "Returns response with indentations and line breaks.",
+      "location": "query",
+      "default": "true",
+      "type": "boolean"
+    },
+    "uploadType": {
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "location": "query",
+      "type": "string"
+    },
+    "key": {
+      "type": "string",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "location": "query"
+    },
+    "alt": {
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "enum": ["json", "media", "proto"],
+      "default": "json",
+      "type": "string",
+      "description": "Data format for response.",
+      "location": "query"
+    },
+    "quotaUser": {
+      "type": "string",
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters."
+    },
+    "oauth_token": {
+      "type": "string",
+      "location": "query",
+      "description": "OAuth 2.0 token for the current user."
+    },
+    "callback": {
+      "description": "JSONP",
+      "location": "query",
+      "type": "string"
+    }
+  },
+  "title": "Google Search Console API",
+  "name": "searchconsole",
+  "baseUrl": "https://searchconsole.googleapis.com/",
+  "canonicalName": "Search Console",
+  "rootUrl": "https://searchconsole.googleapis.com/",
+  "kind": "discovery#restDescription",
+  "version_module": true,
+  "batchPath": "batch",
+  "mtlsRootUrl": "https://searchconsole.mtls.googleapis.com/",
+  "id": "searchconsole:v1",
+  "description": "The Search Console API provides access to both Search Console data (verified users only) and to public information on an URL basis (anyone)",
+  "servicePath": "",
+  "protocol": "rest",
+  "revision": "20261110",
+  "resources": {
+    "sites": {
+      "methods": {
+        "list": {
+          "scopes": [
+            "https://www.googleapis.com/auth/webmasters",
+            "https://www.googleapis.com/auth/webmasters.readonly"
+          ],
+          "flatPath": "webmasters/v3/sites",
+          "parameterOrder": [],
+          "httpMethod": "GET",
+          "parameters": {},
+          "description": " Lists the user's Search Console sites.",
+          "response": {
+            "$ref": "SitesListResponse"
+          },
+          "id": "webmasters.sites.list",
+          "path": "webmasters/v3/sites"
+        }
+      }
+    },
+    "searchanalytics": {
+      "methods": {
+        "query": {
+          "httpMethod": "POST",
+          "parameters": {
+            "siteUrl": {
+              "type": "string",
+              "location": "path",
+              "description": "The site's URL, including protocol. For example: `http://www.example.com/`.",
+              "required": true
+            }
+          },
+          "flatPath": "webmasters/v3/sites/{siteUrl}/searchAnalytics/query",
+          "scopes": [
+            "https://www.googleapis.com/auth/webmasters",
+            "https://www.googleapis.com/auth/webmasters.readonly"
+          ],
+          "path": "webmasters/v3/sites/{siteUrl}/searchAnalytics/query",
+          "request": {
+            "$ref": "SearchAnalyticsQueryRequest"
+          },
+          "description": "Query your data with filters and parameters that you define. Returns zero or more rows grouped by the row keys that you define. You must define a date range of one or more days. When date is one of the group by values, any days without data are omitted from the result list. If you need to know which days have data, issue a broad date range query grouped by date for any metric, and see which day rows are returned.",
+          "id": "webmasters.searchanalytics.query",
+          "response": {
+            "$ref": "SearchAnalyticsQueryResponse"
+          },
+          "parameterOrder": ["siteUrl"]
+        }
+      }
+    },
+    "urlInspection": {
+      "resources": {
+        "index": {
+          "methods": {
+            "inspect": {
+              "response": {
+                "$ref": "InspectUrlIndexResponse"
+              },
+              "path": "v1/urlInspection/index:inspect",
+              "parameterOrder": [],
+              "description": "Index inspection.",
+              "id": "searchconsole.urlInspection.index.inspect",
+              "parameters": {},
+              "httpMethod": "POST",
+              "scopes": [
+                "https://www.googleapis.com/auth/webmasters",
+                "https://www.googleapis.com/auth/webmasters.readonly"
+              ],
+              "request": {
+                "$ref": "InspectUrlIndexRequest"
+              },
+              "flatPath": "v1/urlInspection/index:inspect"
+            }
+          }
+        }
+      }
+    }
+  },
+  "documentationLink": "https://developers.google.com/webmaster-tools/about"
+}

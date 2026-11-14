@@ -1,0 +1,109 @@
+{
+  "batchPath": "batch",
+  "version": "v1",
+  "documentationLink": "https://developers.google.com/web/tools/chrome-user-experience-report/api/reference",
+  "canonicalName": "Chrome UX Report",
+  "kind": "discovery#restDescription",
+  "servicePath": "",
+  "title": "Chrome UX Report API",
+  "schemas": {},
+  "baseUrl": "https://chromeuxreport.googleapis.com/",
+  "name": "chromeuxreport",
+  "discoveryVersion": "v1",
+  "protocol": "rest",
+  "rootUrl": "https://chromeuxreport.googleapis.com/",
+  "basePath": "",
+  "parameters": {
+    "uploadType": {
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "type": "string",
+      "location": "query"
+    },
+    "callback": {
+      "type": "string",
+      "description": "JSONP",
+      "location": "query"
+    },
+    "$.xgafv": {
+      "description": "V1 error format.",
+      "type": "string",
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "location": "query",
+      "enum": ["1", "2"]
+    },
+    "prettyPrint": {
+      "default": "true",
+      "location": "query",
+      "type": "boolean",
+      "description": "Returns response with indentations and line breaks."
+    },
+    "alt": {
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "enum": ["json", "media", "proto"],
+      "description": "Data format for response.",
+      "location": "query",
+      "default": "json",
+      "type": "string"
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "type": "string",
+      "location": "query"
+    },
+    "fields": {
+      "description": "Selector specifying which fields to include in a partial response.",
+      "type": "string",
+      "location": "query"
+    },
+    "quotaUser": {
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "location": "query",
+      "type": "string"
+    },
+    "key": {
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "location": "query",
+      "type": "string"
+    },
+    "upload_protocol": {
+      "type": "string",
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "oauth_token": {
+      "description": "OAuth 2.0 token for the current user.",
+      "location": "query",
+      "type": "string"
+    }
+  },
+  "resources": {
+    "records": {
+      "methods": {
+        "queryRecord": {
+          "response": {
+            "$ref": "QueryResponse"
+          },
+          "httpMethod": "POST",
+          "id": "chromeuxreport.records.queryRecord",
+          "request": {
+            "$ref": "QueryRequest"
+          },
+          "path": "v1/records:queryRecord",
+          "description": "Queries the Chrome User Experience for a single `record` for a given site. Returns a `record` that contains one or more `metrics` corresponding to performance data about the requested site.",
+          "parameterOrder": [],
+          "parameters": {},
+          "flatPath": "v1/records:queryRecord"
+        }
+      }
+    }
+  },
+  "mtlsRootUrl": "https://chromeuxreport.mtls.googleapis.com/",
+  "description": "The Chrome UX Report API lets you view real user experience data for millions of websites. ",
+  "version_module": true,
+  "id": "chromeuxreport:v1",
+  "revision": "20261112"
+}

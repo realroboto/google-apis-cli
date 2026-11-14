@@ -1,0 +1,137 @@
+{
+  "discoveryVersion": "v1",
+  "protocol": "rest",
+  "baseUrl": "https://dfareporting.googleapis.com/dfareporting/v5/",
+  "version": "v5",
+  "kind": "discovery#restDescription",
+  "revision": "20261107",
+  "id": "dfareporting:v5",
+  "batchPath": "batch",
+  "resources": {
+    "files": {
+      "methods": {
+        "get": {
+          "flatPath": "reports/{reportId}/files/{fileId}",
+          "scopes": ["https://www.googleapis.com/auth/dfareporting"],
+          "parameterOrder": ["reportId", "fileId"],
+          "description": "Retrieves a report file by its report ID and file ID. This method supports media download.",
+          "parameters": {
+            "reportId": {
+              "description": "The ID of the report.",
+              "location": "path",
+              "required": true,
+              "format": "int64",
+              "type": "string"
+            },
+            "fileId": {
+              "format": "int64",
+              "type": "string",
+              "description": "The ID of the report file.",
+              "location": "path",
+              "required": true
+            }
+          },
+          "supportsMediaDownload": true,
+          "httpMethod": "GET",
+          "response": {
+            "$ref": "File"
+          },
+          "id": "dfareporting.files.get",
+          "path": "reports/{reportId}/files/{fileId}"
+        }
+      }
+    }
+  },
+  "servicePath": "dfareporting/v5/",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/ddmconversions": {
+          "description": "Manage DoubleClick Digital Marketing conversions"
+        },
+        "https://www.googleapis.com/auth/dfareporting": {
+          "description": "View and manage DoubleClick for Advertisers reports"
+        },
+        "https://www.googleapis.com/auth/dfatrafficking": {
+          "description": "View and manage your DoubleClick Campaign Manager's (DCM) display ad campaigns"
+        }
+      }
+    }
+  },
+  "title": "Campaign Manager 360 API",
+  "name": "dfareporting",
+  "documentationLink": "https://developers.google.com/doubleclick-advertisers/",
+  "schemas": {},
+  "description": "Build applications to efficiently manage large or complex trafficking, reporting, and attribution workflows for Campaign Manager 360.",
+  "parameters": {
+    "access_token": {
+      "description": "OAuth access token.",
+      "type": "string",
+      "location": "query"
+    },
+    "fields": {
+      "type": "string",
+      "location": "query",
+      "description": "Selector specifying which fields to include in a partial response."
+    },
+    "upload_protocol": {
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\").",
+      "type": "string"
+    },
+    "quotaUser": {
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "type": "string",
+      "location": "query"
+    },
+    "oauth_token": {
+      "type": "string",
+      "location": "query",
+      "description": "OAuth 2.0 token for the current user."
+    },
+    "key": {
+      "type": "string",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "location": "query"
+    },
+    "uploadType": {
+      "location": "query",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "type": "string"
+    },
+    "prettyPrint": {
+      "type": "boolean",
+      "location": "query",
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true"
+    },
+    "alt": {
+      "enum": ["json", "media", "proto"],
+      "location": "query",
+      "description": "Data format for response.",
+      "default": "json",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "type": "string"
+    },
+    "$.xgafv": {
+      "description": "V1 error format.",
+      "location": "query",
+      "type": "string",
+      "enum": ["1", "2"],
+      "enumDescriptions": ["v1 error format", "v2 error format"]
+    },
+    "callback": {
+      "description": "JSONP",
+      "type": "string",
+      "location": "query"
+    }
+  },
+  "canonicalName": "Dfareporting",
+  "basePath": "/dfareporting/v5/",
+  "rootUrl": "https://dfareporting.googleapis.com/",
+  "mtlsRootUrl": "https://dfareporting.mtls.googleapis.com/"
+}

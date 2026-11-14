@@ -1,0 +1,133 @@
+{
+  "protocol": "rest",
+  "servicePath": "",
+  "id": "analyticsdata:v1beta",
+  "version_module": true,
+  "basePath": "",
+  "schemas": {},
+  "baseUrl": "https://analyticsdata.googleapis.com/",
+  "revision": "20261112",
+  "resources": {
+    "properties": {
+      "methods": {
+        "runReport": {
+          "parameters": {
+            "property": {
+              "pattern": "^properties/[^/]+$",
+              "description": "A Google Analytics property identifier whose events are tracked. Specified in the URL path and not the body. To learn more, see [where to find your Property ID](https://developers.google.com/analytics/devguides/reporting/data/v1/property-id). Within a batch request, this property should either be unspecified or consistent with the batch-level property. Example: properties/1234",
+              "required": true,
+              "type": "string",
+              "location": "path"
+            }
+          },
+          "flatPath": "v1beta/properties/{propertiesId}:runReport",
+          "response": {
+            "$ref": "RunReportResponse"
+          },
+          "scopes": [
+            "https://www.googleapis.com/auth/analytics",
+            "https://www.googleapis.com/auth/analytics.readonly"
+          ],
+          "request": {
+            "$ref": "RunReportRequest"
+          },
+          "path": "v1beta/{+property}:runReport",
+          "httpMethod": "POST",
+          "parameterOrder": ["property"],
+          "id": "analyticsdata.properties.runReport",
+          "description": "Returns a customized report of your Google Analytics event data. Reports contain statistics derived from data collected by the Google Analytics tracking code. The data returned from the API is as a table with columns for the requested dimensions and metrics. Metrics are individual measurements of user activity on your property, such as active users or event count. Dimensions break down metrics across some common criteria, such as country or event name. For a guide to constructing requests & understanding responses, see [Creating a Report](https://developers.google.com/analytics/devguides/reporting/data/v1/basics)."
+        }
+      }
+    }
+  },
+  "kind": "discovery#restDescription",
+  "description": "Accesses report data in Google Analytics. Warning: Creating multiple Customer Applications, Accounts, or Projects to simulate or act as a single Customer Application, Account, or Project (respectively) or to circumvent Service-specific usage limits or quotas is a direct violation of Google Cloud Platform Terms of Service as well as Google APIs Terms of Service. These actions can result in immediate termination of your GCP project(s) without any warning. ",
+  "parameters": {
+    "$.xgafv": {
+      "type": "string",
+      "location": "query",
+      "description": "V1 error format.",
+      "enum": ["1", "2"],
+      "enumDescriptions": ["v1 error format", "v2 error format"]
+    },
+    "key": {
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "type": "string",
+      "location": "query"
+    },
+    "alt": {
+      "location": "query",
+      "enum": ["json", "media", "proto"],
+      "default": "json",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "type": "string",
+      "description": "Data format for response."
+    },
+    "upload_protocol": {
+      "type": "string",
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "oauth_token": {
+      "description": "OAuth 2.0 token for the current user.",
+      "type": "string",
+      "location": "query"
+    },
+    "prettyPrint": {
+      "location": "query",
+      "type": "boolean",
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true"
+    },
+    "access_token": {
+      "type": "string",
+      "description": "OAuth access token.",
+      "location": "query"
+    },
+    "callback": {
+      "location": "query",
+      "description": "JSONP",
+      "type": "string"
+    },
+    "quotaUser": {
+      "type": "string",
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters."
+    },
+    "fields": {
+      "description": "Selector specifying which fields to include in a partial response.",
+      "location": "query",
+      "type": "string"
+    },
+    "uploadType": {
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "location": "query",
+      "type": "string"
+    }
+  },
+  "mtlsRootUrl": "https://analyticsdata.mtls.googleapis.com/",
+  "batchPath": "batch",
+  "name": "analyticsdata",
+  "discoveryVersion": "v1",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/analytics.readonly": {
+          "description": "See and download your Google Analytics data"
+        },
+        "https://www.googleapis.com/auth/analytics": {
+          "description": "View and manage your Google Analytics data"
+        }
+      }
+    }
+  },
+  "rootUrl": "https://analyticsdata.googleapis.com/",
+  "documentationLink": "https://developers.google.com/analytics/devguides/reporting/data/v1/",
+  "canonicalName": "AnalyticsData",
+  "title": "Google Analytics Data API",
+  "version": "v1beta"
+}
