@@ -1,0 +1,100 @@
+{
+  "kind": "discovery#restDescription",
+  "name": "analyticsadmin",
+  "version": "v1beta",
+  "revision": "20261111",
+  "rootUrl": "https://analyticsadmin.googleapis.com/",
+  "servicePath": "",
+  "batchPath": "batch",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/analytics.edit": {
+          "description": "Edit Google Analytics management entities"
+        },
+        "https://www.googleapis.com/auth/analytics.readonly": {
+          "description": "See and download your Google Analytics data"
+        }
+      }
+    }
+  },
+  "parameters": {},
+  "resources": {
+    "accountSummaries": {
+      "methods": {
+        "list": {
+          "description": "Returns summaries of all accounts accessible by the caller.",
+          "httpMethod": "GET",
+          "id": "analyticsadmin.accountSummaries.list",
+          "flatPath": "v1beta/accountSummaries",
+          "scopes": [
+            "https://www.googleapis.com/auth/analytics.edit",
+            "https://www.googleapis.com/auth/analytics.readonly"
+          ],
+          "path": "v1beta/accountSummaries",
+          "parameters": {
+            "pageToken": {
+              "type": "string",
+              "location": "query",
+              "description": "Optional. A page token, received from a previous `ListAccountSummaries` call. Provide this to retrieve the subsequent page. When paginating, all other parameters provided to `ListAccountSummaries` must match the call that provided the page token."
+            },
+            "pageSize": {
+              "location": "query",
+              "description": "Optional. The maximum number of AccountSummary resources to return. The service may return fewer than this value, even if there are additional pages. If unspecified, at most 50 resources will be returned. The maximum value is 200; (higher values will be coerced to the maximum)",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "parameterOrder": [],
+          "response": {
+            "$ref": "GoogleAnalyticsAdminV1betaListAccountSummariesResponse"
+          }
+        }
+      }
+    },
+    "properties": {
+      "resources": {
+        "dataStreams": {
+          "methods": {
+            "list": {
+              "response": {
+                "$ref": "GoogleAnalyticsAdminV1betaListDataStreamsResponse"
+              },
+              "parameterOrder": ["parent"],
+              "httpMethod": "GET",
+              "id": "analyticsadmin.properties.dataStreams.list",
+              "flatPath": "v1beta/properties/{propertiesId}/dataStreams",
+              "path": "v1beta/{+parent}/dataStreams",
+              "description": "Lists DataStreams on a property.",
+              "scopes": [
+                "https://www.googleapis.com/auth/analytics.edit",
+                "https://www.googleapis.com/auth/analytics.readonly"
+              ],
+              "parameters": {
+                "pageSize": {
+                  "format": "int32",
+                  "description": "The maximum number of resources to return. If unspecified, at most 50 resources will be returned. The maximum value is 200 (higher values will be coerced to the maximum).",
+                  "type": "integer",
+                  "location": "query"
+                },
+                "pageToken": {
+                  "type": "string",
+                  "description": "A page token, received from a previous `ListDataStreams` call. Provide this to retrieve the subsequent page. When paginating, all other parameters provided to `ListDataStreams` must match the call that provided the page token.",
+                  "location": "query"
+                },
+                "parent": {
+                  "description": "Required. Example format: properties/1234",
+                  "pattern": "^properties/[^/]+$",
+                  "type": "string",
+                  "location": "path",
+                  "required": true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "schemas": {}
+}

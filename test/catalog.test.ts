@@ -152,7 +152,10 @@ test('fixture documents normalize into auth kind, scopes, overlays, words and me
   assert.equal(pagespeed.byId.get('pagespeedonline.pagespeedapi.runpagespeed')?.unavailable, false);
   assert.ok(gsc.byId.get('searchconsole.urlTestingTools.mobileFriendlyTest.run')?.retired);
   assert.deepEqual(gsc.problems, []);
-  assert.deepEqual(mini.problems, ['retired mini.files.gone: not in the document']);
+  assert.deepEqual(mini.problems, [
+    'retired mini.files.gone: not in the document',
+    'entities mini.files.bogus: not in the document',
+  ]);
   assert.deepEqual(mini.resources.get('v26')?.methods.get('listThings')?.words, [
     'v26',
     'listThings',

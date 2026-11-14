@@ -1,3 +1,4 @@
+import { domainOf, items } from '../entities.ts';
 import type { ApiEntry } from '../types.ts';
 
 export default {
@@ -10,4 +11,16 @@ export default {
     },
   },
   reads: ['webmasters.searchanalytics.query', 'searchconsole.urlInspection.index.inspect'],
+  // A site's ID is its siteUrl: `sc-domain:acme.com` or a URL prefix; both give the domain.
+  entities: [
+    {
+      method: 'webmasters.sites.list',
+      entities: (data) =>
+        items(data, 'siteEntry').flatMap(({ siteUrl }) =>
+          typeof siteUrl === 'string'
+            ? [{ kind: 'site', id: siteUrl, domain: domainOf(siteUrl) }]
+            : [],
+        ),
+    },
+  ],
 } satisfies ApiEntry;

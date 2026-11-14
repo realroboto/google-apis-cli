@@ -204,6 +204,13 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
     else problems.push(`reads ${m.id}: ${m.httpMethod}, not a POST`);
   });
 
+  // An entity source on a method the document lacks would fail every sync of the API.
+  const sources = [...(entry.entities ?? [])];
+  for (const source of sources) {
+    if (!byId.has(source.method)) problems.push(`entities ${source.method}: not in the document`);
+    sources.push(...Object.values(source.children ?? {}));
+  }
+
   return {
     ...root,
     api: entry.api,

@@ -1228,12 +1228,14 @@ test('bigquery: jobs.query plans a POST, is not a cacheable read, and consent as
   assert.ok(JSON.parse(status.stdout).missing.includes('bigquery'));
 });
 
-test('auth logout and auth login delete the stored responses', async (t) => {
+test('auth logout and auth login delete the stored responses and the entities index', async (t) => {
   const own = cacheEnv(t);
   const responses = join(own.GAPI_CONFIG_DIR, 'responses');
+  const index = join(own.GAPI_CONFIG_DIR, 'entities.db');
   const seed = () => {
     mkdirSync(responses, { recursive: true });
     writeFileSync(join(responses, 'k'), '{}');
+    writeFileSync(index, '');
   };
   // No stored token: logout revokes nothing, so no OAuth client and no network.
   rmSync(join(own.GAPI_CONFIG_DIR, 'credentials.json'));
@@ -1241,6 +1243,7 @@ test('auth logout and auth login delete the stored responses', async (t) => {
   const logout = await fx(['auth', 'logout'], { env: own });
   assert.equal(logout.code, 0, logout.stderr);
   assert.equal(existsSync(responses), false);
+  assert.equal(existsSync(index), false);
   // No OAuth client: login stops before the consent, after the clear.
   rmSync(join(own.GAPI_CONFIG_DIR, 'config.json'));
   seed();
@@ -1248,4 +1251,5 @@ test('auth logout and auth login delete the stored responses', async (t) => {
   assert.equal(login.code, 2);
   assert.equal(login.stderr, 'gapi: OAuth client not configured; run gapi auth setup\n');
   assert.equal(existsSync(responses), false);
+  assert.equal(existsSync(index), false);
 });

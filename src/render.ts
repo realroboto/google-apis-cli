@@ -1,4 +1,5 @@
 // Renderers: plain text views over an ApiModel (epic #30 D4, story 8).
+import type { EntityHit } from './entities.ts';
 import { isRecord } from './json.ts';
 import type { ApiMethod, ApiModel, ApiResource, DiscoveryParam, Helpers } from './types.ts';
 
@@ -11,6 +12,9 @@ export const AUTH_USAGE = 'gapi auth setup | login [--manual] | status | logout'
 
 export const SEARCH_USAGE = 'gapi search <words…>';
 
+export const ENTITIES_USAGE =
+  'gapi entities sync [<api>…] [--page-limit <n>] | find <words…> [--api <api>]';
+
 const USAGE = `gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>']
      [--upload <file> [--upload-content-type <type>] [--upload-protocol media|multipart|resumable]]
      [--output <file>] [--page-all [--page-limit <n>]] [--cache <age>] [--dry-run]
@@ -19,6 +23,7 @@ gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
 gapi <api> +<helper> … [--dry-run] [--cache <age>] [--project <id>] [--api-key <key>] [<entry header flags>]
 ${SEARCH_USAGE}                      find methods by intent, max 20 hits
+${ENTITIES_USAGE}
 ${SCHEMA_USAGE}
 ${DISCOVERY_USAGE}
 ${AUTH_USAGE}
@@ -189,6 +194,17 @@ export function searchText(hits: { model: ApiModel; method: ApiMethod }[]): stri
     .map(({ model, method: m }) => {
       const line = `gapi ${model.api} ${m.words.join(' ')}${marks(m)}  ${m.httpMethod}  ${brief(m.description)}`;
       return `${line.trimEnd()}\n`;
+    })
+    .join('');
+}
+
+// #200 D6: tabs keep empty cells (no name, parent or domain) unambiguous for `cut`.
+export function entitiesText(hits: EntityHit[]): string {
+  return hits
+    .map((h) => {
+      const date = new Date(h.synced).toISOString().slice(0, 10);
+      const cells = [h.api, h.kind, h.id, h.name, h.parent, h.domain, date];
+      return `${cells.map((c = '') => c.replace(/[\t\r\n]+/g, ' ')).join('\t')}\n`;
     })
     .join('');
 }
