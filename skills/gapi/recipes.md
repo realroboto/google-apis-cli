@@ -193,7 +193,7 @@ Server-side daily quotas keep billed surfaces under the free tier ([SETUP, Free-
 
 - IDs: `my-billing-project` = the ID of a project with billing: it runs queries, or holds Places and Web Risk. `--project` sends the Cloud Quotas call on that project's quota; enable `cloudquotas.googleapis.com` there.
 - Quota changes need `serviceusage.quotas.update` (role Quota Administrator; Owner has it). A lower value takes effect within minutes; the day resets at midnight Pacific Time ([Google](https://docs.cloud.google.com/bigquery/docs/custom-quotas)).
-- A refused call exits 1 with Google's quota message (HTTP 429 `RESOURCE_EXHAUSTED`). Stop and report it; do not retry or raise the quota.
+- A refused call exits 1 with Google's quota message (HTTP 429 `RESOURCE_EXHAUSTED`). Stop and report it; do not retry.
 
 ### GA4 export links
 
@@ -224,9 +224,11 @@ Projection: `jq '{metricUnit, dimensionsInfos}'` (quota info); `jq '{name, quota
 ### Places: 32 requests per day per billed method
 
 - Question: how do I make Google refuse Places calls before any free monthly cap?
-- 32 = floor(1,000 / 31): the lowest cap a method can bill is 1,000 per month (Enterprise SKUs; the field mask picks the SKU) ([pricing](https://developers.google.com/maps/billing-and-pricing/pricing)). No SKU is billed by two of these methods, so no split. Autocomplete bills at most the 10,000 cap: 322 also stays free.
+- 32 = floor(1,000 / 31). The field mask picks the SKU; the lowest Places cap is 1,000 per month (Enterprise SKUs) ([pricing](https://developers.google.com/maps/billing-and-pricing/pricing)).
+- No SKU is billed by two of these methods, so each method gets the full 32.
+- Autocomplete bills only the 10,000 cap. floor(10,000 / 31) = 322 also stays free there.
 - Read the ids first: each method has one `1/d/{project}` request quota (default 75,000 to 175,000). Expected ids below; not yet confirmed on a live Cloud Quotas call.
-- Same safety check as above: the cut is over 10 %.
+- Each cut is over 10 %, so each `create` sends `QUOTA_DECREASE_PERCENTAGE_TOO_HIGH` (see BigQuery above).
 
 ```sh
 gapi cloudquotas projects locations services quotaInfos list --params '{"parent":"projects/my-billing-project/locations/global/services/places.googleapis.com"}' --page-all --project my-billing-project --dry-run
@@ -245,6 +247,7 @@ Projection: `jq -c '.quotaInfos[]? | select(.refreshInterval == "day") | {quotaI
 - `uris.search`: 100,000 free per month ([pricing](https://cloud.google.com/web-risk/pricing)). Web Risk has no per-day quota, only per minute (6,000) ([quotas](https://docs.cloud.google.com/web-risk/quotas)). 2 = floor(100,000 / 31 / 1,440): at most 2,880 per day, 89,280 per 31 days.
 - `hashes.search`: no free use, so 0. `threatLists.computeDiff` is free: no quota.
 - Read the ids first: expected ids below; not yet confirmed on a live Cloud Quotas call.
+- Each cut is over 10 %, so each `create` sends `QUOTA_DECREASE_PERCENTAGE_TOO_HIGH`.
 
 ```sh
 gapi cloudquotas projects locations services quotaInfos list --params '{"parent":"projects/my-billing-project/locations/global/services/webrisk.googleapis.com"}' --page-all --project my-billing-project --dry-run

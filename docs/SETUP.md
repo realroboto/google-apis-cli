@@ -320,8 +320,8 @@ console, a second machine), so `gapi` keeps none.
    [Places](../skills/gapi/recipes.md#places-32-requests-per-day-per-billed-method) and
    [Web Risk](../skills/gapi/recipes.md#web-risk-urissearch-2-per-minute-hashessearch-0).
 5. **Budget alert** on the billing account: **Billing → Budgets & alerts → Create budget**,
-   amount $1, email alerts on. It is a tripwire, not a cap: it reports a mistake after billing
-   data lands; the quotas prevent it. The console sets it:
+   amount $1, email alerts on. It is a tripwire, not a cap. It reports a mistake; the
+   quotas prevent it. The console sets it:
    the Budget API would add a scope.
 
 Limits on the billing project come from Google's rule for a free cap: "divide the free usage cap
@@ -331,11 +331,11 @@ by 31 … and round down" ([Maps: Manage costs](https://developers.google.com/ma
   (31 × 32 GiB = 992 GiB). All query projects on one billing account share the 1 TiB: their
   daily quotas add up to 33 GiB or less (two projects: 16 GiB each).
 - **Places:** 32 requests per day on each billed method (`autocomplete`, `get`, `photos.getMedia`,
-  `searchNearby`, `searchText`). 32 = floor(1,000 / 31): the field mask picks the SKU, and the lowest
-  cap a method can bill is 1,000 per month. No SKU is billed by two of these methods, so no split.
+  `searchNearby`, `searchText`). 32 = floor(1,000 / 31). The field mask picks the SKU; the lowest
+  Places cap is 1,000 per month. No SKU is billed by two of these methods, so each gets the full 32.
 - **Web Risk:** no per-day quota exists, only per minute. `uris.search` 2 per minute
   (floor(100,000 / 31 / 1,440); at most 89,280 per 31 days); `hashes.search` 0 (no free use).
-- A refused call exits 1 with Google's quota message. A daily quota resets at midnight Pacific Time.
+- A refused call exits 1 with Google's quota message.
 
 **BigQuery sandbox** (the free project) ([BigQuery sandbox](https://docs.cloud.google.com/bigquery/docs/sandbox)):
 
