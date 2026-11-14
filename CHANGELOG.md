@@ -4,7 +4,7 @@ Newest first. One section per npm version.
 
 ## 0.4.0 — 2026-11-14
 
-Since 0.3.0 (`a916775..344accc`).
+Since 0.3.0 (`5795d4f..344accc`).
 
 ### Added
 
