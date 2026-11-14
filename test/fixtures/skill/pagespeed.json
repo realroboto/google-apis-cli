@@ -1,0 +1,181 @@
+{
+  "schemas": {},
+  "rootUrl": "https://pagespeedonline.googleapis.com/",
+  "description": "The PageSpeed Insights API lets you analyze the performance of your website with a simple API. It offers tailored suggestions for how you can optimize your site, and lets you easily integrate PageSpeed Insights analysis into your development tools and workflow. ",
+  "version": "v5",
+  "id": "pagespeedonline:v5",
+  "documentationLink": "https://developers.google.com/speed/docs/insights/v5/about",
+  "protocol": "rest",
+  "mtlsRootUrl": "https://pagespeedonline.mtls.googleapis.com/",
+  "parameters": {
+    "key": {
+      "location": "query",
+      "type": "string",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token."
+    },
+    "callback": {
+      "description": "JSONP",
+      "type": "string",
+      "location": "query"
+    },
+    "upload_protocol": {
+      "type": "string",
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "alt": {
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "type": "string",
+      "enum": ["json", "media", "proto"],
+      "default": "json",
+      "location": "query",
+      "description": "Data format for response."
+    },
+    "oauth_token": {
+      "type": "string",
+      "description": "OAuth 2.0 token for the current user.",
+      "location": "query"
+    },
+    "quotaUser": {
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "type": "string"
+    },
+    "prettyPrint": {
+      "type": "boolean",
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true",
+      "location": "query"
+    },
+    "uploadType": {
+      "location": "query",
+      "type": "string",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\")."
+    },
+    "$.xgafv": {
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "location": "query",
+      "type": "string",
+      "enum": ["1", "2"],
+      "description": "V1 error format."
+    },
+    "fields": {
+      "description": "Selector specifying which fields to include in a partial response.",
+      "type": "string",
+      "location": "query"
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "location": "query",
+      "type": "string"
+    }
+  },
+  "name": "pagespeedonline",
+  "resources": {
+    "pagespeedapi": {
+      "methods": {
+        "runpagespeed": {
+          "parameterOrder": ["url"],
+          "flatPath": "pagespeedonline/v5/runPagespeed",
+          "response": {
+            "$ref": "PagespeedApiPagespeedResponseV5"
+          },
+          "description": "Runs PageSpeed analysis on the page at the specified URL, and returns PageSpeed scores, a list of suggestions to make that page faster, and other information.",
+          "httpMethod": "GET",
+          "id": "pagespeedonline.pagespeedapi.runpagespeed",
+          "scopes": ["openid"],
+          "parameters": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "CATEGORY_UNSPECIFIED",
+                "ACCESSIBILITY",
+                "BEST_PRACTICES",
+                "PERFORMANCE",
+                "PWA",
+                "SEO",
+                "AGENTIC_BROWSING"
+              ],
+              "description": "A Lighthouse category to run; if none are given, only Performance category will be run",
+              "location": "query",
+              "repeated": true,
+              "enumDescriptions": [
+                "Default UNDEFINED category.",
+                "Accessibility (a11y), category pertaining to a website's capacity to be accessible to all users.",
+                "Best Practices, category pertaining to a website's conformance to web best practice.",
+                "Performance, category pertaining to a website's performance.",
+                "Progressive Web App (PWA), category pertaining to a website's ability to be run as a PWA. This is deprecated in Lighthouse's 12.0 release.",
+                "Search Engine Optimization (SEO), category pertaining to a website's ability to be indexed by search engines.",
+                "Agentic Browsing, category pertaining to a website's ability to be rendered by an agentic browsing system."
+              ],
+              "enumDeprecated": [false, false, false, false, true, false, false]
+            },
+            "url": {
+              "description": "Required. The URL to fetch and analyze",
+              "type": "string",
+              "required": true,
+              "pattern": "(?i)(url:|origin:)?http(s)?://.*",
+              "location": "query"
+            },
+            "utm_source": {
+              "type": "string",
+              "description": "Campaign source for analytics.",
+              "location": "query"
+            },
+            "captchaToken": {
+              "description": "The captcha token passed when filling out a captcha.",
+              "type": "string",
+              "location": "query"
+            },
+            "strategy": {
+              "location": "query",
+              "description": "The analysis strategy (desktop or mobile) to use, and desktop is the default",
+              "enumDescriptions": [
+                "UNDEFINED.",
+                "Fetch and analyze the URL for desktop browsers.",
+                "Fetch and analyze the URL for mobile devices."
+              ],
+              "type": "string",
+              "enum": ["STRATEGY_UNSPECIFIED", "DESKTOP", "MOBILE"]
+            },
+            "utm_campaign": {
+              "type": "string",
+              "description": "Campaign name for analytics.",
+              "location": "query"
+            },
+            "locale": {
+              "pattern": "[a-zA-Z]+((_|-)[a-zA-Z]+)?",
+              "description": "The locale used to localize formatted results",
+              "location": "query",
+              "type": "string"
+            }
+          },
+          "path": "pagespeedonline/v5/runPagespeed"
+        }
+      }
+    }
+  },
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "openid": {
+          "description": "Associate you with your personal info on Google"
+        }
+      }
+    }
+  },
+  "canonicalName": "Pagespeed Insights",
+  "title": "PageSpeed Insights API",
+  "basePath": "",
+  "version_module": true,
+  "revision": "20261111",
+  "kind": "discovery#restDescription",
+  "servicePath": "",
+  "discoveryVersion": "v1",
+  "baseUrl": "https://pagespeedonline.googleapis.com/",
+  "batchPath": "batch"
+}

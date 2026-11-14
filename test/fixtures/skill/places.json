@@ -1,0 +1,141 @@
+{
+  "kind": "discovery#restDescription",
+  "parameters": {
+    "fields": {
+      "description": "Selector specifying which fields to include in a partial response.",
+      "type": "string",
+      "location": "query"
+    },
+    "alt": {
+      "location": "query",
+      "description": "Data format for response.",
+      "default": "json",
+      "type": "string",
+      "enum": ["json", "media", "proto"],
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ]
+    },
+    "key": {
+      "type": "string",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "location": "query"
+    },
+    "upload_protocol": {
+      "location": "query",
+      "type": "string",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "$.xgafv": {
+      "description": "V1 error format.",
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "enum": ["1", "2"],
+      "type": "string",
+      "location": "query"
+    },
+    "access_token": {
+      "location": "query",
+      "type": "string",
+      "description": "OAuth access token."
+    },
+    "quotaUser": {
+      "type": "string",
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters."
+    },
+    "oauth_token": {
+      "location": "query",
+      "type": "string",
+      "description": "OAuth 2.0 token for the current user."
+    },
+    "prettyPrint": {
+      "default": "true",
+      "type": "boolean",
+      "description": "Returns response with indentations and line breaks.",
+      "location": "query"
+    },
+    "callback": {
+      "location": "query",
+      "description": "JSONP",
+      "type": "string"
+    },
+    "uploadType": {
+      "type": "string",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "location": "query"
+    }
+  },
+  "batchPath": "batch",
+  "mtlsRootUrl": "https://places.mtls.googleapis.com/",
+  "name": "places",
+  "canonicalName": "Maps Places",
+  "version_module": true,
+  "servicePath": "",
+  "documentationLink": "https://developers.google.com/maps/documentation/places/web-service",
+  "schemas": {},
+  "title": "Places API (New)",
+  "discoveryVersion": "v1",
+  "description": "The Places API allows developers to access a variety of search and retrieval endpoints for a Place.",
+  "basePath": "",
+  "protocol": "rest",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/maps-platform.places.nearbysearch": {
+          "description": "Private Service: https://www.googleapis.com/auth/maps-platform.places.nearbysearch"
+        },
+        "https://www.googleapis.com/auth/maps-platform.places.getphotomedia": {
+          "description": "Private Service: https://www.googleapis.com/auth/maps-platform.places.getphotomedia"
+        },
+        "https://www.googleapis.com/auth/maps-platform.places.details": {
+          "description": "Private Service: https://www.googleapis.com/auth/maps-platform.places.details"
+        },
+        "https://www.googleapis.com/auth/maps-platform.places.autocomplete": {
+          "description": "Private Service: https://www.googleapis.com/auth/maps-platform.places.autocomplete"
+        },
+        "https://www.googleapis.com/auth/maps-platform.places.textsearch": {
+          "description": "Private Service: https://www.googleapis.com/auth/maps-platform.places.textsearch"
+        },
+        "https://www.googleapis.com/auth/maps-platform.places": {
+          "description": "Private Service: https://www.googleapis.com/auth/maps-platform.places"
+        },
+        "https://www.googleapis.com/auth/cloud-platform": {
+          "description": "See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account."
+        }
+      }
+    }
+  },
+  "rootUrl": "https://places.googleapis.com/",
+  "version": "v1",
+  "resources": {
+    "places": {
+      "methods": {
+        "searchText": {
+          "request": {
+            "$ref": "GoogleMapsPlacesV1SearchTextRequest"
+          },
+          "flatPath": "v1/places:searchText",
+          "path": "v1/places:searchText",
+          "httpMethod": "POST",
+          "response": {
+            "$ref": "GoogleMapsPlacesV1SearchTextResponse"
+          },
+          "parameterOrder": [],
+          "id": "places.places.searchText",
+          "scopes": [
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/maps-platform.places",
+            "https://www.googleapis.com/auth/maps-platform.places.textsearch"
+          ],
+          "parameters": {},
+          "description": "Text query based place search."
+        }
+      }
+    }
+  },
+  "id": "places:v1",
+  "revision": "20261111",
+  "baseUrl": "https://places.googleapis.com/"
+}

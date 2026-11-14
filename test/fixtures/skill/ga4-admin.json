@@ -1,0 +1,168 @@
+{
+  "basePath": "",
+  "canonicalName": "Google Analytics Admin",
+  "name": "analyticsadmin",
+  "description": "Manage properties in Google Analytics. Warning: Creating multiple Customer Applications, Accounts, or Projects to simulate or act as a single Customer Application, Account, or Project (respectively) or to circumvent Service-specific usage limits or quotas is a direct violation of Google Cloud Platform Terms of Service as well as Google APIs Terms of Service. These actions can result in immediate termination of your GCP project(s) without any warning.",
+  "id": "analyticsadmin:v1beta",
+  "version_module": true,
+  "title": "Google Analytics Admin API",
+  "kind": "discovery#restDescription",
+  "parameters": {
+    "alt": {
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "enum": ["json", "media", "proto"],
+      "description": "Data format for response.",
+      "location": "query",
+      "default": "json",
+      "type": "string"
+    },
+    "callback": {
+      "description": "JSONP",
+      "type": "string",
+      "location": "query"
+    },
+    "prettyPrint": {
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true",
+      "type": "boolean",
+      "location": "query"
+    },
+    "key": {
+      "type": "string",
+      "location": "query",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token."
+    },
+    "quotaUser": {
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "location": "query",
+      "type": "string"
+    },
+    "$.xgafv": {
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "enum": ["1", "2"],
+      "type": "string",
+      "description": "V1 error format.",
+      "location": "query"
+    },
+    "uploadType": {
+      "location": "query",
+      "type": "string",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\")."
+    },
+    "oauth_token": {
+      "description": "OAuth 2.0 token for the current user.",
+      "type": "string",
+      "location": "query"
+    },
+    "fields": {
+      "description": "Selector specifying which fields to include in a partial response.",
+      "type": "string",
+      "location": "query"
+    },
+    "upload_protocol": {
+      "type": "string",
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "type": "string",
+      "location": "query"
+    }
+  },
+  "discoveryVersion": "v1",
+  "revision": "20261111",
+  "schemas": {},
+  "batchPath": "batch",
+  "version": "v1beta",
+  "mtlsRootUrl": "https://analyticsadmin.mtls.googleapis.com/",
+  "servicePath": "",
+  "resources": {
+    "accountSummaries": {
+      "methods": {
+        "list": {
+          "parameterOrder": [],
+          "httpMethod": "GET",
+          "response": {
+            "$ref": "GoogleAnalyticsAdminV1betaListAccountSummariesResponse"
+          },
+          "parameters": {
+            "pageToken": {
+              "type": "string",
+              "description": "Optional. A page token, received from a previous `ListAccountSummaries` call. Provide this to retrieve the subsequent page. When paginating, all other parameters provided to `ListAccountSummaries` must match the call that provided the page token.",
+              "location": "query"
+            },
+            "pageSize": {
+              "type": "integer",
+              "location": "query",
+              "format": "int32",
+              "description": "Optional. The maximum number of AccountSummary resources to return. The service may return fewer than this value, even if there are additional pages. If unspecified, at most 50 resources will be returned. The maximum value is 200; (higher values will be coerced to the maximum)"
+            }
+          },
+          "scopes": [
+            "https://www.googleapis.com/auth/analytics.edit",
+            "https://www.googleapis.com/auth/analytics.readonly"
+          ],
+          "path": "v1beta/accountSummaries",
+          "id": "analyticsadmin.accountSummaries.list",
+          "description": "Returns summaries of all accounts accessible by the caller.",
+          "flatPath": "v1beta/accountSummaries"
+        }
+      }
+    },
+    "properties": {
+      "methods": {
+        "patch": {
+          "path": "v1beta/{+name}",
+          "scopes": ["https://www.googleapis.com/auth/analytics.edit"],
+          "response": {
+            "$ref": "GoogleAnalyticsAdminV1betaProperty"
+          },
+          "parameters": {
+            "updateMask": {
+              "format": "google-fieldmask",
+              "location": "query",
+              "type": "string",
+              "description": "Required. The list of fields to be updated. Field names must be in snake case (e.g., \"field_to_update\"). Omitted fields will not be updated. To replace the entire entity, use one path with the string \"*\" to match all fields."
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^properties/[^/]+$",
+              "description": "Identifier. Resource name of this property. Format: properties/{property_id} Example: \"properties/1000\"",
+              "location": "path",
+              "required": true
+            }
+          },
+          "request": {
+            "$ref": "GoogleAnalyticsAdminV1betaProperty"
+          },
+          "description": "Updates a property.",
+          "id": "analyticsadmin.properties.patch",
+          "httpMethod": "PATCH",
+          "flatPath": "v1beta/properties/{propertiesId}",
+          "parameterOrder": ["name"]
+        }
+      }
+    }
+  },
+  "rootUrl": "https://analyticsadmin.googleapis.com/",
+  "baseUrl": "https://analyticsadmin.googleapis.com/",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/analytics.edit": {
+          "description": "Edit Google Analytics management entities"
+        },
+        "https://www.googleapis.com/auth/analytics.readonly": {
+          "description": "See and download your Google Analytics data"
+        }
+      }
+    }
+  },
+  "documentationLink": "http://code.google.com/apis/analytics/docs/mgmt/home.html",
+  "protocol": "rest"
+}

@@ -7,6 +7,8 @@ description: Call Google marketing and data APIs through the gapi CLI. Use for G
 
 One CLI over Google's discovery documents. Every resource and method of every API entry is a command, named exactly as Google names it. One OAuth consent grants the scopes of every entry; one refresh token drives every call.
 
+Business questions (GA4, GSC, GTM, Ads, PageSpeed, YouTube) mapped to dry-run-tested commands: [recipes.md](recipes.md).
+
 ## Setup
 
 One-time, per operator — each brings their own Cloud project and Google account:
