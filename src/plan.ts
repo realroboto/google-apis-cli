@@ -9,6 +9,8 @@ import type {
   ApiResource,
   CallPlan,
   DiscoveryParam,
+  Follow,
+  Paging,
   SendMode,
   Settings,
   Upload,
@@ -120,7 +122,7 @@ export function plan(
     throw invalid(`--body: ${command} takes no request body`);
 
   const mode = sendMode(method, command, input);
-  const body = mode.send === 'pages' && mode.paging === 'body' ? mode.body : input.body;
+  const body = mode.send === 'pages' && method.paging === 'body' ? pagingBody(input) : input.body;
   const url = buildUrl(model, method, values, mode);
 
   const headers = contentHeaders(mode, body !== undefined);
@@ -199,11 +201,27 @@ function sendMode(method: ApiMethod, command: string, input: PlanInput): SendMod
   const limit = input.pageLimit ?? '10';
   if (!/^[1-9]\d*$/.test(limit)) throw invalid('--page-limit must be a positive integer');
   const pageLimit = Number(limit);
-  if (method.paging === 'query') return { send: 'pages', pageLimit, paging: 'query' };
-  // Body paging: every page sends this object, from page 2 on with pageToken set (D6).
+  return { send: 'pages', pageLimit, follow: nextPage(method.paging) };
+}
+
+// Body paging: every page sends this object, from page 2 on with pageToken set (D6).
+function pagingBody(input: PlanInput): Record<string, unknown> {
   const body = input.body ?? {};
   if (!isRecord(body)) throw invalid('--page-all: --body must be a JSON object');
-  return { send: 'pages', pageLimit, paging: 'body', body };
+  return body;
+}
+
+// AIP-158 follow rule: repeat the request with only pageToken changed, until no nextPageToken.
+function nextPage(paging: Paging): Follow {
+  return (data, last) => {
+    const token = isRecord(data) ? data.nextPageToken : undefined;
+    if (typeof token !== 'string' || !token) return undefined;
+    if (paging === 'body')
+      return { ...last, body: { ...(isRecord(last.body) && last.body), pageToken: token } };
+    const url = new URL(last.url);
+    url.searchParams.set('pageToken', token);
+    return { ...last, url: url.href };
+  };
 }
 
 // D7: protocol defaults to multipart with --body, else media; the type must fit `accept`.
