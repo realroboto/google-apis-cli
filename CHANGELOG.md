@@ -2,6 +2,12 @@
 
 Newest first. One section per npm version.
 
+## Unreleased
+
+### Added
+
+- `bigquery` entry: every BigQuery v2 method (47), scope `bigquery` (#208). **Re-login required:** run `gapi auth login` once; until then `gapi auth status` lists `bigquery` as missing and BigQuery calls exit 2.
+
 ## 0.3.0 — 2026-11-05
 
 Since 0.2.0 (`e12a482..a916775`).

@@ -37,6 +37,7 @@ host of the entry's discovery URL (`src/apis/<api>.ts`); `business-v4` declares 
 | `youtube-reporting` | `youtubereporting.googleapis.com` |
 | `pagespeed` | `pagespeedonline.googleapis.com` |
 | `crux` | `chromeuxreport.googleapis.com` |
+| `bigquery` | `bigquery.googleapis.com` |
 | `bigquery-dts` | `bigquerydatatransfer.googleapis.com` |
 | `data-manager` | `datamanager.googleapis.com` |
 | `postmaster` | `gmailpostmastertools.googleapis.com` |

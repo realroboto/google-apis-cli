@@ -29,6 +29,7 @@ after(() => rmSync(dir, { recursive: true, force: true }));
 const env = { GAPI_CONFIG_DIR: dir };
 mkdirSync(join(dir, 'cache'));
 const DOCS = {
+  bigquery: 'bigquery',
   business: 'business',
   crux: 'crux',
   dv360: 'dv360',
@@ -1185,6 +1186,46 @@ test('--cache: a failed call is not stored, so the next call fetches', async (t)
   assert.equal((await fx(argv, { fetch, env: own })).code, 1);
   assert.equal((await fx(argv, { fetch, env: own })).code, 1);
   assert.equal(calls.length, 2);
+});
+
+test('bigquery: jobs.query plans a POST, is not a cacheable read, and consent asks the bigquery scope', async (t) => {
+  const own = cacheEnv(t);
+  // The fixture entry stands in for the shipped one (no `reads`, no `nocache`).
+  const [fixture, shipped] = await Promise.all([
+    import('./fixtures/apis/bigquery.ts'),
+    import('../src/apis/bigquery.ts'),
+  ]);
+  assert.deepEqual(fixture.default, shipped.default);
+  assert.match((await fx(['bigquery'])).stdout, /^resources:\n {2}jobs\n/m);
+  const query = [
+    'bigquery',
+    'jobs',
+    'query',
+    '--params',
+    '{"projectId":"p"}',
+    '--body',
+    '{"query":"SELECT 1"}',
+  ];
+  const plan = await dryRun(query);
+  assert.equal(plan.method, 'POST');
+  assert.equal(plan.url, 'https://bigquery.googleapis.com/bigquery/v2/projects/p/queries');
+  assert.deepEqual(plan.body, { query: 'SELECT 1' });
+  const cached = await fx([...query, '--cache', '1h'], { env: own });
+  assert.equal(cached.code, 3);
+  assert.equal(cached.stderr, 'gapi: --cache: bigquery jobs query is not a cacheable read\n');
+  const get = [
+    'bigquery',
+    'jobs',
+    'get',
+    '--params',
+    '{"projectId":"p","jobId":"j"}',
+    '--cache',
+    '1h',
+  ];
+  assert.equal((await fx([...get, '--dry-run'], { env: own })).code, 0);
+  const status = await fx(['auth', 'status'], { env: own });
+  assert.equal(status.code, 0, status.stderr);
+  assert.ok(JSON.parse(status.stdout).missing.includes('bigquery'));
 });
 
 test('auth logout and auth login delete the stored responses', async (t) => {
