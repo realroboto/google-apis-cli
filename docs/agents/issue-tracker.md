@@ -10,6 +10,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
+- **Sub-issue** (a ticket under an epic): `gh api -X POST repos/{owner}/{repo}/issues/<epic>/sub_issues -F sub_issue_id=<id>`; `<id>` is the database id from `gh api repos/{owner}/{repo}/issues/<number> --jq .id`, not the number.
+- **Blocking edge** (native): `gh api -X POST repos/{owner}/{repo}/issues/<blocked>/dependencies/blocked_by -F issue_id=<blocker id>`; read with `gh api repos/{owner}/{repo}/issues/<number>/dependencies/blocked_by`.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 

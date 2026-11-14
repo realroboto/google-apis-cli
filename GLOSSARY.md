@@ -1,6 +1,6 @@
 # Glossary
 
-Terms of the call path (epic #30, D13). One line each.
+Terms of the call path (epic #30, D13) and the account model. One line each.
 
 - **API entry** — `src/apis/<api>.ts`: default-exports the CLI name, its discovery document URL and the overlays (retired, deprecated, paid, reads, nocache, headers, helpers) for one API.
 - **discovery document** — Google's machine-readable JSON description of one API version (resources, methods, parameters, schemas, scopes), fetched from its discovery URL and cached.
