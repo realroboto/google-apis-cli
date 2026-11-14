@@ -11,6 +11,7 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
   1. API entry has no `nocache` overlay. Message names the reason and the source.
   2. Send mode is one request or `--page-all` pages. Uploads, downloads (`--output`) and batches (`+publishBatch`) never qualify.
   3. Method is `GET`, or a POST that only reads, listed by id in the API entry `reads` overlay (`src/apis/*.ts`, #186: GAQL search, GA4 reports, GSC Search Analytics and URL Inspection, SA360 search, Merchant reports). An unknown id fails `pnpm discovery:check`.
+- `gapi fields` refuses `--cache` (exit 3). The key holds the request, not the query words, so two queries over one `getMetadata` response would share an entry (#213).
 - `nocache` entries: `places`, `web-risk`, `crux`, `pagespeed` (Terms below).
 - Key: sha256 of identity, HTTP method, URL (every query value), non-secret headers (`login-customer-id`, quota project), body, send mode, page limit. Two different requests never share an entry.
 - Store: `<config dir>/responses/`, dir mode 700, one file per key mode 600, temp file + rename. Every run deletes files older than 7 days.
