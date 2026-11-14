@@ -37,7 +37,7 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
 ## Terms evidence (read 2026-11-05)
 
 - Google APIs Terms §5: "Unless expressly permitted by the content owner or by applicable law, you will not … keep cached copies longer than permitted by the cache header". https://developers.google.com/terms
-  - Reading: the operator owns their Ads, GA4, Search Console, Tag Manager, Merchant, Business Profile, SA360, CM360, DV360, YouTube channel, Postmaster and BigQuery warehouse data (BigQuery added by #208). `--cache` is the content owner's express, per-call permission.
+  - Reading: the operator owns their Ads, GA4, Search Console, Tag Manager, Merchant, Business Profile, SA360, CM360, DV360, YouTube channel, Postmaster and BigQuery warehouse data, and their Cloud Quotas settings (BigQuery added by #208, Cloud Quotas by #210). `--cache` is the content owner's express, per-call permission.
   - CrUX and PageSpeed return Google-owned content → `nocache`.
 - Places: "You must not pre-fetch, cache, or store Places API content beyond the allowed exceptions, although the `place_id` is exempt from caching restrictions." → `nocache`. https://developers.google.com/maps/documentation/places/web-service/policies
 - Web Risk: "Clients of the Lookup API should cache each returned `ThreatUrl` item until the the time defined in the `expireTime` field." A fixed age ignores `expireTime` → `nocache`. https://cloud.google.com/web-risk/docs/caching
