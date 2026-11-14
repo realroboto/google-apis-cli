@@ -17,3 +17,5 @@ Terms of the call path (epic #30, D13). One line each.
 - **helper** — a `+name` command an API entry adds (e.g. `ads +gaql`) that builds its CallPlan through the Planner by method id.
 - **Google source order** — the order that decides gapi behavior when Google sources disagree: product docs and AIPs, then the discovery document, then Google's official client libraries and `gcloud`.
 - **run** — `src/run.ts`: `run(argv, io)` parses argv, routes the command, and maps a `GapiError` to its exit code and `gapi: …` on stderr; the bin only passes it the real process io.
+- **operator account** — the one Google account that runs `gapi auth login` and owns the Cloud project; it reaches clients only through access they grant (docs/SETUP.md, Client access).
+- **client account** — a Google account that owns a client's products (GA4, Search Console, Ads, …) and grants the operator account admin access; `gapi` never logs in as it.
