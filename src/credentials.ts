@@ -78,7 +78,7 @@ export function openCredentials({
   let tokenClient: OAuthClient | undefined;
   let saving: Promise<void> | undefined; // the refreshed-token write the 'tokens' event starts
   // Each prompting command reads stdin through one session, closed when it ends (TTY raw mode).
-  const prompting = async <T>(given: Prompt | undefined, fn: (p: Prompt) => Promise<T>) => {
+  const withPrompt = async <T>(given: Prompt | undefined, fn: (p: Prompt) => Promise<T>) => {
     if (given) return fn(given);
     const p = openPrompt({ input: stdin, output: stderr });
     try {
@@ -275,7 +275,7 @@ export function openCredentials({
           `After consent the browser cannot load ${LOOPBACK_HOST}:${LOOPBACK_PORT}; ` +
           'paste the full URL from its address bar.\n',
       );
-      const answer = await prompting(prompt, (ask) => ask('redirected URL: '));
+      const answer = await withPrompt(prompt, (ask) => ask('redirected URL: '));
       const redirect = URL.parse(answer.trim());
       if (!redirect) throw new GapiError(2, 'not a URL; paste the full URL from the address bar');
       return redeem(redirect);
@@ -368,7 +368,7 @@ export function openCredentials({
       })),
       API_KEY_FIELD,
     ];
-    await prompting(prompt, async (ask) => {
+    await withPrompt(prompt, async (ask) => {
       for (const { key, label, required, secret } of fields) {
         const cur = cfg[key];
         const hint = cur != null ? ' [keep current]' : required ? '' : ' (blank to skip)';
@@ -396,11 +396,9 @@ function accountFromIdToken(idToken: string): string | null {
   }
 }
 
-// `secret: true` keeps the typed value off the screen. Node has no masking option, so
-// readline echoes through a gate that drops writes while a secret is read. On a TTY,
-// terminal mode puts it in raw mode, so the driver stops echoing and the gate is the only
-// writer; a pipe echoes nothing. Streams are injected (Credentials passes the ones `run`
-// got), so the masking has a test.
+// `secret: true` keeps the typed value off the screen. Node has no masking option.
+// So readline echoes through a gate that drops writes during a secret.
+// TTY raw mode stops the driver echo; a pipe echoes nothing.
 export function openPrompt({
   input,
   output,
@@ -419,10 +417,9 @@ export function openPrompt({
         cb();
       },
     }),
-    terminal: terminal ?? (input as { isTTY?: boolean }).isTTY === true,
+    terminal: terminal ?? ('isTTY' in input && input.isTTY === true),
   });
-  // One line reader for the whole session, made before any await: a pipe delivers every
-  // answer in one chunk, and a reader per prompt drops the lines after its own (#233).
+  // One reader per session, made before any await: a pipe sends all answers in one chunk (#233).
   const lines = rl[Symbol.asyncIterator]();
   let ended = false; // input closed: buffered lines remain, but `rl.prompt` throws
   rl.on('close', () => {
@@ -441,7 +438,7 @@ export function openPrompt({
       return value;
     } finally {
       muted = false;
-      if (secret && rl.terminal) output.write('\n'); // the swallowed Enter never printed one
+      if (secret) output.write('\n'); // the swallowed Enter (TTY) or the pipe never printed one
     }
   };
   return { ask, close: () => rl.close() };

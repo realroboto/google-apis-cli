@@ -8,6 +8,10 @@ Newest first. One section per npm version.
 
 - Recipes and SETUP step 9: Cloud Quotas guards for Places (32 requests per day per billed method) and Web Risk (`uris.search` 2 per minute, `hashes.search` 0) (#201).
 
+### Fixed
+
+- `gapi auth setup` reads piped answers line by line, so `printf … | gapi auth setup` saves them; input that ends early exits 3 (#233).
+
 ## 0.4.0 — 2026-11-14
 
 Since 0.3.0 (`5795d4f..344accc`).
