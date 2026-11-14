@@ -13,6 +13,9 @@ import {
   DISCOVERY_USAGE,
   ENTITIES_USAGE,
   entitiesText,
+  FIELDS_HELP,
+  FIELDS_USAGE,
+  fieldsText,
   levelText,
   methodHelp,
   rootHelp,
@@ -23,7 +26,15 @@ import {
   searchText,
 } from './render.ts';
 import { MAX_AGE_MS, openResponses } from './responses.ts';
-import { matchQuery, search } from './search.ts';
+import {
+  FIELD_APIS,
+  type Field,
+  ga4Fields,
+  gaqlFields,
+  matchQuery,
+  rankFields,
+  search,
+} from './search.ts';
 import type { Sleep } from './transport/retry.ts';
 import { receive, send } from './transport.ts';
 import type {
@@ -276,6 +287,64 @@ async function runEntities(
   if (failed > 0) throw new GapiError(1, `${failed} of ${sources.length} entity sources failed`);
 }
 
+// #200 D7: GAQL names offline from the discovery document, GA4 names from one getMetadata call.
+async function runFields(
+  args: string[],
+  { io, creds, catalog }: { io: Io; creds: Creds; catalog: Catalog },
+): Promise<void> {
+  const { values, positionals } = parse(args, {
+    property: { type: 'string' },
+    cache: { type: 'string' },
+    help: { type: 'boolean' },
+  });
+  if (values.help) {
+    io.stdout.write(`${FIELDS_HELP}\n`);
+    return;
+  }
+  // ADR 0001 keys a cache entry by the request, so two queries would share one entry.
+  if (values.cache !== undefined) throw new GapiError(3, '--cache: fields is not cacheable');
+  const [name, ...words] = positionals;
+  if (name === undefined) throw new GapiError(3, `usage: ${FIELDS_USAGE}`);
+  if (!FIELD_APIS.includes(name)) {
+    throw new GapiError(
+      3,
+      `fields: ${name} has no field source; supported: ${FIELD_APIS.join(', ')}`,
+    );
+  }
+  const query = words.join(' ');
+  matchQuery(query, FIELDS_USAGE); // no word → exit 3 before any document loads
+  const { property } = values;
+  if (name !== 'ga4-data' && property !== undefined) {
+    throw new GapiError(3, `--property: not an option of fields ${name}`);
+  }
+  if (name === 'ga4-data' && property === undefined) {
+    throw new GapiError(3, '--property is required');
+  }
+  const id = property?.replace(/^properties\//, '');
+  if (id !== undefined && !/^\d+$/.test(id)) {
+    throw new GapiError(3, `--property: ${property} is not a GA4 property id`);
+  }
+  const model = await catalog.load(name);
+  let fields: Field[] = [];
+  if (id === undefined) {
+    fields = gaqlFields(model);
+  } else {
+    const settings = await creds.settings({}, model.headers);
+    const call = plan(
+      model,
+      'analyticsdata.properties.getMetadata',
+      { params: { name: `properties/${id}/metadata` } },
+      settings,
+    );
+    for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
+    const opts = { fetch: io.fetch, authorize: creds.authorize, sleep: io.sleep };
+    for await (const data of receive(call, opts)) fields = ga4Fields(data);
+  }
+  const hits = rankFields(fields, query);
+  if (hits.length === 0) io.stderr.write('gapi: no match\n');
+  io.stdout.write(fieldsText(hits));
+}
+
 // D8 consent set: every entry's per-method scope plus its entry scopes (identity is added by login).
 async function consentScopes(catalog: Catalog): Promise<string[]> {
   const models = await Promise.all(Object.keys(catalog.entries).map((api) => catalog.load(api)));
@@ -377,6 +446,8 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
     io.stdout.write(searchText(hits));
     return;
   }
+
+  if (api === 'fields') return runFields(rest, { io, creds, catalog });
 
   if (api === 'schema') {
     const { values, positionals } = parse(rest, {
