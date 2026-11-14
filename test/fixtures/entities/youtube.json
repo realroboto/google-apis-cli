@@ -1,0 +1,214 @@
+{
+  "ownerDomain": "google.com",
+  "canonicalName": "YouTube",
+  "documentationLink": "https://developers.google.com/youtube/",
+  "mtlsRootUrl": "https://youtube.mtls.googleapis.com/",
+  "ownerName": "Google",
+  "description": "The YouTube Data API v3 is an API that provides access to YouTube data, such as videos, playlists, and channels.",
+  "parameters": {
+    "uploadType": {
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "type": "string",
+      "location": "query"
+    },
+    "fields": {
+      "description": "Selector specifying which fields to include in a partial response.",
+      "type": "string",
+      "location": "query"
+    },
+    "upload_protocol": {
+      "type": "string",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\").",
+      "location": "query"
+    },
+    "callback": {
+      "location": "query",
+      "description": "JSONP",
+      "type": "string"
+    },
+    "key": {
+      "location": "query",
+      "type": "string",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token."
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "location": "query",
+      "type": "string"
+    },
+    "oauth_token": {
+      "location": "query",
+      "type": "string",
+      "description": "OAuth 2.0 token for the current user."
+    },
+    "$.xgafv": {
+      "type": "string",
+      "description": "V1 error format.",
+      "enum": ["1", "2"],
+      "location": "query",
+      "enumDescriptions": ["v1 error format", "v2 error format"]
+    },
+    "quotaUser": {
+      "location": "query",
+      "type": "string",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters."
+    },
+    "alt": {
+      "default": "json",
+      "enum": ["json", "media", "proto"],
+      "description": "Data format for response.",
+      "location": "query",
+      "type": "string",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ]
+    },
+    "prettyPrint": {
+      "default": "true",
+      "type": "boolean",
+      "location": "query",
+      "description": "Returns response with indentations and line breaks."
+    }
+  },
+  "baseUrl": "https://youtube.googleapis.com/",
+  "batchPath": "batch",
+  "version": "v3",
+  "schemas": {},
+  "revision": "20261112",
+  "servicePath": "",
+  "protocol": "rest",
+  "icons": {
+    "x32": "http://www.google.com/images/icons/product/search-32.gif",
+    "x16": "http://www.google.com/images/icons/product/search-16.gif"
+  },
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/youtube.force-ssl": {
+          "description": "See, edit, and permanently delete your YouTube videos, ratings, comments and captions"
+        },
+        "https://www.googleapis.com/auth/youtube.upload": {
+          "description": "Manage your YouTube videos"
+        },
+        "https://www.googleapis.com/auth/youtube.readonly": {
+          "description": "View your YouTube account"
+        },
+        "https://www.googleapis.com/auth/youtube": {
+          "description": "Manage your YouTube account"
+        },
+        "https://www.googleapis.com/auth/youtube.channel-memberships.creator": {
+          "description": "See a list of your current active channel members, their current level, and when they became a member"
+        },
+        "https://www.googleapis.com/auth/youtubepartner": {
+          "description": "View and manage your assets and associated content on YouTube"
+        },
+        "https://www.googleapis.com/auth/youtubepartner-channel-audit": {
+          "description": "View private information of your YouTube channel relevant during the audit process with a YouTube partner"
+        }
+      }
+    }
+  },
+  "kind": "discovery#restDescription",
+  "name": "youtube",
+  "rootUrl": "https://youtube.googleapis.com/",
+  "discoveryVersion": "v1",
+  "fullyEncodeReservedExpansion": true,
+  "id": "youtube:v3",
+  "basePath": "",
+  "title": "YouTube Data API v3",
+  "resources": {
+    "channels": {
+      "methods": {
+        "list": {
+          "parameterOrder": ["part"],
+          "response": {
+            "$ref": "ChannelListResponse"
+          },
+          "flatPath": "youtube/v3/channels",
+          "scopes": [
+            "https://www.googleapis.com/auth/youtube",
+            "https://www.googleapis.com/auth/youtube.force-ssl",
+            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/youtubepartner",
+            "https://www.googleapis.com/auth/youtubepartner-channel-audit"
+          ],
+          "path": "youtube/v3/channels",
+          "httpMethod": "GET",
+          "description": "Retrieves a list of resources, possibly filtered.",
+          "id": "youtube.channels.list",
+          "parameters": {
+            "forHandle": {
+              "description": "Return the channel associated with a YouTube handle.",
+              "type": "string",
+              "location": "query"
+            },
+            "mySubscribers": {
+              "type": "boolean",
+              "location": "query",
+              "description": "Return the channels subscribed to the authenticated user"
+            },
+            "mine": {
+              "type": "boolean",
+              "location": "query",
+              "description": "Return the ids of channels owned by the authenticated user."
+            },
+            "part": {
+              "repeated": true,
+              "description": "The *part* parameter specifies a comma-separated list of one or more channel resource properties that the API response will include. If the parameter identifies a property that contains child properties, the child properties will be included in the response. For example, in a channel resource, the contentDetails property contains other properties, such as the uploads properties. As such, if you set *part=contentDetails*, the API response will also contain all of those nested properties.",
+              "type": "string",
+              "location": "query",
+              "required": true
+            },
+            "hl": {
+              "description": "Stands for \"host language\". Specifies the localization language of the metadata to be filled into snippet.localized. The field is filled with the default metadata if there is no localization in the specified language. The parameter value must be a language code included in the list returned by the i18nLanguages.list method (e.g. en_US, es_MX).",
+              "type": "string",
+              "location": "query"
+            },
+            "forUsername": {
+              "location": "query",
+              "description": "Return the channel associated with a YouTube username.",
+              "type": "string"
+            },
+            "onBehalfOfContentOwner": {
+              "location": "query",
+              "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter indicates that the request's authorization credentials identify a YouTube CMS user who is acting on behalf of the content owner specified in the parameter value. This parameter is intended for YouTube content partners that own and manage many different YouTube channels. It allows content owners to authenticate once and get access to all their video and channel data, without having to provide authentication credentials for each individual channel. The CMS account that the user authenticates with must be linked to the specified YouTube content owner.",
+              "type": "string"
+            },
+            "categoryId": {
+              "description": "Return the channels within the specified guide category ID.",
+              "location": "query",
+              "type": "string"
+            },
+            "maxResults": {
+              "maximum": "50",
+              "description": "The *maxResults* parameter specifies the maximum number of items that should be returned in the result set.",
+              "default": "5",
+              "location": "query",
+              "format": "uint32",
+              "type": "integer",
+              "minimum": "0"
+            },
+            "id": {
+              "description": "Return the channels with the specified IDs.",
+              "location": "query",
+              "repeated": true,
+              "type": "string"
+            },
+            "managedByMe": {
+              "location": "query",
+              "description": "Return the channels managed by the authenticated user.",
+              "type": "boolean"
+            },
+            "pageToken": {
+              "description": "The *pageToken* parameter identifies a specific page in the result set that should be returned. In an API response, the nextPageToken and prevPageToken properties identify other pages that could be retrieved.",
+              "location": "query",
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

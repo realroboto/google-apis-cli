@@ -246,18 +246,25 @@ async function runEntities(
   let failed = 0;
   for (const { api, sources: list } of sources) {
     try {
-      const model = await catalog.load(api);
-      const settings = await creds.settings({}, model.headers);
-      const request: ListCall = (method, params) => {
+      // A source may call another entry's method (`api`); its settings and headers apply.
+      const request: ListCall = async function* ({
+        api: owner = api,
+        method,
+        params,
+        body,
+        headers,
+      }) {
+        const model = await catalog.load(owner);
+        const settings = await creds.settings({}, model.headers);
         const paged = model.byId.get(method)?.paging !== undefined;
         const call = plan(
           model,
           method,
-          { params, pageAll: paged, pageLimit: paged ? limit : undefined },
-          settings,
+          { params, body, pageAll: paged, pageLimit: paged ? limit : undefined },
+          { ...settings, headers: { ...settings.headers, ...headers } },
         );
         for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
-        return receive(call, { fetch: io.fetch, authorize: creds.authorize, sleep: io.sleep });
+        yield* receive(call, { fetch: io.fetch, authorize: creds.authorize, sleep: io.sleep });
       };
       const n = await entities.sync(api, list, identity, request);
       io.stdout.write(`${api}: ${n} entities\n`);

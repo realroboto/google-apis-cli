@@ -82,38 +82,6 @@
   "mtlsRootUrl": "https://analyticsadmin.mtls.googleapis.com/",
   "servicePath": "",
   "resources": {
-    "accountSummaries": {
-      "methods": {
-        "list": {
-          "parameterOrder": [],
-          "httpMethod": "GET",
-          "response": {
-            "$ref": "GoogleAnalyticsAdminV1betaListAccountSummariesResponse"
-          },
-          "parameters": {
-            "pageToken": {
-              "type": "string",
-              "description": "Optional. A page token, received from a previous `ListAccountSummaries` call. Provide this to retrieve the subsequent page. When paginating, all other parameters provided to `ListAccountSummaries` must match the call that provided the page token.",
-              "location": "query"
-            },
-            "pageSize": {
-              "type": "integer",
-              "location": "query",
-              "format": "int32",
-              "description": "Optional. The maximum number of AccountSummary resources to return. The service may return fewer than this value, even if there are additional pages. If unspecified, at most 50 resources will be returned. The maximum value is 200; (higher values will be coerced to the maximum)"
-            }
-          },
-          "scopes": [
-            "https://www.googleapis.com/auth/analytics.edit",
-            "https://www.googleapis.com/auth/analytics.readonly"
-          ],
-          "path": "v1beta/accountSummaries",
-          "id": "analyticsadmin.accountSummaries.list",
-          "description": "Returns summaries of all accounts accessible by the caller.",
-          "flatPath": "v1beta/accountSummaries"
-        }
-      }
-    },
     "properties": {
       "methods": {
         "patch": {

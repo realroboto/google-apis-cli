@@ -6,10 +6,11 @@
 //
 // `:search` keeps its raw {results, nextPageToken}; `ads customers googleAds search
 // --page-all` pages it through the request body (epic #30 D6); `--stream` is the all-rows path.
+import { items, text } from '../entities.ts';
 import { GapiError } from '../errors.ts';
 import { isRecord } from '../json.ts';
 import { plan } from '../plan.ts';
-import type { ApiEntry, Helper } from '../types.ts';
+import type { ApiEntry, EntitySource, Helper } from '../types.ts';
 
 const GAQL_ARGS = '"<query>" --customer <id> [--stream]';
 
@@ -55,6 +56,28 @@ const gaql: Helper = {
   },
 };
 
+// Per accessible customer: itself (level 0, gives its name) and its direct clients, queried
+// as that customer (`login-customer-id`). A client's parent is its manager.
+// shortcut: `level <= 1` skips clients of a sub-manager the login cannot access directly;
+// upgrade to the whole tree when an operator needs them.
+const customerClients: EntitySource = {
+  method: 'googleads.customers.googleAds.search',
+  params: (parent) => ({ customerId: parent?.id }),
+  body: () => ({
+    query:
+      'SELECT customer_client.id, customer_client.descriptive_name, customer_client.level FROM customer_client WHERE customer_client.level <= 1',
+  }),
+  headers: (parent) => ({ 'login-customer-id': parent?.id ?? '' }),
+  entities: (data, parent) =>
+    items(data, 'results').flatMap((r) => {
+      const c = isRecord(r.customerClient) ? r.customerClient : {};
+      const id = text(c.id);
+      if (!id) return [];
+      const name = text(c.descriptiveName);
+      return [{ kind: 'customer', id, name, parent: id === parent?.id ? undefined : parent?.id }];
+    }),
+};
+
 export default {
   api: 'ads',
   discovery: 'https://googleads.googleapis.com/$discovery/rest?version=v26',
@@ -72,4 +95,18 @@ export default {
     },
   ],
   helpers: { '+gaql': gaql },
+  // Customer IDs as calls take them: 10 digits, no `customers/` prefix.
+  entities: [
+    {
+      method: 'googleads.customers.listAccessibleCustomers',
+      entities: (data) =>
+        isRecord(data) && Array.isArray(data.resourceNames)
+          ? data.resourceNames.flatMap((n) => {
+              const id = typeof n === 'string' ? n.replace(/^customers\//, '') : '';
+              return id ? [{ kind: 'customer', id }] : [];
+            })
+          : [],
+      children: { customer: customerClients },
+    },
+  ],
 } satisfies ApiEntry;

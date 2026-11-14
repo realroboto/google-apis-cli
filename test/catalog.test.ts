@@ -15,7 +15,7 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { after, test } from 'node:test';
-import { openCatalog } from '../src/catalog.ts';
+import { foreignSourceProblems, openCatalog } from '../src/catalog.ts';
 import { GapiError } from '../src/errors.ts';
 import { fakeFetch } from './helpers/fetch.ts';
 
@@ -155,6 +155,11 @@ test('fixture documents normalize into auth kind, scopes, overlays, words and me
   assert.deepEqual(mini.problems, [
     'retired mini.files.gone: not in the document',
     'entities mini.files.bogus: not in the document',
+  ]);
+  const models = new Map([gsc, mini].map((m) => [m.api, m]));
+  assert.deepEqual(foreignSourceProblems(catalog.entries.mini, models), [
+    'entities gsc webmasters.sites.bogus: not in the document',
+    'entities nope nope.things.list: api not loaded',
   ]);
   assert.deepEqual(mini.resources.get('v26')?.methods.get('listThings')?.words, [
     'v26',

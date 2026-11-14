@@ -3,7 +3,7 @@
 // fallback) or an overlay names a method id the document lacks. Prints the
 // unavailable method ids and the API-key APIs (epic #30 D8).
 import { resolve } from 'node:path';
-import { openCatalog } from '../src/catalog.ts';
+import { foreignSourceProblems, openCatalog } from '../src/catalog.ts';
 import { configDir } from '../src/credentials.ts';
 
 let failed = false;
@@ -26,6 +26,11 @@ const models = (
   )
 ).filter((m) => m !== undefined);
 for (const m of models) for (const problem of m.problems) fail(`${m.api}: ${problem}`);
+const byApi = new Map(models.map((m) => [m.api, m]));
+for (const api of apis) {
+  for (const problem of foreignSourceProblems(catalog.entries[api], byApi))
+    fail(`${api}: ${problem}`);
+}
 const list = (items: string[]) => items.join(', ') || 'none';
 const unavailable = models.flatMap((m) =>
   [...m.byId.values()].filter((method) => method.unavailable).map((method) => method.id),

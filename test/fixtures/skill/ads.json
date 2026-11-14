@@ -56,21 +56,6 @@
             }
           }
         }
-      },
-      "methods": {
-        "listAccessibleCustomers": {
-          "description": "Returns resource names of customers directly accessible by the user authenticating the call. List of thrown errors: [AuthenticationError]() [AuthorizationError]() [HeaderError]() [InternalError]() [QuotaError]() [RequestError]()",
-          "id": "googleads.customers.listAccessibleCustomers",
-          "parameters": {},
-          "parameterOrder": [],
-          "scopes": ["https://www.googleapis.com/auth/adwords"],
-          "httpMethod": "GET",
-          "path": "v26/customers:listAccessibleCustomers",
-          "flatPath": "v26/customers:listAccessibleCustomers",
-          "response": {
-            "$ref": "GoogleAdsGoogleadsV26Services__ListAccessibleCustomersResponse"
-          }
-        }
       }
     }
   },

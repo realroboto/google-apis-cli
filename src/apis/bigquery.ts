@@ -2,6 +2,7 @@
 // No `reads`: jobs.query also runs DML/DDL, so a cache hit could skip a write (ADR 0001).
 // No `nocache`: the operator owns the warehouse data.
 import { randomUUID } from 'node:crypto';
+import { items, text } from '../entities.ts';
 import { GapiError } from '../errors.ts';
 import { isRecord } from '../json.ts';
 import { plan } from '../plan.ts';
@@ -179,4 +180,38 @@ export default {
   api: 'bigquery',
   discovery: 'https://bigquery.googleapis.com/$discovery/rest?version=v2',
   helpers: { '+query': query },
+  // Dataset ID `project.dataset`, as SQL names it. A GA4 export dataset `analytics_<id>` gets
+  // GA4 property `properties/<id>` as parent, so a find on the property returns it.
+  entities: [
+    {
+      method: 'bigquery.projects.list',
+      entities: (data) =>
+        items(data, 'projects').flatMap((p) => {
+          const id = isRecord(p.projectReference) ? text(p.projectReference.projectId) : undefined;
+          return id ? [{ kind: 'project', id, name: text(p.friendlyName) }] : [];
+        }),
+      children: {
+        project: {
+          method: 'bigquery.datasets.list',
+          params: (parent) => ({ projectId: parent?.id }),
+          entities: (data, parent) =>
+            items(data, 'datasets').flatMap((d) => {
+              const ref = isRecord(d.datasetReference) ? d.datasetReference : {};
+              const project = text(ref.projectId);
+              const dataset = text(ref.datasetId);
+              if (!project || !dataset) return [];
+              const ga4 = /^analytics_(\d+)$/.exec(dataset)?.[1];
+              return [
+                {
+                  kind: 'dataset',
+                  id: `${project}.${dataset}`,
+                  name: text(d.friendlyName),
+                  parent: ga4 ? `properties/${ga4}` : parent?.id,
+                },
+              ];
+            }),
+        },
+      },
+    },
+  ],
 } satisfies ApiEntry;

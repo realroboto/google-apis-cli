@@ -1,0 +1,189 @@
+{
+  "documentationLink": "https://developers.google.com/tag-manager",
+  "baseUrl": "https://tagmanager.googleapis.com/",
+  "discoveryVersion": "v1",
+  "protocol": "rest",
+  "description": "This API allows clients to access and modify container and tag configuration.",
+  "servicePath": "",
+  "mtlsRootUrl": "https://tagmanager.mtls.googleapis.com/",
+  "canonicalName": "Tag Manager",
+  "name": "tagmanager",
+  "schemas": {},
+  "id": "tagmanager:v2",
+  "icons": {
+    "x16": "http://www.google.com/images/icons/product/search-16.gif",
+    "x32": "http://www.google.com/images/icons/product/search-32.gif"
+  },
+  "parameters": {
+    "upload_protocol": {
+      "type": "string",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\").",
+      "location": "query"
+    },
+    "uploadType": {
+      "location": "query",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "type": "string"
+    },
+    "$.xgafv": {
+      "enum": ["1", "2"],
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "description": "V1 error format.",
+      "location": "query",
+      "type": "string"
+    },
+    "oauth_token": {
+      "location": "query",
+      "type": "string",
+      "description": "OAuth 2.0 token for the current user."
+    },
+    "alt": {
+      "type": "string",
+      "location": "query",
+      "default": "json",
+      "enum": ["json", "media", "proto"],
+      "description": "Data format for response.",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ]
+    },
+    "fields": {
+      "type": "string",
+      "description": "Selector specifying which fields to include in a partial response.",
+      "location": "query"
+    },
+    "prettyPrint": {
+      "description": "Returns response with indentations and line breaks.",
+      "location": "query",
+      "default": "true",
+      "type": "boolean"
+    },
+    "access_token": {
+      "location": "query",
+      "description": "OAuth access token.",
+      "type": "string"
+    },
+    "quotaUser": {
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "type": "string",
+      "location": "query"
+    },
+    "key": {
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "location": "query",
+      "type": "string"
+    },
+    "callback": {
+      "type": "string",
+      "location": "query",
+      "description": "JSONP"
+    }
+  },
+  "ownerName": "Google",
+  "kind": "discovery#restDescription",
+  "rootUrl": "https://tagmanager.googleapis.com/",
+  "basePath": "",
+  "version": "v2",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/tagmanager.edit.containers": {
+          "description": "Manage your Google Tag Manager container and its subcomponents, excluding versioning and publishing"
+        },
+        "https://www.googleapis.com/auth/tagmanager.manage.users": {
+          "description": "Manage user permissions of your Google Tag Manager account and container"
+        },
+        "https://www.googleapis.com/auth/tagmanager.edit.containerversions": {
+          "description": "Manage your Google Tag Manager container versions"
+        },
+        "https://www.googleapis.com/auth/tagmanager.manage.accounts": {
+          "description": "View and manage your Google Tag Manager accounts"
+        },
+        "https://www.googleapis.com/auth/tagmanager.publish": {
+          "description": "Publish your Google Tag Manager container versions"
+        },
+        "https://www.googleapis.com/auth/tagmanager.readonly": {
+          "description": "View your Google Tag Manager container and its subcomponents"
+        },
+        "https://www.googleapis.com/auth/tagmanager.delete.containers": {
+          "description": "Delete your Google Tag Manager containers"
+        }
+      }
+    }
+  },
+  "ownerDomain": "google.com",
+  "revision": "20261111",
+  "batchPath": "batch",
+  "title": "Tag Manager API",
+  "resources": {
+    "accounts": {
+      "methods": {
+        "list": {
+          "scopes": [
+            "https://www.googleapis.com/auth/tagmanager.edit.containers",
+            "https://www.googleapis.com/auth/tagmanager.manage.accounts",
+            "https://www.googleapis.com/auth/tagmanager.readonly"
+          ],
+          "id": "tagmanager.accounts.list",
+          "description": "Lists all GTM Accounts that a user has access to.",
+          "response": {
+            "$ref": "ListAccountsResponse"
+          },
+          "httpMethod": "GET",
+          "flatPath": "tagmanager/v2/accounts",
+          "parameterOrder": [],
+          "path": "tagmanager/v2/accounts",
+          "parameters": {
+            "pageToken": {
+              "description": "Continuation token for fetching the next page of results.",
+              "location": "query",
+              "type": "string"
+            },
+            "includeGoogleTags": {
+              "type": "boolean",
+              "location": "query",
+              "description": "Also retrieve accounts associated with Google Tag when true."
+            }
+          }
+        }
+      },
+      "resources": {
+        "containers": {
+          "methods": {
+            "list": {
+              "flatPath": "tagmanager/v2/accounts/{accountsId}/containers",
+              "response": {
+                "$ref": "ListContainersResponse"
+              },
+              "path": "tagmanager/v2/{+parent}/containers",
+              "parameterOrder": ["parent"],
+              "description": "Lists all Containers that belongs to a GTM Account.",
+              "parameters": {
+                "parent": {
+                  "pattern": "^accounts/[^/]+$",
+                  "required": true,
+                  "description": "GTM Account's API relative path.",
+                  "type": "string",
+                  "location": "path"
+                },
+                "pageToken": {
+                  "type": "string",
+                  "description": "Continuation token for fetching the next page of results.",
+                  "location": "query"
+                }
+              },
+              "scopes": [
+                "https://www.googleapis.com/auth/tagmanager.edit.containers",
+                "https://www.googleapis.com/auth/tagmanager.readonly"
+              ],
+              "id": "tagmanager.accounts.containers.list",
+              "httpMethod": "GET"
+            }
+          }
+        }
+      }
+    }
+  }
+}

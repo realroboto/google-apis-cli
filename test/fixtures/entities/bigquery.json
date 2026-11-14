@@ -1,0 +1,333 @@
+{
+  "parameters": {
+    "key": {
+      "location": "query",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "type": "string"
+    },
+    "alt": {
+      "location": "query",
+      "enum": ["json", "media", "proto"],
+      "description": "Data format for response.",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ],
+      "default": "json",
+      "type": "string"
+    },
+    "$.xgafv": {
+      "type": "string",
+      "description": "V1 error format.",
+      "location": "query",
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "enum": ["1", "2"]
+    },
+    "upload_protocol": {
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\").",
+      "type": "string",
+      "location": "query"
+    },
+    "fields": {
+      "location": "query",
+      "description": "Selector specifying which fields to include in a partial response.",
+      "type": "string"
+    },
+    "access_token": {
+      "type": "string",
+      "location": "query",
+      "description": "OAuth access token."
+    },
+    "oauth_token": {
+      "description": "OAuth 2.0 token for the current user.",
+      "type": "string",
+      "location": "query"
+    },
+    "quotaUser": {
+      "type": "string",
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters."
+    },
+    "uploadType": {
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "location": "query",
+      "type": "string"
+    },
+    "callback": {
+      "description": "JSONP",
+      "type": "string",
+      "location": "query"
+    },
+    "prettyPrint": {
+      "type": "boolean",
+      "location": "query",
+      "default": "true",
+      "description": "Returns response with indentations and line breaks."
+    }
+  },
+  "schemas": {},
+  "id": "bigquery:v2",
+  "mtlsRootUrl": "https://bigquery.mtls.googleapis.com/",
+  "description": "A data platform for customers to create, manage, share and query data.",
+  "canonicalName": "Bigquery",
+  "kind": "discovery#restDescription",
+  "ownerDomain": "google.com",
+  "servicePath": "bigquery/v2/",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/devstorage.read_only": {
+          "description": "View your data in Google Cloud Storage"
+        },
+        "https://www.googleapis.com/auth/bigquery.insertdata": {
+          "description": "Insert data into Google BigQuery"
+        },
+        "https://www.googleapis.com/auth/cloud-platform": {
+          "description": "See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account."
+        },
+        "https://www.googleapis.com/auth/devstorage.read_write": {
+          "description": "Manage your data in Cloud Storage and see the email address of your Google Account"
+        },
+        "https://www.googleapis.com/auth/bigquery": {
+          "description": "View and manage your data in Google BigQuery and see the email address for your Google Account"
+        },
+        "https://www.googleapis.com/auth/cloud-platform.read-only": {
+          "description": "View your data across Google Cloud services and see the email address of your Google Account"
+        },
+        "https://www.googleapis.com/auth/devstorage.full_control": {
+          "description": "Manage your data and permissions in Cloud Storage and see the email address for your Google Account"
+        }
+      }
+    }
+  },
+  "discoveryVersion": "v1",
+  "documentationLink": "https://cloud.google.com/bigquery/",
+  "basePath": "/bigquery/v2/",
+  "fullyEncodeReservedExpansion": true,
+  "icons": {
+    "x32": "http://www.google.com/images/icons/product/search-32.gif",
+    "x16": "http://www.google.com/images/icons/product/search-16.gif"
+  },
+  "name": "bigquery",
+  "revision": "20261107",
+  "title": "BigQuery API",
+  "rootUrl": "https://bigquery.googleapis.com/",
+  "ownerName": "Google",
+  "version": "v2",
+  "batchPath": "batch/bigquery/v2",
+  "protocol": "rest",
+  "endpoints": [
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.asia-south1.rep.googleapis.com/",
+      "location": "asia-south1"
+    },
+    {
+      "endpointUrl": "https://bigquery.asia-south2.rep.googleapis.com/",
+      "description": "Regional Endpoint",
+      "location": "asia-south2"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west1.rep.googleapis.com/",
+      "location": "europe-west1"
+    },
+    {
+      "location": "europe-west10",
+      "endpointUrl": "https://bigquery.europe-west10.rep.googleapis.com/",
+      "description": "Regional Endpoint"
+    },
+    {
+      "endpointUrl": "https://bigquery.europe-west2.rep.googleapis.com/",
+      "location": "europe-west2",
+      "description": "Regional Endpoint"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west3.rep.googleapis.com/",
+      "location": "europe-west3"
+    },
+    {
+      "endpointUrl": "https://bigquery.europe-west4.rep.googleapis.com/",
+      "location": "europe-west4",
+      "description": "Regional Endpoint"
+    },
+    {
+      "endpointUrl": "https://bigquery.europe-west6.rep.googleapis.com/",
+      "description": "Regional Endpoint",
+      "location": "europe-west6"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west8.rep.googleapis.com/",
+      "location": "europe-west8"
+    },
+    {
+      "location": "europe-west9",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.europe-west9.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.me-central2.rep.googleapis.com/",
+      "location": "me-central2"
+    },
+    {
+      "location": "northamerica-northeast1",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.northamerica-northeast1.rep.googleapis.com/"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.northamerica-northeast2.rep.googleapis.com/",
+      "location": "northamerica-northeast2"
+    },
+    {
+      "endpointUrl": "https://bigquery.us-central1.rep.googleapis.com/",
+      "location": "us-central1",
+      "description": "Regional Endpoint"
+    },
+    {
+      "endpointUrl": "https://bigquery.us-central2.rep.googleapis.com/",
+      "description": "Regional Endpoint",
+      "location": "us-central2"
+    },
+    {
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-east1.rep.googleapis.com/",
+      "location": "us-east1"
+    },
+    {
+      "location": "us-east4",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-east4.rep.googleapis.com/"
+    },
+    {
+      "location": "us-east5",
+      "endpointUrl": "https://bigquery.us-east5.rep.googleapis.com/",
+      "description": "Regional Endpoint"
+    },
+    {
+      "location": "us-east7",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-east7.rep.googleapis.com/"
+    },
+    {
+      "endpointUrl": "https://bigquery.us-south1.rep.googleapis.com/",
+      "description": "Regional Endpoint",
+      "location": "us-south1"
+    },
+    {
+      "endpointUrl": "https://bigquery.us-west1.rep.googleapis.com/",
+      "description": "Regional Endpoint",
+      "location": "us-west1"
+    },
+    {
+      "description": "Regional Endpoint",
+      "location": "us-west2",
+      "endpointUrl": "https://bigquery.us-west2.rep.googleapis.com/"
+    },
+    {
+      "location": "us-west3",
+      "description": "Regional Endpoint",
+      "endpointUrl": "https://bigquery.us-west3.rep.googleapis.com/"
+    },
+    {
+      "location": "us-west4",
+      "endpointUrl": "https://bigquery.us-west4.rep.googleapis.com/",
+      "description": "Regional Endpoint"
+    },
+    {
+      "endpointUrl": "https://bigquery.us-west8.rep.googleapis.com/",
+      "location": "us-west8",
+      "description": "Regional Endpoint"
+    }
+  ],
+  "baseUrl": "https://bigquery.googleapis.com/bigquery/v2/",
+  "resources": {
+    "projects": {
+      "methods": {
+        "list": {
+          "response": {
+            "$ref": "ProjectList"
+          },
+          "parameters": {
+            "maxResults": {
+              "description": "`maxResults` unset returns all results, up to 50 per page. Additionally, the number of projects in a page may be fewer than `maxResults` because projects are retrieved and then filtered to only projects with the BigQuery API enabled.",
+              "type": "integer",
+              "format": "uint32",
+              "location": "query"
+            },
+            "pageToken": {
+              "description": "Page token, returned by a previous call, to request the next page of results. If not present, no further pages are present.",
+              "type": "string",
+              "location": "query"
+            }
+          },
+          "httpMethod": "GET",
+          "path": "projects",
+          "parameterOrder": [],
+          "description": "RPC to list projects to which the user has been granted any project role. Users of this method are encouraged to consider the [Resource Manager](https://cloud.google.com/resource-manager/docs/) API, which provides the underlying data for this method and has more capabilities. # IAM Permissions Requires no specific IAM permission(s) to use this method. The results are filtered to only include projects on which the caller has been granted a project-level role such as a BigQuery predefined IAM role or a basic role such as Viewer or Owner.",
+          "flatPath": "projects",
+          "id": "bigquery.projects.list",
+          "scopes": [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/cloud-platform.read-only"
+          ]
+        }
+      }
+    },
+    "datasets": {
+      "methods": {
+        "list": {
+          "parameters": {
+            "pageToken": {
+              "type": "string",
+              "description": "Page token, returned by a previous call, to request the next page of results",
+              "location": "query"
+            },
+            "projectId": {
+              "pattern": "^[^/]+$",
+              "type": "string",
+              "description": "Required. Project ID of the datasets to be listed",
+              "required": true,
+              "location": "path"
+            },
+            "all": {
+              "type": "boolean",
+              "location": "query",
+              "description": "Whether to list all datasets, including hidden ones"
+            },
+            "maxResults": {
+              "location": "query",
+              "type": "integer",
+              "format": "uint32",
+              "description": "The maximum number of results to return in a single response page. Leverage the page tokens to iterate through the entire collection."
+            },
+            "filter": {
+              "description": "An expression for filtering the results of the request by label. The syntax is `labels.[:]`. Multiple filters can be AND-ed together by connecting with a space. Example: `labels.department:receiving labels.active`. See [Filtering datasets using labels](https://cloud.google.com/bigquery/docs/filtering-labels#filtering_datasets_using_labels) for details.",
+              "location": "query",
+              "type": "string"
+            }
+          },
+          "path": "projects/{+projectId}/datasets",
+          "httpMethod": "GET",
+          "scopes": [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/cloud-platform.read-only"
+          ],
+          "response": {
+            "$ref": "DatasetList"
+          },
+          "id": "bigquery.datasets.list",
+          "parameterOrder": ["projectId"],
+          "description": "Lists all datasets in the specified project to which the user has been granted the READER dataset role. # IAM Permissions Requires no specific IAM permission(s) to use this method. Results are filtered to only include datasets on which the caller has the `bigquery.datasets.get` permission.",
+          "flatPath": "projects/{projectsId}/datasets"
+        }
+      }
+    }
+  }
+}
