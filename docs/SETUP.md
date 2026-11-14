@@ -195,6 +195,7 @@ It prompts for the client ID, the client secret, and three optional values: the 
 `login-customer-id`, the SA360 `sa360-login-customer-id`, and an API key (CrUX, PageSpeed).
 A blank answer keeps whatever is already stored. It writes `~/.config/gapi/config.json` (mode 600).
 The secret and API-key prompts stay blank while you type — that is the masking, not a dead terminal.
+Piped stdin works too: one answer per line, in prompt order. Input that ends early exits 3 and saves nothing.
 
 For CI, set `GAPI_OAUTH_CLIENT_ID` and `GAPI_OAUTH_CLIENT_SECRET` and skip the prompt —
 environment wins over the config file.

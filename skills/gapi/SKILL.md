@@ -14,7 +14,7 @@ Business questions (GA4, GSC, GTM, Ads, PageSpeed, YouTube) mapped to dry-run-te
 One-time, per operator — each brings their own Cloud project and Google account:
 
 ```sh
-gapi auth setup    # OAuth Desktop client id + secret, optional login-customer ids and API key (stored 0600)
+gapi auth setup    # OAuth Desktop client id + secret, optional login-customer ids and API key (stored 0600); piped stdin: one answer per line
 gapi auth login    # one consent screen → every scope the API entries use; writes the refresh token
 gapi auth status   # account, refresh token and API key presence, granted scopes, missing scopes
 gapi auth logout   # revoke the refresh token, then delete stored credentials and --cache responses (config.json stays)
