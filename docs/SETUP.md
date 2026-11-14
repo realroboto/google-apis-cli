@@ -290,6 +290,38 @@ lists your project number in `gcpIds`.
 
 ---
 
+## Client access (agencies)
+
+One **operator account** runs `gapi`: it runs `gapi auth login` and owns the Cloud project of
+step 1. Each **client account** stays the primary owner of its own products and adds the operator
+account as an admin in each product. `gapi` never logs in as a client. One refresh token reaches
+every client that granted access, and a new grant needs no new login: access lives on the
+client's product, the scopes stay the same.
+
+| Product | Client adds the operator at | Role | Check |
+|---|---|---|---|
+| GA4 | Admin → Account access management | Administrator (account level covers all properties) | `gapi ga4-admin accountSummaries list` |
+| Search Console | Settings → Users and permissions | Owner (delegated by a verified owner) | `gapi gsc sites list` |
+| Tag Manager | Admin → User Management (account) | account Administrator, container Publish | `gapi gtm accounts list` |
+| Google Ads | Admin → Access and security → Managers: accept the link request from the operator's manager account | manager link (preferred), else Admin user access | `gapi ads customers listAccessibleCustomers` |
+| Merchant Center | Settings → People and access | Admin | `gapi merchant-accounts accounts list` |
+| Business Profile | Business Profile settings → People and access | Owner (a Manager cannot add users) | `gapi business-account-management accounts list` |
+
+- **Google Ads manager link.** One manager account holds all client accounts. Calls then send
+  `--login-customer-id <manager id>` (see Google Ads customer IDs below).
+- **YouTube is not covered.** Invited users "can't access … YouTube APIs" with channel
+  permissions ([YouTube Help](https://support.google.com/youtube/answer/9481328)). The YouTube
+  entries act on the channel of the signed-in account only.
+- **Primary ownership stays with the client.** The client can remove the operator at any time;
+  `gapi` needs no change.
+- **Protect the operator account.** Its refresh token reaches every client. Use 2-Step
+  Verification with a passkey or a security key. `credentials.json` is mode 600;
+  `gapi auth logout` revokes the token.
+
+**Done when** each check lists the client's account, property, site or container.
+
+---
+
 ## Google Ads customer IDs
 
 Both are 10 digits with the hyphens removed (`123-456-7890` → `1234567890`).
