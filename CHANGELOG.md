@@ -8,7 +8,7 @@ Newest first. One section per npm version.
 
 - `gapi bigquery +query "<sql>"`: one read-only SQL query under a byte budget (default 10 GiB, `--max-bytes`). A free dry run refuses a non-`SELECT` statement (exit 3) or an estimate over the budget (exit 1) before any job; rows print as plain JSON objects, one line per page; `--estimate` prints the estimate only. GA4 export recipes in `skills/gapi/recipes.md` (#209).
 - `bigquery` entry: every BigQuery v2 method (47), scope `bigquery` (#208). **Re-login required:** run `gapi auth login` once; until then `gapi auth status` lists `bigquery` as missing and BigQuery calls exit 2.
-- `gapi entities sync` and `gapi entities find <words…>`: an offline index of GA4 accounts, properties, web streams and Search Console sites, per Google account, deleted on login and logout and after 7 days (#211, ADR 0002).
+- `gapi entities sync` and `gapi entities find <words…>`: an offline index of GA4 accounts, properties, web streams and Search Console sites, per Google account, deleted on login and logout and after 7 days (#211, ADR 0002). Also GTM accounts and containers, Ads customers, Merchant accounts, YouTube channels, Business Profile accounts and locations, BigQuery projects and datasets; one domain links them across APIs (#212).
 - Skill recipes (`skills/gapi/recipes.md`): GA4, GSC, GTM, Ads, PageSpeed and YouTube business questions mapped to commands; a test dry-runs every SKILL.md and recipes example (#206).
 
 ### Changed

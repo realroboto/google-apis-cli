@@ -110,37 +110,6 @@
     "accounts": {
       "resources": {
         "containers": {
-          "methods": {
-            "list": {
-              "httpMethod": "GET",
-              "scopes": [
-                "https://www.googleapis.com/auth/tagmanager.edit.containers",
-                "https://www.googleapis.com/auth/tagmanager.readonly"
-              ],
-              "response": {
-                "$ref": "ListContainersResponse"
-              },
-              "path": "tagmanager/v2/{+parent}/containers",
-              "parameterOrder": ["parent"],
-              "id": "tagmanager.accounts.containers.list",
-              "description": "Lists all Containers that belongs to a GTM Account.",
-              "parameters": {
-                "pageToken": {
-                  "description": "Continuation token for fetching the next page of results.",
-                  "location": "query",
-                  "type": "string"
-                },
-                "parent": {
-                  "description": "GTM Account's API relative path.",
-                  "location": "path",
-                  "type": "string",
-                  "required": true,
-                  "pattern": "^accounts/[^/]+$"
-                }
-              },
-              "flatPath": "tagmanager/v2/accounts/{accountsId}/containers"
-            }
-          },
           "resources": {
             "versions": {
               "methods": {
@@ -171,36 +140,6 @@
               }
             }
           }
-        }
-      },
-      "methods": {
-        "list": {
-          "parameters": {
-            "pageToken": {
-              "description": "Continuation token for fetching the next page of results.",
-              "location": "query",
-              "type": "string"
-            },
-            "includeGoogleTags": {
-              "location": "query",
-              "type": "boolean",
-              "description": "Also retrieve accounts associated with Google Tag when true."
-            }
-          },
-          "path": "tagmanager/v2/accounts",
-          "description": "Lists all GTM Accounts that a user has access to.",
-          "parameterOrder": [],
-          "response": {
-            "$ref": "ListAccountsResponse"
-          },
-          "id": "tagmanager.accounts.list",
-          "scopes": [
-            "https://www.googleapis.com/auth/tagmanager.edit.containers",
-            "https://www.googleapis.com/auth/tagmanager.manage.accounts",
-            "https://www.googleapis.com/auth/tagmanager.readonly"
-          ],
-          "httpMethod": "GET",
-          "flatPath": "tagmanager/v2/accounts"
         }
       }
     }

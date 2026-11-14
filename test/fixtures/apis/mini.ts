@@ -12,5 +12,9 @@ export default {
       entities: () => [],
       children: { file: { method: 'mini.files.bogus', entities: () => [] } },
     },
+    // Another entry's methods: left to `foreignSourceProblems`, not in `problems`.
+    { api: 'gsc', method: 'webmasters.sites.list', entities: () => [] },
+    { api: 'gsc', method: 'webmasters.sites.bogus', entities: () => [] },
+    { api: 'nope', method: 'nope.things.list', entities: () => [] },
   ],
 } satisfies ApiEntry;

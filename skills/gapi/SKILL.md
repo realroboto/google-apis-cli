@@ -144,14 +144,23 @@ gapi bigquery +query 'SELECT 1 AS n' --project my-project --dry-run
 Find an ID offline instead of listing accounts again.
 
 ```sh
-gapi entities sync                     # all sources: ga4-admin, gsc
+gapi entities sync                     # every API with entity sources (list below)
 gapi entities sync gsc --page-limit 2  # one API; each list max 2 pages
 gapi entities find acme.com            # name, part of an ID, or domain
 gapi entities find 3456 --api ga4-admin
 ```
 
 - `find` line: `<api>\t<kind>\t<id>\t<name>\t<parent>\t<domain>\t<sync date>`, best 20. Paste `<id>` (e.g. `properties/123456`, `sc-domain:acme.com`) into the next call.
-- Kinds: `ga4-admin` `account`, `property`, `stream` (web stream: domain from its default URI); `gsc` `site`.
+- Kinds per API (domain from):
+  - `ga4-admin`: `account`, `property`, `stream` (web stream default URI).
+  - `gsc`: `site` (site URL).
+  - `gtm`: `account`, `container` (domain names; name holds the `GTM-…` public ID).
+  - `ads`: `customer`, 10 digits; a client's parent is its manager (`--login-customer-id`).
+  - `merchant-accounts`: `account` (store homepage).
+  - `youtube`: `channel` (own channels; name holds the `@handle`).
+  - `business-information`: `account`, `location` (website).
+  - `bigquery`: `project`, `dataset` as `project.dataset`; a GA4 export dataset `analytics_<id>` has parent `properties/<id>`.
+- Domain = URL host, lower case, no `www.`; one host links the APIs. `shop.acme.com` does not match `acme.com` as a domain (no public-suffix parsing), only as a substring.
 - Each term: 3+ characters, any substring; terms are OR'ed. Shorter → exit 3. No hit → exit 0, `gapi: no match`.
 - Empty index (never synced, rows older than 7 days, another account): stderr says run `gapi entities sync`.
 - `sync`: call count on stderr first, then one `<api>: <n> entities` line per API. A failed API keeps its old rows; exit 1.

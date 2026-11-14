@@ -97,26 +97,6 @@
   "protocol": "rest",
   "revision": "20261110",
   "resources": {
-    "sites": {
-      "methods": {
-        "list": {
-          "scopes": [
-            "https://www.googleapis.com/auth/webmasters",
-            "https://www.googleapis.com/auth/webmasters.readonly"
-          ],
-          "flatPath": "webmasters/v3/sites",
-          "parameterOrder": [],
-          "httpMethod": "GET",
-          "parameters": {},
-          "description": " Lists the user's Search Console sites.",
-          "response": {
-            "$ref": "SitesListResponse"
-          },
-          "id": "webmasters.sites.list",
-          "path": "webmasters/v3/sites"
-        }
-      }
-    },
     "searchanalytics": {
       "methods": {
         "query": {

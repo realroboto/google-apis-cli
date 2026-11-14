@@ -1,0 +1,140 @@
+{
+  "fullyEncodeReservedExpansion": true,
+  "version_module": true,
+  "documentationLink": "https://developers.google.com/merchant/api",
+  "revision": "20261111",
+  "protocol": "rest",
+  "batchPath": "batch",
+  "canonicalName": "Merchant",
+  "rootUrl": "https://merchantapi.googleapis.com/",
+  "title": "Merchant API",
+  "basePath": "",
+  "ownerDomain": "google.com",
+  "id": "merchantapi:accounts_v1",
+  "schemas": {},
+  "parameters": {
+    "upload_protocol": {
+      "type": "string",
+      "location": "query",
+      "description": "Upload protocol for media (e.g. \"raw\", \"multipart\")."
+    },
+    "oauth_token": {
+      "description": "OAuth 2.0 token for the current user.",
+      "location": "query",
+      "type": "string"
+    },
+    "$.xgafv": {
+      "enumDescriptions": ["v1 error format", "v2 error format"],
+      "enum": ["1", "2"],
+      "description": "V1 error format.",
+      "location": "query",
+      "type": "string"
+    },
+    "quotaUser": {
+      "location": "query",
+      "description": "Available to use for quota purposes for server-side applications. Can be any arbitrary string assigned to a user, but should not exceed 40 characters.",
+      "type": "string"
+    },
+    "alt": {
+      "enum": ["json", "media", "proto"],
+      "default": "json",
+      "location": "query",
+      "description": "Data format for response.",
+      "type": "string",
+      "enumDescriptions": [
+        "Responses with Content-Type of application/json",
+        "Media download with context-dependent Content-Type",
+        "Responses with Content-Type of application/x-protobuf"
+      ]
+    },
+    "access_token": {
+      "description": "OAuth access token.",
+      "location": "query",
+      "type": "string"
+    },
+    "fields": {
+      "type": "string",
+      "description": "Selector specifying which fields to include in a partial response.",
+      "location": "query"
+    },
+    "key": {
+      "location": "query",
+      "description": "API key. Your API key identifies your project and provides you with API access, quota, and reports. Required unless you provide an OAuth 2.0 token.",
+      "type": "string"
+    },
+    "callback": {
+      "type": "string",
+      "description": "JSONP",
+      "location": "query"
+    },
+    "uploadType": {
+      "location": "query",
+      "description": "Legacy upload protocol for media (e.g. \"media\", \"multipart\").",
+      "type": "string"
+    },
+    "prettyPrint": {
+      "description": "Returns response with indentations and line breaks.",
+      "default": "true",
+      "location": "query",
+      "type": "boolean"
+    }
+  },
+  "discoveryVersion": "v1",
+  "version": "accounts_v1",
+  "mtlsRootUrl": "https://merchantapi.mtls.googleapis.com/",
+  "baseUrl": "https://merchantapi.googleapis.com/",
+  "servicePath": "",
+  "name": "merchantapi",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/content": {
+          "description": "Manage your product listings and accounts for Google Shopping"
+        }
+      }
+    }
+  },
+  "ownerName": "Google",
+  "icons": {
+    "x16": "http://www.google.com/images/icons/product/search-16.gif",
+    "x32": "http://www.google.com/images/icons/product/search-32.gif"
+  },
+  "kind": "discovery#restDescription",
+  "description": "Programmatically manage your Merchant Center Accounts.",
+  "resources": {
+    "accounts": {
+      "methods": {
+        "list": {
+          "parameterOrder": [],
+          "description": "Note: For the `accounts.list` method, quota and limits usage are charged for each user, and not for the Merchant Center ID or the advanced account ID. To list several sub-accounts, you should use the `accounts.listSubaccounts` method, which is more suitable for advanced accounts use case. For more information, see [Filter accounts you can access](https://developers.google.com/merchant/api/guides/accounts/filter).",
+          "flatPath": "accounts/v1/accounts",
+          "path": "accounts/v1/accounts",
+          "response": {
+            "$ref": "ListAccountsResponse"
+          },
+          "id": "merchantapi.accounts.list",
+          "scopes": ["https://www.googleapis.com/auth/content"],
+          "httpMethod": "GET",
+          "parameters": {
+            "filter": {
+              "description": "Optional. Returns only accounts that match the [filter](https://developers.google.com/merchant/api/guides/accounts/filter). For more details, see the [filter syntax reference](https://developers.google.com/merchant/api/guides/accounts/filter-syntax).",
+              "location": "query",
+              "type": "string"
+            },
+            "pageToken": {
+              "type": "string",
+              "description": "Optional. A page token, received from a previous `accounts.list` call. Provide this to retrieve the subsequent page. When paginating, all other parameters provided in the `accounts.list` request must match the call that provided the page token.",
+              "location": "query"
+            },
+            "pageSize": {
+              "type": "integer",
+              "format": "int32",
+              "location": "query",
+              "description": "Optional. The maximum number of accounts to return. The service may return fewer than this value. If unspecified, at most 250 accounts are returned. The maximum value is 500; values above 500 are coerced to 500."
+            }
+          }
+        }
+      }
+    }
+  }
+}

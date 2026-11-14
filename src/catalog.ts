@@ -13,6 +13,7 @@ import type {
   ApiResource,
   DiscoveryParam,
   DiscoverySchema,
+  EntitySource,
   FetchLike,
   HttpMethod,
 } from './types.ts';
@@ -141,6 +142,24 @@ export async function openCatalog({
   return { entries, load, cacheDir };
 }
 
+// Every entity source of an entry, children included.
+export function entitySources(entry: ApiEntry): EntitySource[] {
+  const sources = [...(entry.entities ?? [])];
+  for (const source of sources) sources.push(...Object.values(source.children ?? {}));
+  return sources;
+}
+
+// `discovery:check` part: entity sources that call another entry's method, checked against
+// that entry's model. Kept out of `load`, so one API never fetches another API's document.
+export function foreignSourceProblems(entry: ApiEntry, models: Map<string, ApiModel>): string[] {
+  return entitySources(entry).flatMap((s) => {
+    if (s.api === undefined || s.api === entry.api) return [];
+    const model = models.get(s.api);
+    if (!model) return [`entities ${s.api} ${s.method}: api not loaded`];
+    return model.byId.has(s.method) ? [] : [`entities ${s.api} ${s.method}: not in the document`];
+  });
+}
+
 // `https://www.googleapis.com/auth/x` → `x`; any other scope URL stays as is.
 export const shortScope = (scope: string): string =>
   scope.startsWith(AUTH_PREFIX) ? scope.slice(AUTH_PREFIX.length) : scope;
@@ -204,11 +223,11 @@ function toModel(doc: DiscoveryDoc, entry: ApiEntry): ApiModel {
     else problems.push(`reads ${m.id}: ${m.httpMethod}, not a POST`);
   });
 
-  // An entity source on a method the document lacks would fail every sync of the API.
-  const sources = [...(entry.entities ?? [])];
-  for (const source of sources) {
+  // An entity source on a method the document lacks would fail every sync of the API. A
+  // source of another entry's method is checked by `foreignSourceProblems`.
+  for (const source of entitySources(entry)) {
+    if (source.api !== undefined && source.api !== entry.api) continue;
     if (!byId.has(source.method)) problems.push(`entities ${source.method}: not in the document`);
-    sources.push(...Object.values(source.children ?? {}));
   }
 
   return {

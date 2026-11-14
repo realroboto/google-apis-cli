@@ -1235,9 +1235,13 @@ test('bigquery: jobs.query plans a POST, is not a cacheable read, and consent as
     import('./fixtures/apis/bigquery.ts'),
     import('../src/apis/bigquery.ts'),
   ]);
-  const { helpers, ...overlays } = shipped.default;
+  const { helpers, entities, ...overlays } = shipped.default;
   assert.deepEqual(fixture.default, overlays);
   assert.deepEqual(Object.keys(helpers), ['+query']);
+  assert.deepEqual(
+    entities.map((s) => s.method),
+    ['bigquery.projects.list'],
+  );
   assert.match((await fx(['bigquery'])).stdout, /^resources:\n {2}jobs\n/m);
   const query = [
     'bigquery',

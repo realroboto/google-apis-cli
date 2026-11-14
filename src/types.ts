@@ -45,8 +45,11 @@ export type Entity = { kind: string; id: string; name?: string; parent?: string;
 // Entity source overlay (#200 D6): one list method, read page by page. `children` maps an
 // entity kind to the source that runs once per entity of that kind, with it as `parent`.
 export type EntitySource = {
+  api?: string; // API entry whose document has `method`; default: the entry that declares it
   method: string; // method id
   params?: (parent: Entity | undefined) => Record<string, unknown>;
+  body?: (parent: Entity | undefined) => Record<string, unknown>;
+  headers?: (parent: Entity | undefined) => Record<string, string>; // over the entry's settings
   entities: (data: unknown, parent: Entity | undefined) => Entity[]; // rows of one page
   children?: Record<string, EntitySource>;
 };

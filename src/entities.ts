@@ -22,8 +22,14 @@ const SCHEMA = `create virtual table if not exists entity using fts5(
 
 export type EntityHit = Entity & { api: string; synced: number };
 
-// One list call: every decoded page of `method` called with `params`.
-export type ListCall = (method: string, params: Record<string, unknown>) => AsyncIterable<unknown>;
+// One list call: every decoded page of `method` (of entry `api`, default the synced one).
+export type ListCall = (call: {
+  api?: string;
+  method: string;
+  params: Record<string, unknown>;
+  body?: Record<string, unknown>;
+  headers?: Record<string, string>;
+}) => AsyncIterable<unknown>;
 
 // Domain key: URL host, lower case (IDN as punycode), no leading `www.`.
 // shortcut: no public-suffix parsing, so `shop.acme.com` does not link to `acme.com`; upgrade
@@ -105,20 +111,35 @@ export function openEntities(file: string) {
   }
 
   // Reads every source of one API, then replaces that API's rows in one transaction; a
-  // failed call throws before the write, so the old rows stay. Returns the row count.
+  // failed call throws before the write, so the old rows stay. Rows of one kind and ID merge
+  // (later defined fields win), so a child can add a domain or name. Returns the row count.
   async function sync(
     api: string,
     sources: EntitySource[],
     identity: string,
     request: ListCall,
   ): Promise<number> {
-    const rows: Entity[] = [];
+    const merged = new Map<string, Entity>();
     const walk = async (source: EntitySource, parent?: Entity): Promise<void> => {
       const found: Entity[] = [];
-      for await (const page of request(source.method, source.params?.(parent) ?? {})) {
-        found.push(...source.entities(page, parent));
+      const call = {
+        api: source.api,
+        method: source.method,
+        params: source.params?.(parent) ?? {},
+        body: source.body?.(parent),
+        headers: source.headers?.(parent),
+      };
+      for await (const page of request(call)) found.push(...source.entities(page, parent));
+      for (const e of found) {
+        const key = `${e.kind}\0${e.id}`;
+        const was = merged.get(key);
+        merged.set(key, {
+          ...e,
+          name: e.name ?? was?.name,
+          parent: e.parent ?? was?.parent,
+          domain: e.domain ?? was?.domain,
+        });
       }
-      rows.push(...found);
       for (const e of found) {
         const { children } = source;
         const child = children && Object.hasOwn(children, e.kind) ? children[e.kind] : undefined;
@@ -126,6 +147,7 @@ export function openEntities(file: string) {
       }
     };
     for (const source of sources) await walk(source);
+    const rows = [...merged.values()];
     const now = Date.now();
     return use((db) => {
       db.exec('begin');

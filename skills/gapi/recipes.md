@@ -9,25 +9,20 @@ Common business questions mapped to commands. A test dry-runs each one.
 
 ## IDs
 
-| ID | Form | Lookup command below | Projection |
-|---|---|---|---|
-| GA4 property | `properties/<id>` | 1 | `jq '.accountSummaries[].propertySummaries[] \| {property, displayName}'` |
-| GSC site | `sc-domain:example.com` or `https://www.example.com/` | 2 | `jq '.siteEntry[] \| {siteUrl, permissionLevel}'` |
-| GTM container | `accounts/<a>/containers/<c>` | 3, then 4 | `jq '.container[] \| {path, name, publicId}'` (4) |
-| Ads customer | 10 digits, no hyphens | 5 | `jq -r '.resourceNames[] \| ltrimstr("customers/")'` |
+Run `gapi entities sync` once; it stores your IDs for 7 days. Then find each ID by brand, domain or part of an ID. Paste the hit's ID column.
 
-```sh
-gapi ga4-admin accountSummaries list --dry-run
-gapi gsc sites list --dry-run
-gapi gtm accounts list --dry-run
-gapi gtm accounts containers list --params '{"parent":"accounts/123"}' --dry-run
-gapi ads customers listAccessibleCustomers --dry-run
-```
+| ID | Form | Find call (hit kind) |
+|---|---|---|
+| GA4 property | `properties/<id>` | `gapi entities find <brand> --api ga4-admin` (`property`) |
+| GSC site | `sc-domain:example.com` or `https://www.example.com/` | `gapi entities find <domain> --api gsc` (`site`) |
+| GTM container | `accounts/<a>/containers/<c>` | `gapi entities find <brand> --api gtm` (`container`) |
+| Ads customer | 10 digits, no hyphens | `gapi entities find <brand> --api ads` (`customer`; parent = manager) |
+| BigQuery GA4 export | `<project>.analytics_<id>` | `gapi entities find properties/<id> --api bigquery` (`dataset`) |
 
 ## GA4: this period vs the previous one
 
 - Question: how did sessions and revenue change against the previous month?
-- IDs: GA4 property.
+- IDs: GA4 property: `gapi entities find <brand> --api ga4-admin`.
 - Two named `dateRanges` in one call. GA4 adds the `dateRange` dimension with each range's `name` ([Google](https://developers.google.com/analytics/devguides/reporting/data/v1/basics)).
 
 ```sh
@@ -39,7 +34,7 @@ Projection: `jq '.rows[] | {range: .dimensionValues[0].value, sessions: .metricV
 ## GA4: top pages
 
 - Question: which pages get the most views?
-- IDs: GA4 property.
+- IDs: GA4 property: `gapi entities find <brand> --api ga4-admin`.
 
 ```sh
 gapi ga4-data properties runReport --params '{"property":"properties/123"}' --body '{"dateRanges":[{"startDate":"28daysAgo","endDate":"yesterday"}],"dimensions":[{"name":"pagePath"}],"metrics":[{"name":"screenPageViews"},{"name":"activeUsers"}],"orderBys":[{"metric":{"metricName":"screenPageViews"},"desc":true}],"limit":10}' --dry-run
@@ -50,7 +45,7 @@ Projection: `jq '.rows[] | {page: .dimensionValues[0].value, views: .metricValue
 ## GA4: channel breakdown
 
 - Question: which channels bring sessions, key events and revenue?
-- IDs: GA4 property.
+- IDs: GA4 property: `gapi entities find <brand> --api ga4-admin`.
 
 ```sh
 gapi ga4-data properties runReport --params '{"property":"properties/123"}' --body '{"dateRanges":[{"startDate":"28daysAgo","endDate":"yesterday"}],"dimensions":[{"name":"sessionDefaultChannelGroup"}],"metrics":[{"name":"sessions"},{"name":"keyEvents"},{"name":"totalRevenue"}],"orderBys":[{"metric":{"metricName":"sessions"},"desc":true}]}' --dry-run
@@ -61,7 +56,7 @@ Projection: `jq '.rows[] | {channel: .dimensionValues[0].value, sessions: .metri
 ## GA4: organic landing pages
 
 - Question: where do organic search sessions land?
-- IDs: GA4 property.
+- IDs: GA4 property: `gapi entities find <brand> --api ga4-admin`.
 
 ```sh
 gapi ga4-data properties runReport --params '{"property":"properties/123"}' --body '{"dateRanges":[{"startDate":"28daysAgo","endDate":"yesterday"}],"dimensions":[{"name":"landingPagePlusQueryString"}],"metrics":[{"name":"sessions"},{"name":"keyEvents"}],"dimensionFilter":{"filter":{"fieldName":"sessionDefaultChannelGroup","stringFilter":{"value":"Organic Search"}}},"orderBys":[{"metric":{"metricName":"sessions"},"desc":true}],"limit":20}' --dry-run
@@ -72,7 +67,7 @@ Projection: `jq '.rows[] | {page: .dimensionValues[0].value, sessions: .metricVa
 ## GSC: low-CTR queries
 
 - Question: which queries get impressions but few clicks?
-- IDs: GSC site.
+- IDs: GSC site: `gapi entities find <domain> --api gsc`.
 - Data lag: data is typically available after 2–3 days ([Google](https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data)). End the range 3 days before today.
 - The API has no metric filter; `jq` applies the thresholds.
 - Rows come sorted by clicks. Low-CTR queries sit in the tail: raise `rowLimit` (max 25,000) to reach more of them.
@@ -86,7 +81,7 @@ Projection: `jq '.rows[] | select(.impressions >= 100 and .ctr < 0.02) | {query:
 ## GSC: URL inspection
 
 - Question: is this page indexed, and which canonical does Google pick?
-- IDs: GSC site; the URL must belong to it.
+- IDs: GSC site: `gapi entities find <domain> --api gsc`; the URL must belong to it.
 - Lag: the result shows the version in the Google index, from the last crawl (`lastCrawlTime`), not the live page. The API has no live test ([Google](https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect)).
 
 ```sh
@@ -98,7 +93,7 @@ Projection: `jq '.inspectionResult.indexStatusResult | {verdict, coverageState, 
 ## GTM: tag audit
 
 - Question: which tags are live, what type are they, and are any paused?
-- IDs: GTM container.
+- IDs: GTM container: `gapi entities find <brand> --api gtm`.
 - Reads the published (live) container version, not a workspace draft.
 
 ```sh
@@ -110,7 +105,7 @@ Projection: `jq '.tag[] | {name, type, paused, firingTriggerId}'`
 ## Ads: spend by campaign
 
 - Question: what did each campaign spend in the last 30 days?
-- IDs: Ads customer. Manager access: add `--login-customer-id <manager id>`.
+- IDs: Ads customer: `gapi entities find <brand> --api ads`. Manager access: add `--login-customer-id <manager id>` (the hit's parent).
 - `cost_micros` is in the account currency; divide by 1,000,000. REST returns it as `costMicros`, an int64 string.
 
 ```sh
@@ -149,7 +144,7 @@ Projections: first command `jq -r '.items[0].contentDetails.relatedPlaylists.upl
 
 The GA4 daily export writes one table per day, `events_YYYYMMDD`, to the dataset `analytics_<property id>` ([Google](https://support.google.com/analytics/answer/7029846)).
 
-- IDs: `my-project` = the Cloud project of the export dataset; `123` = the GA4 property id. `--project` is the job project.
+- IDs: `my-project.analytics_123` = the export dataset: `gapi entities find properties/123 --api bigquery`. `123` = the GA4 property id. `--project` is the job project.
 - Date filter: `events_*` plus `_TABLE_SUFFIX BETWEEN "YYYYMMDD" AND "YYYYMMDD"` scans only those days. Bytes scanned = cost; select only the columns you need.
 - SQL goes in single quotes: the shell then leaves the backticks alone. Use double quotes for SQL strings (GoogleSQL accepts both).
 - `+query` runs a free dry run first: not `SELECT` → exit 3, estimate over `--max-bytes` (default 10 GiB) → exit 1. `--estimate` prints the estimate and runs nothing.
