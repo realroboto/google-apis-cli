@@ -116,20 +116,25 @@ export type CallPlan = {
   headers: Record<string, string>;
   body?: unknown;
   auth: { kind: ApiModel['auth']; scopes: string[] };
-  decode?: (data: unknown) => unknown; // reshapes a `once` response or the batch results
+  decode?: (data: unknown) => unknown; // reshapes every response; `undefined` prints nothing
   retry?: true; // safe to resend: GET, HEAD, PUT, DELETE or a `reads` POST
   warnings: string[];
 } & SendMode;
 
-// How Transport sends a plan: one request, `pageToken` pages (D6) in the query or the
-// body object, a media upload, a media download to a file, or batch parts (D7).
+// How Transport sends a plan: one request, a request chain under a follow rule (D3), a
+// media upload, a media download to a file, or batch parts (D7).
 export type SendMode =
   | { send: 'once' }
-  | { send: 'pages'; pageLimit: number; paging: 'query' }
-  | { send: 'pages'; pageLimit: number; paging: 'body'; body: Record<string, unknown> }
+  | { send: 'pages'; pageLimit: number; follow: Follow }
   | { send: 'upload'; upload: Upload }
   | { send: 'download'; output: string }
   | { send: 'batch'; parts: BatchPart[] };
+
+// One request of a `pages` chain; the plan's headers go with every request.
+export type Step = { httpMethod: HttpMethod; url: string; body?: unknown };
+
+// Follow rule (#200 D3): from the last response and its request, the next request, or stop.
+export type Follow = (data: unknown, last: Step) => Step | undefined;
 
 // One inner request of a batch call.
 export type BatchPart = {
