@@ -37,7 +37,7 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
 ## Terms evidence (read 2026-11-05)
 
 - Google APIs Terms §5: "Unless expressly permitted by the content owner or by applicable law, you will not … keep cached copies longer than permitted by the cache header". https://developers.google.com/terms
-  - Reading: the operator owns their Ads, GA4, Search Console, Tag Manager, Merchant, Business Profile, SA360, CM360, DV360, YouTube channel and Postmaster data. `--cache` is the content owner's express, per-call permission.
+  - Reading: the operator owns their Ads, GA4, Search Console, Tag Manager, Merchant, Business Profile, SA360, CM360, DV360, YouTube channel, Postmaster and BigQuery warehouse data (BigQuery added by #208). `--cache` is the content owner's express, per-call permission.
   - CrUX and PageSpeed return Google-owned content → `nocache`.
 - Places: "You must not pre-fetch, cache, or store Places API content beyond the allowed exceptions, although the `place_id` is exempt from caching restrictions." → `nocache`. https://developers.google.com/maps/documentation/places/web-service/policies
 - Web Risk: "Clients of the Lookup API should cache each returned `ThreatUrl` item until the the time defined in the `expireTime` field." A fixed age ignores `expireTime` → `nocache`. https://cloud.google.com/web-risk/docs/caching
@@ -45,7 +45,7 @@ Agents repeat identical reads (a new session lists accounts again, a report re-r
 
 ## Accepted limits
 
-- Content shared with the operator but owned by others (a shared spreadsheet, an agency property) is cached only when the operator asks with `--cache`. The skill says `--cache` means "I permit caching of this content".
+- Content shared with the operator but owned by others (a shared spreadsheet, an agency property, a client-owned BigQuery dataset) is cached only when the operator asks with `--cache`. The skill says `--cache` means "I permit caching of this content".
 - In Testing mode the refresh token expires every 7 days; the weekly re-login clears the cache.
 
 ## Considered options
