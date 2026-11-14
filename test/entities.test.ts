@@ -226,11 +226,11 @@ test('entities find: an empty, foreign-identity, aged or unreadable index says s
   t.mock.timers.reset();
   assert.equal((await run(['entities', 'find', 'acme'])).stderr, empty);
   // A database of another schema version, or no database at all, is dropped and rebuilt.
-  for (const stale of ['future version', 'not a database']) {
+  for (const stale of ['future version', 'unversioned', 'not a database']) {
     assert.equal((await run(['entities', 'sync'], { fetch: google().fetch })).code, 0);
-    if (stale === 'future version') {
+    if (stale !== 'not a database') {
       const db = new DatabaseSync(join(dir, 'entities.db'));
-      db.exec('pragma user_version = 99');
+      db.exec(`pragma user_version = ${stale === 'future version' ? 99 : 0}`);
       db.close();
     } else writeFileSync(join(dir, 'entities.db'), stale);
     assert.equal((await run(['entities', 'find', 'acme'])).stderr, empty, stale);

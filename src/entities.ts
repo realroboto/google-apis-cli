@@ -5,7 +5,7 @@
 // when @types/node types Database.
 
 import { existsSync } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { GapiError } from './errors.ts';
@@ -58,29 +58,33 @@ export function openEntities(file: string) {
     await Promise.all(['', '-journal'].map((s) => rm(`${file}${s}`, { force: true })));
   };
 
-  // Created mode 600 before SQLite opens it (SQLite gives its journal the same mode).
-  const create = async (): Promise<DatabaseSync> => {
+  // Created mode 600 before SQLite opens it (SQLite gives its journal the same mode). `fresh`:
+  // the file is empty, so it is new (or a racing process has not written it yet).
+  const create = async (): Promise<{ db: DatabaseSync; fresh: boolean }> => {
     await mkdir(dirname(file), { recursive: true, mode: 0o700 });
     await writeFile(file, '', { mode: 0o600, flag: 'a' });
-    return new DatabaseSync(file, { timeout: BUSY_MS });
+    const fresh = (await stat(file)).size === 0;
+    return { db: new DatabaseSync(file, { timeout: BUSY_MS }), fresh };
   };
 
-  // Version 0 is a new file: the schema is added in place. A file of another schema version, or
-  // not a database at all, is dropped and rebuilt empty.
+  // A new file gets the schema in place. A file of another schema version, or not a database
+  // at all, is dropped and rebuilt empty.
   async function open(): Promise<DatabaseSync> {
-    let db = await create();
-    let version = versionOf(db);
-    if (version !== 0 && version !== VERSION) {
-      db.close();
-      await clear();
-      db = await create();
-      version = 0;
-    }
-    if (version === 0) {
+    let { db, fresh } = await create();
+    try {
+      if (!fresh && versionOf(db) === VERSION) return db;
+      if (!fresh) {
+        db.close();
+        await clear();
+        ({ db } = await create());
+      }
       db.exec(SCHEMA);
       db.exec(`pragma user_version = ${VERSION}`);
+      return db;
+    } catch (e) {
+      if (db.isOpen) db.close();
+      throw e;
     }
-    return db;
   }
 
   async function use<T>(fn: (db: DatabaseSync) => T): Promise<T> {
