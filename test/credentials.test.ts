@@ -12,11 +12,11 @@ import {
 import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PassThrough, Writable } from 'node:stream';
+import { PassThrough, Readable, Writable } from 'node:stream';
 import { after, test } from 'node:test';
 import type { Credentials, GenerateAuthUrlOpts } from 'google-auth-library';
 import { OAuth2Client } from 'google-auth-library';
-import { defaultPrompt, openCredentials } from '../src/credentials.ts';
+import { openCredentials, openPrompt } from '../src/credentials.ts';
 import { GapiError } from '../src/errors.ts';
 import type { OAuthClient } from '../src/types.ts';
 
@@ -460,7 +460,7 @@ test('logout keeps credentials.json and exits 1 on a network error or another st
 
 // Masking runs through readline's own terminal echo, so drive a terminal-mode
 // interface over in-memory streams: unmasked, the typed value reaches `output`.
-test('defaultPrompt masks a secret answer but echoes a normal one', async () => {
+test('openPrompt masks a secret answer but echoes a normal one', async () => {
   const ask = async (secret: boolean) => {
     const input = new PassThrough();
     let seen = '';
@@ -470,9 +470,14 @@ test('defaultPrompt masks a secret answer but echoes a normal one', async () => 
         cb();
       },
     });
-    const answered = defaultPrompt('pw: ', { secret, input, output, terminal: true });
+    const p = openPrompt({ input, output, terminal: true });
+    const answered = p.ask('pw: ', { secret });
     input.write('hunter2\n');
-    return { value: await answered, seen };
+    try {
+      return { value: await answered, seen };
+    } finally {
+      p.close();
+    }
   };
 
   const masked = await ask(true);
@@ -482,4 +487,26 @@ test('defaultPrompt masks a secret answer but echoes a normal one', async () => 
 
   const plain = await ask(false);
   assert.equal(plain.seen.includes('hunter2'), true, 'non-secret answers echo as before');
+});
+
+// A pipe delivers every answer in one chunk: each prompt, secret or not, gets the next line.
+test('piped setup answers every prompt from one chunk, then exits 3 on early end', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'gapi-pipe-'));
+  after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(
+    join(dir, 'config.json'),
+    JSON.stringify({ oauth_client_id: 'c', oauth_client_secret: 's' }),
+  );
+  const sink = new Writable({ write: (_c, _e, cb) => cb() });
+  const setup = (text: string) =>
+    openCredentials({ dir, env: {}, stdin: Readable.from([text]), stderr: sink }).setup([
+      { ...ADS, api: 'ads' },
+    ]);
+  await setup('\nS2\n\nKEY\n');
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')), {
+    oauth_client_id: 'c',
+    oauth_client_secret: 'S2',
+    api_key: 'KEY',
+  });
+  await assert.rejects(setup('\n'), (e: unknown) => e instanceof GapiError && e.exit === 3);
 });
