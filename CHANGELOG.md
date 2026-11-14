@@ -2,6 +2,12 @@
 
 Newest first. One section per npm version.
 
+## Unreleased
+
+### Added
+
+- Recipes and SETUP step 9: Cloud Quotas guards for Places (32 requests per day per billed method) and Web Risk (`uris.search` 2 per minute, `hashes.search` 0) (#201).
+
 ## 0.4.0 — 2026-11-14
 
 Since 0.3.0 (`5795d4f..344accc`).

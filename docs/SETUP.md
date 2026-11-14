@@ -313,11 +313,15 @@ console, a second machine), so `gapi` keeps none.
    export adds BigQuery costs ([GA4 Help](https://support.google.com/analytics/answer/9358801)).
    No link yet: link the property to the free project (GA4 **Admin → BigQuery links**). It
    exports "free of charge (sandbox limits apply)" ([GA4 Help](https://support.google.com/analytics/answer/9823238)).
-4. **Query quota** on each billing project that runs queries: recipe
+4. **Quotas.** Query quota on each billing project that runs queries: recipe
    [BigQuery: 32 GiB of queries per day](../skills/gapi/recipes.md#bigquery-32-gib-of-queries-per-day).
    Read it back: recipe [All quota preferences](../skills/gapi/recipes.md#all-quota-preferences).
+   **Places and Web Risk quotas** on the billing project: recipes
+   [Places](../skills/gapi/recipes.md#places-32-requests-per-day-per-billed-method) and
+   [Web Risk](../skills/gapi/recipes.md#web-risk-urissearch-2-per-minute-hashessearch-0).
 5. **Budget alert** on the billing account: **Billing → Budgets & alerts → Create budget**,
-   amount $1, email alerts on. It reports a mistake; the quotas prevent it. The console sets it:
+   amount $1, email alerts on. It is a tripwire, not a cap. It reports a mistake; the
+   quotas prevent it. The console sets it:
    the Budget API would add a scope.
 
 Limits on the billing project come from Google's rule for a free cap: "divide the free usage cap
@@ -326,7 +330,12 @@ by 31 … and round down" ([Maps: Manage costs](https://developers.google.com/ma
 - **BigQuery queries:** 1 TiB per month free per billing account. `QueryUsagePerDay` = 32 GiB
   (31 × 32 GiB = 992 GiB). All query projects on one billing account share the 1 TiB: their
   daily quotas add up to 33 GiB or less (two projects: 16 GiB each).
-- **Places, Web Risk:** quotas per billed method, #201.
+- **Places:** 32 requests per day on each billed method (`autocomplete`, `get`, `photos.getMedia`,
+  `searchNearby`, `searchText`). 32 = floor(1,000 / 31). The field mask picks the SKU; the lowest
+  Places cap is 1,000 per month. No SKU is billed by two of these methods, so each gets the full 32.
+- **Web Risk:** no per-day quota exists, only per minute. `uris.search` 2 per minute
+  (floor(100,000 / 31 / 1,440); at most 89,280 per 31 days); `hashes.search` 0 (no free use).
+- A refused call exits 1 with Google's quota message.
 
 **BigQuery sandbox** (the free project) ([BigQuery sandbox](https://docs.cloud.google.com/bigquery/docs/sandbox)):
 
@@ -361,7 +370,8 @@ Rejected options:
 
 **Done when** recipe [All quota preferences](../skills/gapi/recipes.md#all-quota-preferences) shows
 `QueryUsagePerDay` with `grantedValue` = 32 GiB (or your share) in the `metricUnit` unit. Check
-each billing project that runs queries. The free project's **Billing** page shows no billing account.
+each billing project that runs queries. The billing project also shows the five Places quotas at
+32 and the two Web Risk quotas at 2 and 0. The free project's **Billing** page shows no billing account.
 
 ---
 
