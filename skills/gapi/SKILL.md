@@ -132,10 +132,12 @@ Hand commands carry a `+` prefix; `gapi <api>` lists them.
 gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer 1234567890 --dry-run
 gapi ads +gaql "SELECT campaign.id FROM campaign" --customer 1234567890 --stream --dry-run
 gapi indexing +publishBatch urls.txt --dry-run
+gapi bigquery +query 'SELECT 1 AS n' --project my-project --dry-run
 ```
 
 - `+gaql`: `--customer` = account id, 10 digits, no hyphens. Without `--stream`: first `search` page as returned. With `--stream`: `searchStream`, every row in one `results` array; a chunk with an `error` key → exit 1 with that chunk.
 - `+publishBatch <file>`: lines `URL_UPDATED <url>` or `URL_DELETED <url>` (blank and `#` lines skipped); 100 per batch call; prints `[{ url, type, status, body }]`; exit 1 if any part fails.
+- `+query "<sql>" [--max-bytes <n>] [--estimate] [--page-limit <n>]`: one read-only GoogleSQL statement; job project = `--project`, `GOOGLE_CLOUD_PROJECT` or config `project` (none → exit 3). A free dry run runs first: statement not `SELECT` → exit 3 (use `jobs insert`); estimate over the budget (default 10 GiB) → exit 1; nothing runs. The query carries the budget as `maximumBytesBilled`: over it, BigQuery fails it without charge → exit 1. Waits for the job, then prints one line per result page (max `--page-limit`, default 10): `{ rows, totalRows, totalBytesProcessed, cacheHit }`. Rows are objects by column name: INT64, NUMERIC, BIGNUMERIC as strings; TIMESTAMP as ISO 8601; RECORD as object; REPEATED as array. `--estimate` prints `{ statementType, totalBytesProcessed }` only. `--cache` → exit 3. GA4 export SQL: [recipes](recipes.md#bigquery-ga4-export).
 
 ## Entities
 
