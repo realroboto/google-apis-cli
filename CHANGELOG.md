@@ -10,6 +10,10 @@ Newest first. One section per npm version.
 - `gapi entities sync` and `gapi entities find <words…>`: an offline index of GA4 accounts, properties, web streams and Search Console sites, per Google account, deleted on login and logout and after 7 days (#211, ADR 0002).
 - Skill recipes (`skills/gapi/recipes.md`): GA4, GSC, GTM, Ads, PageSpeed and YouTube business questions mapped to commands; a test dry-runs every SKILL.md and recipes example (#206).
 
+### Changed
+
+- Stack: pnpm 12.18.0, Biome 2.6.7, `google-auth-library` 11.3.4. Dependabot opens weekly PRs for npm and GitHub Actions: minor and patch in one group, each major alone (#204).
+
 ## 0.3.0 — 2026-11-05
 
 Since 0.2.0 (`e12a482..a916775`).
