@@ -77,7 +77,16 @@ export function openCredentials({
   let apiKey: string | undefined;
   let tokenClient: OAuthClient | undefined;
   let saving: Promise<void> | undefined; // the refreshed-token write the 'tokens' event starts
-  const ask: Prompt = (q, opts) => defaultPrompt(q, { ...opts, input: stdin, output: stderr });
+  // Each prompting command reads stdin through one session, closed when it ends (TTY raw mode).
+  const withPrompt = async <T>(given: Prompt | undefined, fn: (p: Prompt) => Promise<T>) => {
+    if (given) return fn(given);
+    const p = openPrompt({ input: stdin, output: stderr });
+    try {
+      return await fn(p.ask);
+    } finally {
+      p.close();
+    }
+  };
 
   // Only a missing file reads as {}: anything else stops before `setup` can overwrite it.
   // The parse error is not echoed, since V8 quotes the file text (secrets) in it.
@@ -227,7 +236,7 @@ export function openCredentials({
   async function login({
     consent,
     manual = false,
-    prompt = ask,
+    prompt,
   }: {
     consent: string[];
     manual?: boolean;
@@ -266,7 +275,8 @@ export function openCredentials({
           `After consent the browser cannot load ${LOOPBACK_HOST}:${LOOPBACK_PORT}; ` +
           'paste the full URL from its address bar.\n',
       );
-      const redirect = URL.parse((await prompt('redirected URL: ')).trim());
+      const answer = await withPrompt(prompt, (ask) => ask('redirected URL: '));
+      const redirect = URL.parse(answer.trim());
       if (!redirect) throw new GapiError(2, 'not a URL; paste the full URL from the address bar');
       return redeem(redirect);
     }
@@ -345,7 +355,7 @@ export function openCredentials({
   // `headers`: every entry's header specs, tagged with the entry's api.
   async function setup(
     headers: (HeaderSpec & { api: string })[],
-    prompt: Prompt = ask,
+    prompt?: Prompt,
   ): Promise<string> {
     const cfg = await readConfig();
     const fields: SetupField[] = [
@@ -358,13 +368,15 @@ export function openCredentials({
       })),
       API_KEY_FIELD,
     ];
-    for (const { key, label, required, secret } of fields) {
-      const cur = cfg[key];
-      const hint = cur != null ? ' [keep current]' : required ? '' : ' (blank to skip)';
-      const v = (await prompt(`${label}${hint}: `, { secret })).trim();
-      if (v) cfg[key] = v;
-      else if (required && cur == null) throw new GapiError(3, `${label} is required`);
-    }
+    await withPrompt(prompt, async (ask) => {
+      for (const { key, label, required, secret } of fields) {
+        const cur = cfg[key];
+        const hint = cur != null ? ' [keep current]' : required ? '' : ' (blank to skip)';
+        const v = (await ask(`${label}${hint}: `, { secret })).trim();
+        if (v) cfg[key] = v;
+        else if (required && cur == null) throw new GapiError(3, `${label} is required`);
+      }
+    });
     await writeSecure(configFile, cfg);
     return configFile;
   }
@@ -384,35 +396,50 @@ function accountFromIdToken(idToken: string): string | null {
   }
 }
 
-// `secret: true` keeps the typed value off the screen. Node has no masking
-// option, so point readline's echo at a sink and print the question ourselves.
-// `terminal: true` is what makes this safe: it puts the tty in raw mode, so the
-// driver stops echoing too and the sink is the only writer left. Streams are
-// injected (Credentials passes the ones `run` got), so the masking has a test.
-export async function defaultPrompt(
-  q: string,
-  {
-    secret = false,
-    input,
-    output,
-    terminal,
-  }: {
-    secret?: boolean;
-    input: NodeJS.ReadableStream;
-    output: NodeJS.WritableStream;
-    terminal?: boolean;
-  },
-): Promise<string> {
-  if (secret) output.write(q);
+// `secret: true` keeps the typed value off the screen. Node has no masking option.
+// So readline echoes through a gate that drops writes during a secret.
+// TTY raw mode stops the driver echo; a pipe echoes nothing.
+export function openPrompt({
+  input,
+  output,
+  terminal,
+}: {
+  input: NodeJS.ReadableStream;
+  output: NodeJS.WritableStream;
+  terminal?: boolean;
+}): { ask: Prompt; close: () => void } {
+  let muted = false; // a secret: drop the terminal echo of what the user types
   const rl = createInterface({
     input,
-    output: secret ? new Writable({ write: (_c, _e, cb) => cb() }) : output,
-    terminal: secret ? true : terminal,
+    output: new Writable({
+      write: (c, _e, cb) => {
+        if (!muted) output.write(c);
+        cb();
+      },
+    }),
+    terminal: terminal ?? ('isTTY' in input && input.isTTY === true),
   });
-  try {
-    return await rl.question(secret ? '' : q);
-  } finally {
-    rl.close();
-    if (secret) output.write('\n'); // the swallowed Enter never printed one
-  }
+  // One reader per session, made before any await: a pipe sends all answers in one chunk (#233).
+  const lines = rl[Symbol.asyncIterator]();
+  let ended = false; // input closed: buffered lines remain, but `rl.prompt` throws
+  rl.on('close', () => {
+    ended = true;
+  });
+  const ask: Prompt = async (q, { secret = false } = {}) => {
+    muted = secret;
+    if (secret || ended) output.write(q);
+    else {
+      rl.setPrompt(q); // terminal mode redraws the prompt on line edits
+      rl.prompt();
+    }
+    try {
+      const { value, done } = await lines.next();
+      if (done) throw new GapiError(3, `input ended before an answer to: ${q.trim()}`);
+      return value;
+    } finally {
+      muted = false;
+      if (secret) output.write('\n'); // the swallowed Enter (TTY) or the pipe never printed one
+    }
+  };
+  return { ask, close: () => rl.close() };
 }
