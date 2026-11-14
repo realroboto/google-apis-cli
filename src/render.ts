@@ -1,6 +1,7 @@
 // Renderers: plain text views over an ApiModel (epic #30 D4, story 8).
 import type { EntityHit } from './entities.ts';
 import { isRecord } from './json.ts';
+import type { Field } from './search.ts';
 import type { ApiMethod, ApiModel, ApiResource, DiscoveryParam, Helpers } from './types.ts';
 
 export const SCHEMA_USAGE =
@@ -11,6 +12,16 @@ export const DISCOVERY_USAGE = 'gapi discovery refresh [<api>…] | path';
 export const AUTH_USAGE = 'gapi auth setup | login [--manual] | status | logout';
 
 export const SEARCH_USAGE = 'gapi search <words…>';
+
+export const FIELDS_USAGE = 'gapi fields ads|sa360 <words…> | ga4-data <words…> --property <id>';
+
+export const FIELDS_HELP = `${FIELDS_USAGE}
+Max 20 ranked lines: <name>  <kind>  <first sentence of the description>.
+  ads, sa360  GAQL names (resource attributes, metrics., segments.) from the discovery document, no request
+  ga4-data    GA4 dimensions and metrics, custom ones included: one properties getMetadata request
+              (--property 123 or properties/123; 0 = the ones common to all properties)
+No --cache. Discovery has no GAQL compatibility (selectable_with): check it with
+googleAdsFields.search (gapi ads googleAdsFields search; sa360: searchAds360Fields search)`;
 
 export const ENTITIES_USAGE =
   'gapi entities sync [<api>…] [--page-limit <n>] | find <words…> [--api <api>]';
@@ -23,6 +34,7 @@ gapi <api> [<resource>…]                  list sub-resources and methods
 gapi <api> <resource>… <method> --help    method help
 gapi <api> +<helper> … [--dry-run] [--cache <age>] [--project <id>] [--api-key <key>] [<entry header flags>]
 ${SEARCH_USAGE}                      find methods by intent, max 20 hits
+${FIELDS_USAGE}
 ${ENTITIES_USAGE}
 ${SCHEMA_USAGE}
 ${DISCOVERY_USAGE}
@@ -124,7 +136,7 @@ const oneLine = (description = ''): string =>
     .split(/(?<=\.)\s+(?=[A-Z*])/)[0];
 
 // The first sentence, max 100 chars: one line of search hits and of `schema --find`.
-const brief = (description?: string): string => {
+export const brief = (description?: string): string => {
   const sentence = oneLine(description);
   const chars = [...sentence]; // code points: a cut never splits a surrogate pair
   return chars.length > 100 ? `${chars.slice(0, 99).join('')}…` : sentence;
@@ -195,6 +207,13 @@ export function searchText(hits: { model: ApiModel; method: ApiMethod }[]): stri
       const line = `gapi ${model.api} ${m.words.join(' ')}${marks(m)}  ${m.httpMethod}  ${brief(m.description)}`;
       return `${line.trimEnd()}\n`;
     })
+    .join('');
+}
+
+// #200 D7: one line per field, the shape of search hits.
+export function fieldsText(fields: Field[]): string {
+  return fields
+    .map((f) => `${`${f.name}  ${f.kind}  ${brief(f.description)}`.trimEnd()}\n`)
     .join('');
 }
 

@@ -27,12 +27,13 @@ Headless box (no browser)? `gapi auth login --manual` prints the URL; after cons
 ```sh
 gapi <api> <resource> [<sub-resource>…] <method> [--params '<json>'] [--body '<json>'] [--cache <age>] [--dry-run]
 gapi search <words…>                         # find methods by intent across every API entry (max 20 lines)
+gapi fields ads|sa360|ga4-data <words…>      # find GAQL / GA4 field names (max 20 lines; see Fields)
 gapi <api> [<resource>…]                     # list sub-resources and methods at that level
 gapi <api> <resource>… <method> --help       # method help: HTTP method, URL, params, body schema, scopes, marks, docs link
 ```
 
 - Words after `<api>` are the discovery `resources` path, then the method key, verbatim casing: `analyticsadmin.properties.dataStreams.list` → `gapi ga4-admin properties dataStreams list`.
-- Unknown word → exit 3 with the valid words. `gapi --help` lists every API. `gapi search --help`, `gapi schema --help`, `gapi discovery --help`, `gapi auth [<sub>] --help` print that command's usage (exit 0) and run nothing.
+- Unknown word → exit 3 with the valid words. `gapi --help` lists every API. `gapi search --help`, `gapi fields --help`, `gapi schema --help`, `gapi discovery --help`, `gapi auth [<sub>] --help` print that command's usage (exit 0) and run nothing.
 - Output: stdout is compact JSON, one line per response, when it is not a terminal (pipe, agent); a terminal gets a 2-space indent.
 
 ```sh
@@ -166,6 +167,22 @@ gapi entities find 3456 --api ga4-admin
 - `sync`: call count on stderr first, then one `<api>: <n> entities` line per API. A failed API keeps its old rows; exit 1.
 - `find` never picks an ID for you: check the hit belongs to the account you mean before a write.
 - Login and logout delete the index.
+
+## Fields
+
+Find a GAQL or GA4 field name before you write a query.
+
+```sh
+gapi fields ads cost per conversion          # GAQL names, offline from the discovery document
+gapi fields sa360 clicks
+gapi fields ga4-data channel group --property 123456   # one getMetadata request, custom fields too
+```
+
+- Line: `<name>  <kind>  <first sentence>`, best 20. Kinds: `ads`/`sa360` `attribute` (`<resource>.<field>`), `metric` (`metrics.`), `segment` (`segments.`); `ga4-data` `dimension`, `metric`.
+- GAQL names follow the discovery shape: nested messages expand (`campaign.network_settings.target_google_search`), arrays stay one field. Discovery has no compatibility (`selectable_with`): check it with `gapi ads googleAdsFields search` or `gapi sa360 searchAds360Fields search`.
+- `--property`: `123456` or `properties/123456`; `0` = fields common to all properties (no custom ones). Required on `ga4-data`, rejected elsewhere.
+- Words rank like `gapi search` (camelCase and `_` split, OR, bm25); GA4 UI names and deprecated API names rank too. A field whose last name part equals the words comes first (`date` → `segments.date`). No hit → exit 0, `gapi: no match`.
+- Other API, no word, or `--cache` → exit 3.
 
 ## Auth and headers
 

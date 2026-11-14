@@ -6,6 +6,7 @@ Newest first. One section per npm version.
 
 ### Added
 
+- `gapi fields <api> <words…>`: best 20 field names. `ads` and `sa360`: GAQL names offline from the discovery document. `ga4-data --property <id>`: GA4 dimensions and metrics, custom ones included, from one `getMetadata` request (#213).
 - `cloudquotas` entry: every Cloud Quotas v1 method (28); scope `cloud-platform`, already in the consent set, so no re-login (#210). SETUP step 9 (free-tier guards: project without billing, daily quotas, $1 budget alert) and recipes that set and list the BigQuery `QueryUsagePerDay` quota.
 - `gapi bigquery +query "<sql>"`: one read-only SQL query under a byte budget (default 10 GiB, `--max-bytes`). A free dry run refuses a non-`SELECT` statement (exit 3) or an estimate over the budget (exit 1) before any job; rows print as plain JSON objects, one line per page; `--estimate` prints the estimate only. GA4 export recipes in `skills/gapi/recipes.md` (#209).
 - `bigquery` entry: every BigQuery v2 method (47), scope `bigquery` (#208). **Re-login required:** run `gapi auth login` once; until then `gapi auth status` lists `bigquery` as missing and BigQuery calls exit 2.
