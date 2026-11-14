@@ -2,6 +2,12 @@
 
 Newest first. One section per npm version.
 
+## Unreleased
+
+### Added
+
+- `ads-project` setting (`--ads-project`, `GOOGLE_ADS_PROJECT`): Ads calls send it as `x-goog-user-project`, so the OAuth client can live in a project without Ads access while Ads uses an approved project. It overrides `project` for Ads only.
+
 ## 0.4.1 — 2026-11-14
 
 Since 0.4.0 (`6fe98dc..7e1257d`).

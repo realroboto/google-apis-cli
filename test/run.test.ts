@@ -218,6 +218,11 @@ test('credentials: API-key header, entry header flags', async () => {
   const search = ['ads', 'customers', 'googleAds', 'search', '--params', '{"customerId":"1"}'];
   const ads = await dryRun([...search, '--body', '{}', '--login-customer-id', '9'], true);
   assert.equal(ads.headers['login-customer-id'], '9');
+  const quota = await dryRun(
+    [...search, '--body', '{}', '--project', 'q', '--ads-project', 'p'],
+    true,
+  );
+  assert.equal(quota.headers['x-goog-user-project'], 'p');
 
   const { fetch, calls } = fakeFetch(() => Response.json({}));
   const gsc = await fx(['gsc', 'sites', 'list', '--login-customer-id', '9'], { fetch });

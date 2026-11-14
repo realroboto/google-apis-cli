@@ -109,6 +109,11 @@ manager account created from a Google account unconnected to your production man
 
 **Done when** the Overview page reads **Explorer** or higher, or you accept test-account-only calls.
 
+**OAuth client in a project without Ads access:** set `ads-project` to the id of a project at
+Explorer or higher. Ads calls then send it as `x-goog-user-project`, and Google checks the
+access level there. Your account needs `serviceusage.services.use` on that project (Owner or
+Editor has it). Other APIs keep `project`.
+
 ---
 
 ## 3. Business Profile access (Business Profile callers only)
@@ -443,6 +448,7 @@ gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
   "oauth_client_id": "...apps.googleusercontent.com",
   "oauth_client_secret": "...",
   "login-customer-id": "1234567890",
+  "ads-project": "my-ads-approved-project",
   "sa360-login-customer-id": "1234567890",
   "api_key": "...",
   "project": "my-quota-project"
@@ -454,6 +460,7 @@ gapi ads +gaql "SELECT campaign.id, campaign.name FROM campaign" --customer <ID>
 | `oauth_client_id` | — | `GAPI_OAUTH_CLIENT_ID` |
 | `oauth_client_secret` | — | `GAPI_OAUTH_CLIENT_SECRET` |
 | `login-customer-id` | `--login-customer-id` (ads only) | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` |
+| `ads-project` | `--ads-project` (ads only) | `GOOGLE_ADS_PROJECT` |
 | `sa360-login-customer-id` | `--login-customer-id` (sa360 only) | `SA360_LOGIN_CUSTOMER_ID` |
 | `api_key` | `--api-key` | `GAPI_API_KEY` |
 | `project` | `--project` | `GOOGLE_CLOUD_PROJECT` |

@@ -93,6 +93,13 @@ export default {
       env: 'GOOGLE_ADS_LOGIN_CUSTOMER_ID',
       configKey: 'login-customer-id',
     },
+    // Ads checks its access level on the quota project; this keeps it apart from `project`.
+    {
+      name: 'x-goog-user-project',
+      flag: 'ads-project',
+      env: 'GOOGLE_ADS_PROJECT',
+      configKey: 'ads-project',
+    },
   ],
   helpers: { '+gaql': gaql },
   // Customer IDs as calls take them: 10 digits, no `customers/` prefix.
