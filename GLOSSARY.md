@@ -2,7 +2,7 @@
 
 Terms of the call path (epic #30, D13) and the account model. One line each.
 
-- **API entry** — `src/apis/<api>.ts`: default-exports the CLI name, its discovery document URL and the overlays (retired, deprecated, paid, reads, nocache, headers, helpers) for one API.
+- **API entry** — `src/apis/<api>.ts`: default-exports the CLI name, its discovery document URL and the overlays (retired, deprecated, paid, reads, nocache, headers, helpers, entities) for one API.
 - **discovery document** — Google's machine-readable JSON description of one API version (resources, methods, parameters, schemas, scopes), fetched from its discovery URL and cached.
 - **Catalog** — `src/catalog.ts`: finds the API entries, loads and caches their discovery documents, and normalizes each into an ApiModel.
 - **ApiModel** — one API as the CLI sees it: the resource tree, method index, per-method scopes and auth kind, overlays applied, and schemas.
@@ -12,6 +12,9 @@ Terms of the call path (epic #30, D13) and the account model. One line each.
 - **follow rule** — a `pages` CallPlan's `follow(data, last)`: from the last response and its request, the next request, or `undefined` to stop. `--page-all` uses AIP-158 (`pageToken`); a helper can build its own.
 - **Credentials** — `src/credentials.ts`: the only reader and writer of `config.json` and `credentials.json`; resolves settings, authorizes requests (Bearer or API key) and runs login.
 - **Search** — `src/search.ts`: `gapi search <words…>`; ranks the methods of every ApiModel against the words with an in-memory SQLite FTS5 index built per call, best 20 first.
+- **Entities** — `src/entities.ts`: owner of `<config dir>/entities.db`; `sync` stores each API's entity sources, `find` searches them offline (ADR 0002); per Google account; login and logout delete it.
+- **entity** — one row of the Entities index: API, kind (`account`, `property`, `stream`, `site`), the ID a call takes, name, parent ID, domain key, sync time.
+- **entity source overlay** — API entry field `entities: [<source>…]`: a list method id, params from the parent entity, the mapping of a response page to entities, and child sources per entity kind.
 - **response cache** — `src/responses.ts`: opt-in store of read responses under `<config dir>/responses/`, used only on a call with `--cache <age>` (ADR 0001); keyed per Google account; login and logout delete it.
 - **read overlay** — API entry field `reads: [<method id>…]`: POST methods that only read (GAQL `search`, GA4 `runReport`, GSC `searchanalytics query`); `--cache` accepts them like a `GET`.
 - **nocache overlay** — API entry field `nocache: { reason, source }`: the API's terms forbid or bound caching, so `--cache` on it exits 3.

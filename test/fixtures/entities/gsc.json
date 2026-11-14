@@ -1,0 +1,45 @@
+{
+  "kind": "discovery#restDescription",
+  "name": "searchconsole",
+  "version": "v1",
+  "revision": "20261110",
+  "rootUrl": "https://searchconsole.googleapis.com/",
+  "servicePath": "",
+  "batchPath": "batch",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/webmasters": {
+          "description": "View and manage Search Console data for your verified sites"
+        },
+        "https://www.googleapis.com/auth/webmasters.readonly": {
+          "description": "View Search Console data for your verified sites"
+        }
+      }
+    }
+  },
+  "parameters": {},
+  "resources": {
+    "sites": {
+      "methods": {
+        "list": {
+          "scopes": [
+            "https://www.googleapis.com/auth/webmasters",
+            "https://www.googleapis.com/auth/webmasters.readonly"
+          ],
+          "flatPath": "webmasters/v3/sites",
+          "parameters": {},
+          "response": {
+            "$ref": "SitesListResponse"
+          },
+          "httpMethod": "GET",
+          "parameterOrder": [],
+          "id": "webmasters.sites.list",
+          "description": " Lists the user's Search Console sites.",
+          "path": "webmasters/v3/sites"
+        }
+      }
+    }
+  },
+  "schemas": {}
+}

@@ -36,6 +36,19 @@ export type ApiEntry = {
   nocache?: { reason: string; source: string }; // why --cache must never store this API's responses
   headers?: { name: string; flag: string; env: string; configKey: string }[];
   helpers?: Helpers;
+  entities?: EntitySource[]; // `gapi entities sync` sources (#200 D6)
+};
+
+// One row of the Entities index (#200 D6): `id` is the value a call takes.
+export type Entity = { kind: string; id: string; name?: string; parent?: string; domain?: string };
+
+// Entity source overlay (#200 D6): one list method, read page by page. `children` maps an
+// entity kind to the source that runs once per entity of that kind, with it as `parent`.
+export type EntitySource = {
+  method: string; // method id
+  params?: (parent: Entity | undefined) => Record<string, unknown>;
+  entities: (data: unknown, parent: Entity | undefined) => Entity[]; // rows of one page
+  children?: Record<string, EntitySource>;
 };
 
 // A discovery `parameters` value, as Google writes it.

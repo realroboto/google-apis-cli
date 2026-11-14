@@ -4,12 +4,15 @@ import { join } from 'node:path';
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import { openCatalog } from './catalog.ts';
 import { configDir, openCredentials } from './credentials.ts';
+import { openEntities, type Request } from './entities.ts';
 import { GapiError, messageOf, reasonOf } from './errors.ts';
 import { isRecord } from './json.ts';
 import { parseJson, plan, resolve } from './plan.ts';
 import {
   AUTH_USAGE,
   DISCOVERY_USAGE,
+  ENTITIES_USAGE,
+  entitiesText,
   levelText,
   methodHelp,
   rootHelp,
@@ -22,12 +25,21 @@ import {
 import { MAX_AGE_MS, openResponses } from './responses.ts';
 import { matchQuery, search } from './search.ts';
 import type { Sleep } from './transport/retry.ts';
-import { send } from './transport.ts';
-import type { ApiEntry, ApiMethod, ApiModel, Authorize, CallPlan, FetchLike } from './types.ts';
+import { receive, send } from './transport.ts';
+import type {
+  ApiEntry,
+  ApiMethod,
+  ApiModel,
+  Authorize,
+  CallPlan,
+  EntitySource,
+  FetchLike,
+} from './types.ts';
 
 type Catalog = Awaited<ReturnType<typeof openCatalog>>;
 type Creds = ReturnType<typeof openCredentials>;
 type Responses = ReturnType<typeof openResponses>;
+type Entities = ReturnType<typeof openEntities>;
 type Cache = { key: string; maxAgeMs: number };
 
 export type Io = {
@@ -119,7 +131,8 @@ async function runAuth(
     creds,
     catalog,
     responses,
-  }: { io: Io; creds: Creds; catalog: Catalog; responses: Responses },
+    entities,
+  }: { io: Io; creds: Creds; catalog: Catalog; responses: Responses; entities: Entities },
 ): Promise<void> {
   // --help never starts a side effect: no server, no fetch, no file write.
   if (values.help) {
@@ -128,7 +141,8 @@ async function runAuth(
   }
   if (sub === 'login') {
     const consent = await consentScopes(catalog);
-    await responses.clear(); // a new account starts with no stored responses
+    // A new account starts with no stored responses and no entities.
+    await Promise.all([responses.clear(), entities.clear()]);
     const tokens = await creds.login({ consent, manual: values.manual === true });
     io.stderr.write(
       `gapi: authorized (${tokens.refresh_token ? 'refresh token stored' : 'no refresh token'})\n`,
@@ -152,7 +166,8 @@ async function runAuth(
     try {
       await creds.logout();
     } finally {
-      await responses.clear(); // also when the revoke fails: no account data stays on disk
+      // Also when the revoke fails: no account data stays on disk.
+      await Promise.all([responses.clear(), entities.clear()]);
     }
     io.stderr.write('gapi: credentials removed\n');
     return;
@@ -161,6 +176,94 @@ async function runAuth(
     3,
     sub === undefined ? `usage: ${AUTH_USAGE}` : `unknown auth command: ${sub}`,
   );
+}
+
+// #200 D6: `sync` stores each API's entity sources; `find` searches them offline.
+async function runEntities(
+  args: string[],
+  { io, creds, catalog, entities }: { io: Io; creds: Creds; catalog: Catalog; entities: Entities },
+): Promise<void> {
+  const [sub, ...rest] = args;
+  const { values, positionals } = parse(rest, {
+    help: { type: 'boolean' },
+    ...(sub === 'find' && { api: { type: 'string' } }),
+    ...(sub === 'sync' && { 'page-limit': { type: 'string' } }),
+  });
+  if (values.help) {
+    io.stdout.write(`${ENTITIES_USAGE}\n`);
+    return;
+  }
+  if (sub !== 'find' && sub !== 'sync') throw new GapiError(3, `usage: ${ENTITIES_USAGE}`);
+  const identity = await creds.identity({ kind: 'oauth', scopes: [] });
+  const sourcesOf = (api: string): EntitySource[] => {
+    if (!Object.hasOwn(catalog.entries, api)) throw new GapiError(3, `unknown api: ${api}`);
+    const sources = catalog.entries[api].entities ?? [];
+    if (sources.length === 0) throw new GapiError(3, `${api} has no entity sources`);
+    return sources;
+  };
+
+  if (sub === 'find') {
+    const api = typeof values.api === 'string' ? values.api : undefined;
+    if (api !== undefined) sourcesOf(api);
+    const { hits, empty } = await entities.find(positionals.join(' '), { api, identity });
+    if (empty)
+      io.stderr.write(
+        'gapi: entities index is empty or older than 7 days; run gapi entities sync\n',
+      );
+    if (hits.length === 0) io.stderr.write('gapi: no match\n');
+    io.stdout.write(entitiesText(hits));
+    return;
+  }
+
+  const limit = typeof values['page-limit'] === 'string' ? values['page-limit'] : '10';
+  if (!/^[1-9]\d*$/.test(limit)) throw new GapiError(3, '--page-limit must be a positive integer');
+  const apis =
+    positionals.length > 0
+      ? [...new Set(positionals)]
+      : Object.keys(catalog.entries)
+          .filter((a) => catalog.entries[a].entities?.length)
+          .toSorted();
+  const sources = apis.map((a) => ({ api: a, sources: sourcesOf(a) }));
+  if (identity === undefined) throw new GapiError(2, 'no refresh token; run gapi auth login');
+  // Cost first: one call per top-level source, then one per parent entity of a child source.
+  const children = new Set<string>();
+  const each = (api: string, list: EntitySource[]) => {
+    for (const s of list) {
+      for (const [kind, child] of Object.entries(s.children ?? {})) {
+        children.add(`${api} ${kind}`);
+        each(api, [child]);
+      }
+    }
+  };
+  for (const s of sources) each(s.api, s.sources);
+  const top = sources.reduce((n, s) => n + s.sources.length, 0);
+  const then = [...children].map((c) => `, then 1 per ${c}`).join('');
+  io.stderr.write(`gapi: entities sync: ${top} list calls${then}; max ${limit} pages per list\n`);
+
+  let failed = 0;
+  for (const { api, sources: list } of sources) {
+    try {
+      const model = await catalog.load(api);
+      const settings = await creds.settings({}, model.headers);
+      const request: Request = (method, params) => {
+        const paged = model.byId.get(method)?.paging !== undefined;
+        const call = plan(
+          model,
+          method,
+          { params, pageAll: paged, pageLimit: paged ? limit : undefined },
+          settings,
+        );
+        for (const w of call.warnings) io.stderr.write(`gapi: warning: ${w}\n`);
+        return receive(call, { fetch: io.fetch, authorize: creds.authorize, sleep: io.sleep });
+      };
+      const n = await entities.sync(api, list, identity, request);
+      io.stdout.write(`${api}: ${n} entities\n`);
+    } catch (e) {
+      failed++;
+      io.stdout.write(`${api}: failed, old rows kept: ${messageOf(e)}\n`);
+    }
+  }
+  if (failed > 0) throw new GapiError(1, `${failed} of ${sources.length} entity sources failed`);
 }
 
 // D8 consent set: every entry's per-method scope plus its entry scopes (identity is added by login).
@@ -204,6 +307,8 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
   });
   const responses = openResponses(join(dir, 'responses'));
   await responses.sweep();
+  const entities = openEntities(join(dir, 'entities.db'));
+  await entities.sweep();
 
   // ADR 0001 eligibility, before any network call: the entry allows caching, the call is
   // one request or pages, the method is a GET or a `reads` POST.
@@ -242,8 +347,10 @@ async function dispatch(argv: string[], io: Io): Promise<void> {
       manual: { type: 'boolean' },
       help: { type: 'boolean' },
     });
-    return runAuth(positionals[0], values, { io, creds, catalog, responses });
+    return runAuth(positionals[0], values, { io, creds, catalog, responses, entities });
   }
+
+  if (api === 'entities') return runEntities(rest, { io, creds, catalog, entities });
 
   if (api === 'search') {
     // No option parse: a word like `-list` is query text (story 11).
