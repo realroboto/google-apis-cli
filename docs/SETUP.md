@@ -301,7 +301,8 @@ client's product, the scopes stay the same.
 | Product | Client adds the operator at | Role | Check |
 |---|---|---|---|
 | GA4 | Admin → Account access management | Administrator (account level covers all properties) | `gapi ga4-admin accountSummaries list` |
-| Search Console | Settings → Users and permissions | Owner (delegated by a verified owner) | `gapi gsc sites list` |
+| Google Cloud (only client-owned projects, e.g. a client's BigQuery export) | IAM & Admin → IAM → Grant access, in the Cloud console | Owner (`roles/owner`); the operator accepts the email invitation | the project shows in the operator's Cloud console project picker |
+| Search Console | Settings → Users and permissions | Owner (delegated by a verified owner); the Indexing API needs an owner ([prereqs](https://developers.google.com/search/apis/indexing-api/v3/prereqs)) | `gapi gsc sites list` |
 | Tag Manager | Admin → User Management (account) | account Administrator, container Publish | `gapi gtm accounts list` |
 | Google Ads | Admin → Access and security → Managers: accept the link request from the operator's manager account | manager link (preferred), else Admin user access | `gapi ads customers listAccessibleCustomers` |
 | Merchant Center | Settings → People and access | Admin | `gapi merchant-accounts accounts list` |
@@ -309,6 +310,13 @@ client's product, the scopes stay the same.
 
 - **Google Ads manager link.** One manager account holds all client accounts. Calls then send
   `--login-customer-id <manager id>` (see Google Ads customer IDs below).
+- **Google Cloud Owner for an outside user.** When the user or the project is outside an
+  organization, grant `roles/owner` in the Cloud console; the API and `gcloud` cannot
+  ([IAM docs](https://cloud.google.com/iam/docs/granting-changing-revoking-access)).
+  Owner on a project with billing can spend on the client's card: set the free-tier quotas on that
+  project before any call (#200 D11).
+- **Only when the client uses them:** Postmaster Tools (domain → Manage users), Sheets (share
+  the file as Editor), SA360, CM360, DV360 and Bid Manager (each product's user admin).
 - **YouTube is not covered.** Invited users "can't access … YouTube APIs" with channel
   permissions ([YouTube Help](https://support.google.com/youtube/answer/9481328)). The YouTube
   entries act on the channel of the signed-in account only.
