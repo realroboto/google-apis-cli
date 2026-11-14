@@ -345,12 +345,12 @@ control that cost.
 **`+query` in this topology:** pass `--project <project>` per call (the project that holds the
 export). Keep `project` unset in the config, so other calls keep their quota project.
 
-> **Trap — a new project gets a billing account.** The console links the creator's billing
-> account to a new project. Check the project's **Billing** page after creation.
+> **Trap — a new project gets a billing account.** The console links your billing account to a
+> new project. Check the project's **Billing** page after creation.
 
-> **Trap — a quota cut over 10 % fails.** Cloud Quotas refuses it without
-> `ignoreSafetyChecks: QUOTA_DECREASE_PERCENTAGE_TOO_HIGH` (the recipe sends it). The default
-> `QueryUsagePerDay` is 200 TiB.
+> **Trap — a quota cut over 10 % fails.** Cloud Quotas needs
+> `ignoreSafetyChecks: QUOTA_DECREASE_PERCENTAGE_TOO_HIGH` for it. The recipe sends it. The
+> default `QueryUsagePerDay` is 200 TiB ([Google](https://docs.cloud.google.com/bigquery/docs/custom-quotas)).
 
 Rejected options:
 
@@ -360,8 +360,8 @@ Rejected options:
 | A local spend counter | It cannot see other clients. Server-side quotas and the project without billing are the guards |
 
 **Done when** recipe [All quota preferences](../skills/gapi/recipes.md#all-quota-preferences) shows
-`QueryUsagePerDay` with `grantedValue` `32768` (or your share) on each billing project that runs
-queries, and the free project's **Billing** page shows no billing account.
+`QueryUsagePerDay` with `grantedValue` = 32 GiB (or your share) in the `metricUnit` unit. Check
+each billing project that runs queries. The free project's **Billing** page shows no billing account.
 
 ---
 

@@ -209,8 +209,8 @@ Projection: `jq -c '.bigqueryLinks[] | {project, dailyExportEnabled, streamingEx
 
 - Question: how do I make Google refuse queries before the 1 TiB monthly free tier?
 - 31 × 32 GiB = 992 GiB. The quotas of all query projects on one billing account share that 1 TiB: two projects get 16 GiB each.
-- Check the unit first: `metricUnit` of the quota info. The API value is in MiB (32 GiB = `32768`); the console shows TiB.
-- `QUOTA_DECREASE_PERCENTAGE_TOO_HIGH`: without it, Google refuses a cut of more than 10 % (the default is 200 TiB).
+- Check the unit first: read `metricUnit` of the quota info. Expected: MiB, so 32 GiB = `32768`. Not yet confirmed on a live call. Other unit: convert 32 GiB to it before `create`. The console shows TiB.
+- `QUOTA_DECREASE_PERCENTAGE_TOO_HIGH`: without it, Google refuses a cut of more than 10 % (discovery document, `ignoreSafetyChecks`). The default is 200 TiB ([Google](https://docs.cloud.google.com/bigquery/docs/custom-quotas)).
 - A second `create` with the same `quotaPreferenceId` fails. Change the value with `quotaPreferences patch` (`gapi schema cloudquotas projects.locations.quotaPreferences.patch`).
 
 ```sh

@@ -8,6 +8,7 @@ import { gapi } from './helpers/io.ts';
 // Every `gapi … --dry-run` line of the skill docs runs through `run` against the shipped
 // API entries (#200 D9). test/fixtures/skill/<api>.json = the real discovery document pruned
 // to the methods the examples call, schemas dropped. A new example method: add it there.
+// cloudquotas.json keeps all methods: the consent test in run.test.ts reads it too.
 const SKILL = join(import.meta.dirname, '..', 'skills', 'gapi');
 const FILES = { 'SKILL.md': 1, 'recipes.md': 10 }; // file → minimum example count
 
