@@ -30,14 +30,13 @@ export type Call = (
   allowed?: (status: number) => boolean,
 ) => Promise<FetchResponse>;
 
-// Prints each response: indented JSON, or one compact line per page (D6).
+// Prints each response as one compact JSON line; `run` picks the final form (epic #200 D2).
 export async function send(
   plan: CallPlan,
   deps: SendDeps & { out: { write(chunk: string): unknown } },
 ): Promise<void> {
-  const indent = plan.send === 'pages' ? undefined : 2;
   for await (const data of receive(plan, deps)) {
-    deps.out.write(`${JSON.stringify(data, null, indent)}\n`);
+    deps.out.write(`${JSON.stringify(data)}\n`);
   }
 }
 
