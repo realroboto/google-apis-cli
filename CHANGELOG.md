@@ -12,6 +12,7 @@ Newest first. One section per npm version.
 
 ### Changed
 
+- Output: compact JSON on stdout when it is not a terminal (pipes, agents); a terminal keeps the 2-space indent. Applies to responses, `--dry-run`, `auth status` and `--cache` hits (#205).
 - Stack: pnpm 12.18.0, Biome 2.6.7, `google-auth-library` 11.3.4. Dependabot opens weekly PRs for npm and GitHub Actions: minor and patch in one group, each major alone (#204).
 
 ## 0.3.0 — 2026-11-05
