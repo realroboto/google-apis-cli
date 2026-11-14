@@ -2,7 +2,9 @@
 
 Newest first. One section per npm version.
 
-## Unreleased
+## 0.4.1 — 2026-11-14
+
+Since 0.4.0 (`6fe98dc..7e1257d`).
 
 ### Added
 
