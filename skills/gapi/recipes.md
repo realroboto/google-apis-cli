@@ -191,8 +191,9 @@ gapi bigquery +query 'SELECT TO_HEX(SHA256(user_pseudo_id)) AS user_hash, COUNT(
 
 Server-side daily quotas keep billed surfaces under the free tier ([SETUP, Free-tier guards](../../docs/SETUP.md#9-free-tier-guards-billed-apis)).
 
-- IDs: `my-billing-project` = the ID of a project with billing that runs queries. `--project` sends the Cloud Quotas call on that project's quota; enable `cloudquotas.googleapis.com` there.
+- IDs: `my-billing-project` = the ID of a project with billing: it runs queries, or holds Places and Web Risk. `--project` sends the Cloud Quotas call on that project's quota; enable `cloudquotas.googleapis.com` there.
 - Quota changes need `serviceusage.quotas.update` (role Quota Administrator; Owner has it). A lower value takes effect within minutes; the day resets at midnight Pacific Time ([Google](https://docs.cloud.google.com/bigquery/docs/custom-quotas)).
+- A refused call exits 1 with Google's quota message (HTTP 429 `RESOURCE_EXHAUSTED`). Stop and report it; do not retry or raise the quota.
 
 ### GA4 export links
 
@@ -219,6 +220,39 @@ gapi cloudquotas projects locations quotaPreferences create --params '{"parent":
 ```
 
 Projection: `jq '{metricUnit, dimensionsInfos}'` (quota info); `jq '{name, quotaConfig, reconciling}'` (preference).
+
+### Places: 32 requests per day per billed method
+
+- Question: how do I make Google refuse Places calls before any free monthly cap?
+- 32 = floor(1,000 / 31): the lowest cap a method can bill is 1,000 per month (Enterprise SKUs; the field mask picks the SKU) ([pricing](https://developers.google.com/maps/billing-and-pricing/pricing)). No SKU is billed by two of these methods, so no split. Autocomplete bills at most the 10,000 cap: 322 also stays free.
+- Read the ids first: each method has one `1/d/{project}` request quota (default 75,000 to 175,000). Expected ids below; not yet confirmed on a live Cloud Quotas call.
+- Same safety check as above: the cut is over 10 %.
+
+```sh
+gapi cloudquotas projects locations services quotaInfos list --params '{"parent":"projects/my-billing-project/locations/global/services/places.googleapis.com"}' --page-all --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"places-autocomplete-per-day","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"places.googleapis.com","quotaId":"AutocompletePlacesRequestPerDayPerProject","quotaConfig":{"preferredValue":"32"}}' --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"places-get-per-day","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"places.googleapis.com","quotaId":"GetPlaceRequestPerDayPerProject","quotaConfig":{"preferredValue":"32"}}' --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"places-photo-media-per-day","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"places.googleapis.com","quotaId":"GetPhotoMediaRequestPerDayPerProject","quotaConfig":{"preferredValue":"32"}}' --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"places-search-nearby-per-day","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"places.googleapis.com","quotaId":"SearchNearbyRequestPerDayPerProject","quotaConfig":{"preferredValue":"32"}}' --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"places-search-text-per-day","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"places.googleapis.com","quotaId":"SearchTextRequestPerDayPerProject","quotaConfig":{"preferredValue":"32"}}' --project my-billing-project --dry-run
+```
+
+Projection: `jq -c '.quotaInfos[]? | select(.refreshInterval == "day") | {quotaId, metric, metricUnit}'` (quota infos).
+
+### Web Risk: uris.search 2 per minute, hashes.search 0
+
+- Question: how do I keep Web Risk free?
+- `uris.search`: 100,000 free per month ([pricing](https://cloud.google.com/web-risk/pricing)). Web Risk has no per-day quota, only per minute (6,000) ([quotas](https://docs.cloud.google.com/web-risk/quotas)). 2 = floor(100,000 / 31 / 1,440): at most 2,880 per day, 89,280 per 31 days.
+- `hashes.search`: no free use, so 0. `threatLists.computeDiff` is free: no quota.
+- Read the ids first: expected ids below; not yet confirmed on a live Cloud Quotas call.
+
+```sh
+gapi cloudquotas projects locations services quotaInfos list --params '{"parent":"projects/my-billing-project/locations/global/services/webrisk.googleapis.com"}' --page-all --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"webrisk-search-uris-per-minute","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"webrisk.googleapis.com","quotaId":"SearchUrisPerMinutePerProject","quotaConfig":{"preferredValue":"2"}}' --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"webrisk-search-hashes-per-minute","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"webrisk.googleapis.com","quotaId":"SearchHashesPerMinutePerProject","quotaConfig":{"preferredValue":"0"}}' --project my-billing-project --dry-run
+```
+
+Projection: `jq -c '.quotaInfos[]? | select(.quotaId | test("Search(Uris|Hashes)")) | {quotaId, refreshInterval, metricUnit}'` (quota infos).
 
 ### All quota preferences
 
