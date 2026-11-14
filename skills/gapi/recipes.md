@@ -186,3 +186,47 @@ gapi bigquery +query 'SELECT session_traffic_source_last_click.cross_channel_cam
 ```sh
 gapi bigquery +query 'SELECT TO_HEX(SHA256(user_pseudo_id)) AS user_hash, COUNT(*) AS events FROM `my-project.analytics_123.events_*` WHERE _TABLE_SUFFIX BETWEEN "20261001" AND "20261031" GROUP BY user_hash ORDER BY events DESC LIMIT 100' --project my-project --dry-run
 ```
+
+## Cloud Quotas: free-tier guards
+
+Server-side daily quotas keep billed surfaces under the free tier ([SETUP, Free-tier guards](../../docs/SETUP.md#9-free-tier-guards-billed-apis)).
+
+- IDs: `my-billing-project` = the ID of a project with billing that runs queries. `--project` sends the Cloud Quotas call on that project's quota; enable `cloudquotas.googleapis.com` there.
+- Quota changes need `serviceusage.quotas.update` (role Quota Administrator; Owner has it). A lower value takes effect within minutes; the day resets at midnight Pacific Time ([Google](https://docs.cloud.google.com/bigquery/docs/custom-quotas)).
+
+### GA4 export links
+
+- Question: which Cloud project gets each property's BigQuery export, daily or streaming?
+- Keep an existing link. Daily only: streaming export is billed.
+
+```sh
+gapi ga4-admin-alpha properties bigQueryLinks list --params '{"parent":"properties/123"}' --dry-run
+```
+
+Projection: `jq -c '.bigqueryLinks[] | {project, dailyExportEnabled, streamingExportEnabled}'`
+
+### BigQuery: 32 GiB of queries per day
+
+- Question: how do I make Google refuse queries before the 1 TiB monthly free tier?
+- 31 × 32 GiB = 992 GiB. The quotas of all query projects on one billing account share that 1 TiB: two projects get 16 GiB each.
+- Check the unit first: read `metricUnit` of the quota info. Expected: MiB, so 32 GiB = `32768`. Not yet confirmed on a live call. Other unit: convert 32 GiB to it before `create`. The console shows TiB.
+- `QUOTA_DECREASE_PERCENTAGE_TOO_HIGH`: without it, Google refuses a cut of more than 10 % (discovery document, `ignoreSafetyChecks`). The default is 200 TiB ([Google](https://docs.cloud.google.com/bigquery/docs/custom-quotas)).
+- A second `create` with the same `quotaPreferenceId` fails. Change the value with `quotaPreferences patch` (`gapi schema cloudquotas projects.locations.quotaPreferences.patch`).
+
+```sh
+gapi cloudquotas projects locations services quotaInfos get --params '{"name":"projects/my-billing-project/locations/global/services/bigquery.googleapis.com/quotaInfos/QueryUsagePerDay"}' --project my-billing-project --dry-run
+gapi cloudquotas projects locations quotaPreferences create --params '{"parent":"projects/my-billing-project/locations/global","quotaPreferenceId":"bigquery-query-usage-per-day","ignoreSafetyChecks":["QUOTA_DECREASE_PERCENTAGE_TOO_HIGH"]}' --body '{"service":"bigquery.googleapis.com","quotaId":"QueryUsagePerDay","quotaConfig":{"preferredValue":"32768"}}' --project my-billing-project --dry-run
+```
+
+Projection: `jq '{metricUnit, dimensionsInfos}'` (quota info); `jq '{name, quotaConfig, reconciling}'` (preference).
+
+### All quota preferences
+
+- Question: which quota guards are in place on a project?
+- `grantedValue` = the value Google applies; `reconciling: true` = not applied yet.
+
+```sh
+gapi cloudquotas projects locations quotaPreferences list --params '{"parent":"projects/my-billing-project/locations/global"}' --page-all --project my-billing-project --dry-run
+```
+
+Projection: `jq -c '.quotaPreferences[]? | {service, quotaId, preferredValue: .quotaConfig.preferredValue, grantedValue: .quotaConfig.grantedValue, reconciling}'`

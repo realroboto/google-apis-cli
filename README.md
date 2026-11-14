@@ -1,13 +1,13 @@
 # google-apis-cli (`gapi`)
 
-`gapi` is one CLI for 48 Google API entries, built from Google's discovery documents at runtime:
+`gapi` is one CLI for 49 Google API entries, built from Google's discovery documents at runtime:
 
 - Google Ads v26, GA4 Admin (v1beta, v1alpha), GA4 Data (v1beta, v1alpha), Search Console, Tag Manager, Indexing
 - Merchant API (13 v1 sub-APIs + Reviews v1alpha), Business Profile (7 v1 APIs + v4)
 - Search Ads 360 (Reporting v0, legacy v2), Campaign Manager 360 v5, Display & Video 360 v4, Bid Manager v2
 - YouTube Data v3, YouTube Analytics v2, YouTube Reporting v1
 - PageSpeed Insights v5, CrUX v1 (API key)
-- BigQuery v2, BigQuery Data Transfer v1, Data Manager v1, Gmail Postmaster Tools v2, Site Verification v1, Sheets v4, Places (New) v1, Web Risk v1
+- BigQuery v2, BigQuery Data Transfer v1, Data Manager v1, Gmail Postmaster Tools v2, Site Verification v1, Sheets v4, Places (New) v1, Web Risk v1, Cloud Quotas v1
 
 `gapi --help` lists the entry names; [skills/gapi/reference/index.md](skills/gapi/reference/index.md) gives title, version, method count and auth per entry.
 

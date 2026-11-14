@@ -39,6 +39,7 @@ host of the entry's discovery URL (`src/apis/<api>.ts`); `business-v4` declares 
 | `crux` | `chromeuxreport.googleapis.com` |
 | `bigquery` | `bigquery.googleapis.com` |
 | `bigquery-dts` | `bigquerydatatransfer.googleapis.com` |
+| `cloudquotas` | `cloudquotas.googleapis.com` — on each project that sets quotas, step 9 |
 | `data-manager` | `datamanager.googleapis.com` |
 | `postmaster` | `gmailpostmastertools.googleapis.com` |
 | `site-verification` | `siteverification.googleapis.com` (never `www.googleapis.com`, its `rootUrl`) |
@@ -209,7 +210,8 @@ environment wins over the config file.
 ## 6. API key (CrUX, PageSpeed callers only)
 
 `crux` and `pagespeed` take an API key, not the OAuth token. CrUX needs it; PageSpeed sends it
-when one is set. Create it in the same Cloud project
+when one is set. Create it in a Cloud project **without a billing account** (step 9), so its
+calls can never be billed. Enable both APIs there
 ([API keys](https://docs.cloud.google.com/docs/authentication/api-keys)):
 
 1. **APIs & Services → Credentials → Create credentials → API key.**
@@ -291,6 +293,78 @@ lists your project number in `gcpIds`.
 
 ---
 
+## 9. Free-tier guards (billed APIs)
+
+Goal: no `gapi` call causes a charge. Each billable surface has a server-side hard limit, or its
+project has no billing account. A local counter cannot see other clients (Looker Studio, the
+console, a second machine), so `gapi` keeps none.
+
+| Project | Billing | Holds | Guard |
+|---|---|---|---|
+| Free project | none | The `gapi` API key (step 6); a new GA4 export link (BigQuery sandbox) | No billing account: Google cannot charge |
+| Billing project (step 1) | active | OAuth client; Places; Web Risk; existing GA4 export links | Daily quotas below the free tier; a $1 budget email alert |
+
+1. **Free project.** Use a project without billing, or create one. Open **Billing** for it.
+   It must say the project has no billing account; else **Disable billing**.
+2. **API key** in the free project: step 6.
+3. **GA4 export links.** List each property's link: recipe
+   [GA4 export links](../skills/gapi/recipes.md#ga4-export-links). Keep an existing link, also into
+   a billing project. Keep `dailyExportEnabled: true` and `streamingExportEnabled: false`: streaming
+   export adds BigQuery costs ([GA4 Help](https://support.google.com/analytics/answer/9358801)).
+   No link yet: link the property to the free project (GA4 **Admin → BigQuery links**). It
+   exports "free of charge (sandbox limits apply)" ([GA4 Help](https://support.google.com/analytics/answer/9823238)).
+4. **Query quota** on each billing project that runs queries: recipe
+   [BigQuery: 32 GiB of queries per day](../skills/gapi/recipes.md#bigquery-32-gib-of-queries-per-day).
+   Read it back: recipe [All quota preferences](../skills/gapi/recipes.md#all-quota-preferences).
+5. **Budget alert** on the billing account: **Billing → Budgets & alerts → Create budget**,
+   amount $1, email alerts on. It reports a mistake; the quotas prevent it. The console sets it:
+   the Budget API would add a scope.
+
+Limits on the billing project come from Google's rule for a free cap: "divide the free usage cap
+by 31 … and round down" ([Maps: Manage costs](https://developers.google.com/maps/billing-and-pricing/manage-costs)).
+
+- **BigQuery queries:** 1 TiB per month free per billing account. `QueryUsagePerDay` = 32 GiB
+  (31 × 32 GiB = 992 GiB). All query projects on one billing account share the 1 TiB: their
+  daily quotas add up to 33 GiB or less (two projects: 16 GiB each).
+- **Places, Web Risk:** quotas per billed method, #201.
+
+**BigQuery sandbox** (the free project) ([BigQuery sandbox](https://docs.cloud.google.com/bigquery/docs/sandbox)):
+
+- No billing account, so no charge.
+- Tables expire after 60 days; no DML; no streaming.
+- The GA4 export starts at the link and adds the previous day each day. So event history is a
+  rolling 60 days; expired days do not come back. Long-term trends: `ga4-data`.
+- **Upgrade path** (longer history): link billing to the free project, then set its
+  `QueryUsagePerDay` (step 4) before the first query.
+
+**Storage:** `gapi` stores nothing in BigQuery: `+query` is read-only, and `gapi` never sets a
+table expiration (that deletes data). On a billing project, export storage above 10 GiB per month
+is billed ([BigQuery pricing](https://cloud.google.com/bigquery/pricing#storage)). `gapi` cannot
+control that cost.
+
+**`+query` in this topology:** pass `--project <project>` per call (the project that holds the
+export). Keep `project` unset in the config, so other calls keep their quota project.
+
+> **Trap — a new project gets a billing account.** The console links your billing account to a
+> new project. Check the project's **Billing** page after creation.
+
+> **Trap — a quota cut over 10 % fails.** Cloud Quotas needs
+> `ignoreSafetyChecks: QUOTA_DECREASE_PERCENTAGE_TOO_HIGH` for it. The recipe sends it. The
+> default `QueryUsagePerDay` is 200 TiB ([Google](https://docs.cloud.google.com/bigquery/docs/custom-quotas)).
+
+Rejected options:
+
+| Option | Reason |
+|---|---|
+| Automatic billing disable on a budget alert | Google: it "terminate[s] all Google Cloud services in the project, including Free Tier services", and alert delays mean it "doesn't guarantee that you won't spend more than your budget" ([Cloud Billing](https://docs.cloud.google.com/billing/docs/how-to/disable-billing-with-notifications)) |
+| A local spend counter | It cannot see other clients. Server-side quotas and the project without billing are the guards |
+
+**Done when** recipe [All quota preferences](../skills/gapi/recipes.md#all-quota-preferences) shows
+`QueryUsagePerDay` with `grantedValue` = 32 GiB (or your share) in the `metricUnit` unit. Check
+each billing project that runs queries. The free project's **Billing** page shows no billing account.
+
+---
+
 ## Client access (agencies)
 
 One **operator account** runs `gapi`: it runs `gapi auth login` and owns the Cloud project of
@@ -315,7 +389,7 @@ client's product, the scopes stay the same.
   organization, grant `roles/owner` in the Cloud console; the API and `gcloud` cannot
   ([IAM docs](https://cloud.google.com/iam/docs/granting-changing-revoking-access)).
   Owner on a project with billing can spend on the client's card: set the free-tier quotas on that
-  project before any call (#200 D11).
+  project before any call ([step 9](#9-free-tier-guards-billed-apis)).
 - **Only when the client uses them:** Postmaster Tools (domain → Manage users), Sheets (share
   the file as Editor), SA360, CM360, DV360 and Bid Manager (each product's user admin).
 - **YouTube is not covered.** Invited users "can't access … YouTube APIs" with channel

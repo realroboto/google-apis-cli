@@ -1,6 +1,6 @@
 ---
 name: gapi
-description: Call Google marketing and data APIs through the gapi CLI. Use for GAQL reports, GA4 reporting/admin, Search Console analytics and URL inspection, GTM publish, Indexing, Merchant, Business Profile, SA360, CM360, DV360, YouTube uploads/analytics, PageSpeed/CrUX, BigQuery queries and Data Transfer, Sheets, Places, Web Risk — any method of the 48 discovery-driven entries. One OAuth login, read+write.
+description: Call Google marketing and data APIs through the gapi CLI. Use for GAQL reports, GA4 reporting/admin, Search Console analytics and URL inspection, GTM publish, Indexing, Merchant, Business Profile, SA360, CM360, DV360, YouTube uploads/analytics, PageSpeed/CrUX, BigQuery queries and Data Transfer, Sheets, Places, Web Risk, Cloud Quotas free-tier guards — any method of the 49 discovery-driven entries. One OAuth login, read+write.
 ---
 
 # gapi (`gapi`)
