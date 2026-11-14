@@ -103,7 +103,7 @@ export async function openCatalog({
       () => undefined,
     );
     // A future mtime (clock skew) counts as stale, so no document freezes.
-    const age = mtime === undefined ? -1 : Date.now() - mtime;
+    const age = mtime === undefined ? -1 : Date.now() - Math.floor(mtime); // mtimeMs has sub-ms digits, Date.now() not: a just-written file reads as future
     if (!refresh && age >= 0 && age < TTL_MS) {
       const doc = await cached(file);
       if (doc) return doc;
