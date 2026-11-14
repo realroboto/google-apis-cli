@@ -26,35 +26,31 @@ export function matchQuery(query: string): string {
 
 export function search(models: ApiModel[], query: string): SearchHit[] {
   const match = matchQuery(query);
-  const db = new DatabaseSync(':memory:');
-  try {
-    db.exec(
-      "create virtual table m using fts5(api unindexed, id unindexed, words, extra, descr, tokenize = 'porter unicode61')",
-    );
-    const insert = db.prepare('insert into m values (?, ?, ?, ?, ?)');
-    db.exec('begin');
-    for (const model of models) {
-      for (const m of model.byId.values()) {
-        const words = split([model.api, ...m.words].join(' '));
-        const extra = [
-          split([model.title, m.request, m.response].filter(Boolean).join(' ')),
-          m.upload && 'upload',
-          m.download && 'download',
-        ].filter(Boolean);
-        insert.run(model.api, m.id, words, extra.join(' '), m.description ?? '');
-      }
+  using db = new DatabaseSync(':memory:');
+  db.exec(
+    "create virtual table m using fts5(api unindexed, id unindexed, words, extra, descr, tokenize = 'porter unicode61')",
+  );
+  const insert = db.prepare('insert into m values (?, ?, ?, ?, ?)');
+  db.exec('begin');
+  for (const model of models) {
+    for (const m of model.byId.values()) {
+      const words = split([model.api, ...m.words].join(' '));
+      const extra = [
+        split([model.title, m.request, m.response].filter(Boolean).join(' ')),
+        m.upload && 'upload',
+        m.download && 'download',
+      ].filter(Boolean);
+      insert.run(model.api, m.id, words, extra.join(' '), m.description ?? '');
     }
-    db.exec('commit');
-    const byApi = new Map(models.map((model) => [model.api, model]));
-    return db
-      .prepare('select api, id from m where m match ? order by bm25(m, 0, 0, 6, 2, 1) limit 20')
-      .all(match)
-      .flatMap(({ api, id }) => {
-        const model = byApi.get(String(api));
-        const method = model?.byId.get(String(id));
-        return model && method ? [{ model, method }] : [];
-      });
-  } finally {
-    db.close();
   }
+  db.exec('commit');
+  const byApi = new Map(models.map((model) => [model.api, model]));
+  return db
+    .prepare('select api, id from m where m match ? order by bm25(m, 0, 0, 6, 2, 1) limit 20')
+    .all(match)
+    .flatMap(({ api, id }) => {
+      const model = byApi.get(String(api));
+      const method = model?.byId.get(String(id));
+      return model && method ? [{ model, method }] : [];
+    });
 }
