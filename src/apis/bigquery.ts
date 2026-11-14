@@ -67,10 +67,11 @@ function page(data: unknown): unknown {
   return { rows, totalRows, totalBytesProcessed, cacheHit };
 }
 
-const isDryRun = (body: unknown): boolean => isRecord(body) && body.dryRun === true;
+const isDryRun = (body: unknown): body is Record<string, unknown> =>
+  isRecord(body) && body.dryRun === true;
 
 // D5 follow rule: dry run → the same body as a real query (same requestId); a running job →
-// getQueryResults; a pageToken → the next page. No jobReference: every row came inline.
+// getQueryResults; a pageToken → the next page. Else stop: without a job, every row came inline.
 function follow(model: ApiModel, settings: Settings): Follow {
   const results = (job: Record<string, unknown>, pageToken?: unknown) =>
     plan(
@@ -89,17 +90,18 @@ function follow(model: ApiModel, settings: Settings): Follow {
       settings,
     ).url;
   return (data, last) => {
-    if (isRecord(last.body) && last.body.dryRun === true) {
+    if (isDryRun(last.body)) {
       const { dryRun: _, ...query } = last.body;
       return { ...last, body: query };
     }
-    const job = isRecord(data) ? data.jobReference : undefined;
-    if (!isRecord(data) || !isRecord(job) || typeof job.jobId !== 'string') return undefined;
-    if (data.jobComplete === false) return { httpMethod: 'GET', url: results(job) };
-    if (typeof data.pageToken === 'string' && data.pageToken) {
-      return { httpMethod: 'GET', url: results(job, data.pageToken) };
+    if (!isRecord(data)) return undefined;
+    const token = typeof data.pageToken === 'string' && data.pageToken ? data.pageToken : undefined;
+    if (data.jobComplete !== false && !token) return undefined;
+    const job = data.jobReference;
+    if (!isRecord(job) || typeof job.jobId !== 'string') {
+      throw new GapiError(1, 'BigQuery returned more results but no job reference', data);
     }
-    return undefined;
+    return { httpMethod: 'GET', url: results(job, data.jobComplete === false ? undefined : token) };
   };
 }
 

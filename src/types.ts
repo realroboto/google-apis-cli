@@ -130,7 +130,7 @@ export type CallPlan = {
   body?: unknown;
   auth: { kind: ApiModel['auth']; scopes: string[] };
   decode?: (data: unknown, step?: Step) => unknown; // reshapes every response (and its request, in a chain); `undefined` prints nothing
-  retry?: true; // safe to resend: GET, HEAD, PUT, DELETE or a `reads` POST
+  retry?: true; // safe to resend: GET, HEAD, PUT, DELETE, a `reads` POST, or a helper's idempotent POST
   warnings: string[];
 } & SendMode;
 

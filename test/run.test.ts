@@ -1297,6 +1297,10 @@ test('bigquery +query --dry-run prints the dry-run request; no project exits 3',
   });
   assert.equal((await dryRun([...bq(), '--max-bytes', '5'], true)).body.maximumBytesBilled, '5');
 
+  const fromEnv = await sh(['bigquery', '+query', SQL, '--dry-run'], {
+    env: { ...env, GOOGLE_CLOUD_PROJECT: 'e' },
+  });
+  assert.equal(JSON.parse(fromEnv.stdout).headers['x-goog-user-project'], 'e');
   const none = await sh(['bigquery', '+query', SQL, '--dry-run']);
   assert.equal(none.code, 3);
   assert.match(none.stderr, /^gapi: \+query needs a job project: --project <id>/);
@@ -1436,7 +1440,7 @@ test('bigquery +query: a non-SELECT or an estimate over the budget sends no quer
   assert.equal(bodyOf(calls[0].init).dryRun, true);
 });
 
-test('bigquery +query: a resend after a 503 reuses the requestId; bytesBilledLimitExceeded exits 1', async () => {
+test('bigquery +query: a resend after a 503 reuses the requestId; bytesBilledLimitExceeded or a lost job exits 1', async () => {
   const done = { jobComplete: true, schema: { fields: [] }, rows: [], totalRows: '0' };
   const answers = [
     estimate('SELECT', '1'),
@@ -1459,6 +1463,12 @@ test('bigquery +query: a resend after a 503 reuses the requestId; bytesBilledLim
   assert.equal(b.code, 1);
   assert.match(b.stderr, /^gapi: Query exceeded limit for bytes billed/);
   assert.equal(billed.calls.length, 2);
+
+  const lost = [estimate('SELECT', '1'), Response.json({ jobComplete: false })];
+  const nojob = fakeFetch(() => lost[nojob.calls.length - 1]);
+  const n = await sh(bq(), { fetch: nojob.fetch });
+  assert.equal(n.code, 1);
+  assert.match(n.stderr, /^gapi: BigQuery returned more results but no job reference/);
 });
 
 test('auth logout and auth login delete the stored responses and the entities index', async (t) => {
