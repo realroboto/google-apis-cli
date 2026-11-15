@@ -107,6 +107,11 @@ manager account created from a Google account unconnected to your production man
 > rendering the button. Reloading mid-flow silently drops the application. Confirm by the
 > banner: **"Your application … is currently under review."** No banner means no application.
 
+> **Trap — the banner is not the result.** The banner can stay while Google has already denied.
+> The application is a Cloud Quotas preference: quota `explorer-access-grant-limit-per-project`
+> of `googleads.googleapis.com`. `grantedValue` 1 = approved, 0 = denied. Read it with
+> `gapi cloudquotas projects locations quotaPreferences list --params '{"parent":"projects/<project>/locations/global"}'`.
+
 **Done when** the Overview page reads **Explorer** or higher, or you accept test-account-only calls.
 
 ---
