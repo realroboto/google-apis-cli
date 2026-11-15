@@ -88,8 +88,12 @@ Read 2026-11-14. Times UTC.
 | Approved project | none (linked 2026-10-28 18:11, audit log `AssignResourceToBillingAccount`) | 2026-09-11 15:23 | granted 1, "Quota request approved to 1" | 2026-10-28 17:24 (47 min **before** the billing link) |
 | Third operator project | linked to the operator's paid account (no billing change since 2026-08-16 in audit log) | 2026-09-11 15:11 | granted 0, "We cannot grant the preferred quota '1' … '0' was granted." | 2026-09-11 15:37 |
 | Operator project | none | 2026-11-14 22:56:01.58 | granted 0, same text | 2026-11-14 22:56:01.88 (0.3 s: automated) |
+| Operator project, re-apply | linked to the operator's paid account at 2026-11-15 ~01:05; daily BigQuery query quota 10 GiB set first | 2026-11-15 01:11:43 | granted 0, same text | 2026-11-15 01:11:50 (7 s) |
 
 - A project with no billing was approved; a project with linked billing was denied.
+- Google's paid-tier workaround did not work for the operator project: a re-apply with an active paid account was denied in 7 s.
+- The page shows "currently under review" after the click even when the record already reads `grantedValue` 0. Read the record, not the banner.
+- 2026-11-15: owner sent the Compliance form (issue "Rejection") with both denials and the billing workaround.
 - Unknown: the operator's billing account state on 2026-09-11. Its Free Trial credits expired 2026-08-22. A Free Trial or ended-trial account matches Google's known-issue trigger.
 - The approved project's 2026-10-28 update does not follow the billing link. Its cause is unknown.
 
@@ -120,7 +124,7 @@ Read 2026-11-14 (console via owner's Chromium, read-only; `gcloud` read commands
 | Rank | Cause | Evidence | Strength |
 |---|---|---|---|
 | 1 | Google's known issue in the Explorer eligibility check | Exact email text quoted as a known issue (fact 9); fix in progress (fact 12); #133 denials with paid billing | strong |
-| 2 | Billing not enabled on the operator project triggers that issue | Google's trigger includes "disabled billing" (fact 10); no link = billing not enabled (fact 14); denial in 0.3 s = automated check. Against: Google lists "remove billing" as a workaround (fact 13); a no-billing project was approved and a billed project was denied on 2026-09-11 ([Application record](#application-record-cloud-quotas)). | weak |
+| 2 | Billing not enabled on the operator project triggers that issue | Google's trigger includes "disabled billing" (fact 10); no link = billing not enabled (fact 14); denial in 0.3 s = automated check. Against: Google lists "remove billing" as a workaround (fact 13); a no-billing project was approved and a billed project was denied on 2026-09-11; re-apply with a paid account denied on 2026-11-15 ([Application record](#application-record-cloud-quotas)). | ruled out as fix |
 | 3 | No Ads history on the operator project (new client, all calls 403) | Approved project may have inherited its level by 90-day activity (fact 23). Google states no history criterion for Explorer. | weak |
 | — | Brand not verified | Approved project also unverified; required only for Basic and Standard (fact 16) | ruled out as sole cause |
 | — | No manager account or developer token | Not needed (facts 21, 22) | ruled out |
