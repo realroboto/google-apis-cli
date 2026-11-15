@@ -17,8 +17,8 @@ How does the operator project get Google Ads API **Explorer** access (or higher)
 - The denial email text matches a **known issue** on Google's developer-token page (updated 2026-11-13). Google names the trigger: Free Trial, or a suspended or disabled billing account. Google says a fix is in progress.
 - Per Google Cloud, a project with no billing account linked does not have billing enabled. The operator project has no billing account. The approved project has billing linked (since 2026-10-28).
 - Billing state is **not proven** as the trigger. On 2026-09-11 a project with no billing got Explorer, and a project linked to the operator's paid account was denied. See [Application record](#application-record-cloud-quotas).
-- Brand verification does not explain the denial. Both projects are unverified. Google requires it only for Basic and Standard.
-- Candidate fix: link the operator's paid billing account (owner cost decision), verify the brand (needed for Basic later), wait a few minutes, re-apply. Denied again: Ads API Compliance form, and wait for Google's fix.
+- Brand verification does not explain the denial. The approved project is unverified. The operator project was verified before the 2026-11-15 re-apply and was still denied. Google requires it only for Basic and Standard.
+- Candidate fix: link the operator's paid billing account (owner cost decision), wait a few minutes, re-apply. Denied again: Ads API Compliance form, and wait for Google's fix.
 
 ## Eligibility facts
 
@@ -106,7 +106,7 @@ Read 2026-11-14 (console via owner's Chromium, read-only; `gcloud` read commands
 | Ads access level | Explorer; next Basic, "Brand Verification needs to be completed" | Test; "Your application for explorer level access was not approved." |
 | Billing link | linked, enabled (since 2026-10-28) | "This project has no billing account" |
 | Billing when Explorer granted | off (sandbox) | n/a |
-| Brand verification | "Your branding is not being shown to users" | same |
+| Brand verification | "Your branding is not being shown to users" | 2026-11-14: same; verified before the 2026-11-15 re-apply: "Your branding has been verified and is being shown to users" |
 | Data access verification | "Verification is not required" | same |
 | Audience | External, In production | External, In production |
 | Branding fields | app name, home, privacy, terms, authorized domain | identical values; support email differs |
@@ -126,7 +126,7 @@ Read 2026-11-14 (console via owner's Chromium, read-only; `gcloud` read commands
 | 1 | Google's known issue in the Explorer eligibility check | Exact email text quoted as a known issue (fact 9); fix in progress (fact 12); #133 denials with paid billing | strong |
 | 2 | Billing not enabled on the operator project triggers that issue | Google's trigger includes "disabled billing" (fact 10); no link = billing not enabled (fact 14); denial in 0.3 s = automated check. Against: Google lists "remove billing" as a workaround (fact 13); a no-billing project was approved and a billed project was denied on 2026-09-11; re-apply with a paid account denied on 2026-11-15 ([Application record](#application-record-cloud-quotas)). | ruled out as fix |
 | 3 | No Ads history on the operator project (new client, all calls 403) | Approved project may have inherited its level by 90-day activity (fact 23). Google states no history criterion for Explorer. | weak |
-| — | Brand not verified | Approved project also unverified; required only for Basic and Standard (fact 16) | ruled out as sole cause |
+| — | Brand not verified | Approved project unverified; operator project verified and still denied on 2026-11-15; required only for Basic and Standard (fact 16) | ruled out |
 | — | No manager account or developer token | Not needed (facts 21, 22) | ruled out |
 | — | Consent or client config | Identical audience, branding, client type | ruled out |
 
@@ -136,7 +136,7 @@ Read 2026-11-14 (console via owner's Chromium, read-only; `gcloud` read commands
 |---|---|---|---|---|---|
 | 1 | Approve billing link in the #247 thread. Confirm #201 guards (budget alert, quota caps) cover the operator project first. | owner | none | yes | ticket #247 rule |
 | 2 | Billing → Link a billing account: link the operator's paid account to the operator project. | owner (or agent after approval) | Ads API $0 (fact 15); other enabled paid APIs bill above free tier | yes (unlink) | facts 10, 13, 14 |
-| 3 | Google Auth Platform → Branding → **Verify Branding**, then **Publish branding**. Domain is already a Search Console property of the operator account. | owner | $0; minutes or 2-3 business days | not stated by Google | facts 18-20 |
+| 3 | Google Auth Platform → Branding → **Verify Branding**, then **Publish branding**. Domain is already a Search Console property of the operator account. Done before the 2026-11-15 re-apply. | owner | $0; minutes or 2-3 business days | not stated by Google | facts 18-20 |
 | 4 | Wait a few minutes after steps 2-3. | — | none | — | fact 13 |
 | 5 | Ads API Overview → Upgrade access level → **Apply for access**. Confirm the "under review" banner; do not reload. | owner or agent | $0 | — | fact 6; SETUP step 2 |
 | 6 | Check: Overview reads Explorer; `gapi ads +gaql` exits 0; `gapi entities sync ads` succeeds. `AUTHORIZATION_ERROR` → second known issue. | agent | $0 | — | fact 24; ticket acceptance |
