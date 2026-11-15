@@ -132,6 +132,8 @@ Read 2026-11-14 (console via owner's Chromium, read-only; `gcloud` read commands
 
 ## Fix sequence
 
+Status 2026-11-15: steps 1-5 and 7 done. Step 5 was denied in 7 s with paid billing linked and a verified brand. Billing was unlinked again: linking it moves the project's Firebase app to the Blaze plan. Waiting for the Compliance reply (#251).
+
 | # | Step | Who | Cost | Reversible | Source |
 |---|---|---|---|---|---|
 | 1 | Approve billing link in the #247 thread. Confirm #201 guards (budget alert, quota caps) cover the operator project first. | owner | none | yes | ticket #247 rule |
