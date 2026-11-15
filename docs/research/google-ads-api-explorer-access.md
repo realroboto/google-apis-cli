@@ -138,7 +138,7 @@ Read 2026-11-14 (console via owner's Chromium, read-only; `gcloud` read commands
 | 2 | Billing → Link a billing account: link the operator's paid account to the operator project. | owner (or agent after approval) | Ads API $0 (fact 15); other enabled paid APIs bill above free tier | yes (unlink) | facts 10, 13, 14 |
 | 3 | Google Auth Platform → Branding → **Verify Branding**, then **Publish branding**. Domain is already a Search Console property of the operator account. Done before the 2026-11-15 re-apply. | owner | $0; minutes or 2-3 business days | not stated by Google | facts 18-20 |
 | 4 | Wait a few minutes after steps 2-3. | — | none | — | fact 13 |
-| 5 | Ads API Overview → Upgrade access level → **Apply for access**. Confirm the "under review" banner; do not reload. | owner or agent | $0 | — | fact 6; SETUP step 2 |
+| 5 | Ads API Overview → Upgrade access level → **Apply for access**. Confirm the "under review" banner; do not reload. Read the result in the [application record](#application-record-cloud-quotas). | owner or agent | $0 | — | fact 6; SETUP step 2 |
 | 6 | Check: Overview reads Explorer; `gapi ads +gaql` exits 0; `gapi entities sync ads` succeeds. `AUTHORIZATION_ERROR` → second known issue. | agent | $0 | — | fact 24; ticket acceptance |
 | 7 | Denied again: send the Compliance form with project number, use case, link to the known issue and billing state. Re-check the known-issue "Status". | owner | $0 | — | fact 25 |
 
